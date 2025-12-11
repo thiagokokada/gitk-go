@@ -506,7 +506,7 @@ func (a *Controller) applyFilter(raw string) {
 		a.tree.Insert("", "end", Id(strconv.Itoa(idx)), Values(vals))
 	}
 	if a.hasMore && len(a.visible) > 0 {
-		vals := tclList("", "There are more commits available...", "", "")
+		vals := tclList("", "Loading more commits...", "", "")
 		a.tree.Insert("", "end", Id(moreIndicatorID), Values(vals))
 	}
 

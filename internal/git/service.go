@@ -1,11 +1,8 @@
 package git
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"io"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -244,94 +241,44 @@ func (s *Service) populateGraphStrings(entries []*Entry, skip int) error {
 	if total <= 0 {
 		return nil
 	}
-	args := []string{
-		"-C", s.repoPath,
-		"log",
-		"--graph",
-		"--no-color",
-		"--topo-order",
-		fmt.Sprintf("--max-count=%d", total),
-		"--format=%H",
-	}
-	var stdout, stderr bytes.Buffer
-	cmd := exec.Command("git", args...)
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(stderr.String())
-		if msg == "" {
-			msg = err.Error()
-		}
-		return fmt.Errorf("git log --graph: %s", msg)
-	}
-	rows, err := parseGraphRows(stdout.Bytes())
+	ref, err := s.repo.Head()
 	if err != nil {
-		return err
+		if err == plumbing.ErrReferenceNotFound {
+			return nil
+		}
+		return fmt.Errorf("resolve HEAD: %w", err)
 	}
-	if len(rows) < total {
-		return fmt.Errorf("git graph returned %d rows, need %d", len(rows), total)
+	iter, err := s.repo.Log(&gitlib.LogOptions{From: ref.Hash(), Order: gitlib.LogOrderDFS})
+	if err != nil {
+		return fmt.Errorf("read commits for graph: %w", err)
 	}
-	rows = rows[skip:]
-	if len(rows) > len(entries) {
-		rows = rows[:len(entries)]
-	}
-	graphByHash := make(map[string]string, len(rows))
-	for _, row := range rows {
-		graphByHash[row.hash] = row.graph
+	defer iter.Close()
+
+	builder := newGraphBuilder()
+	graphByHash := make(map[string]string, len(entries))
+	processed := 0
+	for processed < total {
+		commit, err := iter.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("iterate commits for graph: %w", err)
+		}
+		line := builder.Line(commit)
+		processed++
+		if processed <= skip {
+			continue
+		}
+		graphByHash[commit.Hash.String()] = line
+		if len(graphByHash) == len(entries) {
+			break
+		}
 	}
 	for _, entry := range entries {
 		entry.Graph = graphByHash[entry.Commit.Hash.String()]
 	}
 	return nil
-}
-
-type graphRow struct {
-	hash  string
-	graph string
-}
-
-func parseGraphRows(data []byte) ([]graphRow, error) {
-	var rows []graphRow
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-	for scanner.Scan() {
-		line := scanner.Text()
-		if row, ok := parseGraphLine(line); ok {
-			rows = append(rows, row)
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	return rows, nil
-}
-
-func parseGraphLine(line string) (graphRow, bool) {
-	trimmed := strings.TrimRight(line, " ")
-	if len(trimmed) < 40 {
-		return graphRow{}, false
-	}
-	hash := trimmed[len(trimmed)-40:]
-	if !isHexHash(hash) {
-		return graphRow{}, false
-	}
-	graph := strings.TrimRight(trimmed[:len(trimmed)-40], " ")
-	return graphRow{hash: hash, graph: graph}, true
-}
-
-func isHexHash(s string) bool {
-	if len(s) == 0 {
-		return false
-	}
-	for _, r := range s {
-		switch {
-		case r >= '0' && r <= '9':
-		case r >= 'a' && r <= 'f':
-		case r >= 'A' && r <= 'F':
-		default:
-			return false
-		}
-	}
-	return true
 }
 
 func newEntry(c *object.Commit) *Entry {
@@ -365,6 +312,74 @@ func filePatchPath(fp diff.FilePatch) string {
 		return from.Path()
 	}
 	return "(unknown)"
+}
+
+type graphBuilder struct {
+	columns []plumbing.Hash
+}
+
+func newGraphBuilder() *graphBuilder {
+	return &graphBuilder{}
+}
+
+func (g *graphBuilder) Line(c *object.Commit) string {
+	if c == nil {
+		return ""
+	}
+	idx := g.columnIndex(c.Hash)
+	if idx == -1 {
+		g.columns = append([]plumbing.Hash{c.Hash}, g.columns...)
+		idx = 0
+	}
+	var b strings.Builder
+	for i := range g.columns {
+		if i == idx {
+			b.WriteString("*")
+		} else {
+			b.WriteString("|")
+		}
+		if i != len(g.columns)-1 {
+			b.WriteString(" ")
+		}
+	}
+	g.advance(idx, c.ParentHashes)
+	return b.String()
+}
+
+func (g *graphBuilder) columnIndex(hash plumbing.Hash) int {
+	for i, h := range g.columns {
+		if h == hash {
+			return i
+		}
+	}
+	return -1
+}
+
+func (g *graphBuilder) advance(idx int, parents []plumbing.Hash) {
+	if len(parents) == 0 {
+		g.columns = append(g.columns[:idx], g.columns[idx+1:]...)
+		return
+	}
+	primary := parents[0]
+	g.columns[idx] = primary
+	for i := 1; i < len(parents); i++ {
+		parent := parents[i]
+		g.removeColumn(parent)
+		pos := idx + i
+		if pos > len(g.columns) {
+			pos = len(g.columns)
+		}
+		g.columns = append(g.columns[:pos], append([]plumbing.Hash{parent}, g.columns[pos:]...)...)
+	}
+}
+
+func (g *graphBuilder) removeColumn(hash plumbing.Hash) {
+	for i, h := range g.columns {
+		if h == hash {
+			g.columns = append(g.columns[:i], g.columns[i+1:]...)
+			return
+		}
+	}
 }
 
 func refName(ref *plumbing.Reference) string {
