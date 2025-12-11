@@ -20,8 +20,9 @@ const (
 )
 
 type Controller struct {
-	svc   *git.Service
-	batch int
+	svc      *git.Service
+	repoPath string
+	batch    int
 
 	headRef string
 
@@ -55,7 +56,7 @@ func Run(repoPath string, batch int) error {
 	if batch <= 0 {
 		batch = git.DefaultBatch
 	}
-	app := &Controller{svc: svc, batch: batch}
+	app := &Controller{svc: svc, repoPath: svc.RepoPath(), batch: batch}
 	return app.run()
 }
 
@@ -108,7 +109,7 @@ func (a *Controller) buildUI() {
 	Grid(controls, Row(0), Column(0), Sticky(WE))
 	GridColumnConfigure(controls.Window, 1, Weight(1))
 
-	repoLabel := fmt.Sprintf("Repository: %s", a.svc.RepoPath())
+	repoLabel := fmt.Sprintf("Repository: %s", a.repoPath)
 	Grid(controls.TLabel(Txt(repoLabel), Anchor(W)), Row(0), Column(0), Columnspan(4), Sticky(W))
 
 	Grid(controls.TLabel(Txt("Filter:"), Anchor(E)), Row(1), Column(0), Sticky(E))
@@ -474,20 +475,9 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 
 func (a *Controller) applyFilter(raw string) {
 	a.filterValue = raw
+	a.visible = filterEntries(a.commits, raw)
 	if a.tree == nil {
 		return
-	}
-	query := strings.ToLower(strings.TrimSpace(raw))
-	if query == "" {
-		a.visible = a.commits
-	} else {
-		var filtered []*git.Entry
-		for _, entry := range a.commits {
-			if strings.Contains(entry.SearchText, query) {
-				filtered = append(filtered, entry)
-			}
-		}
-		a.visible = filtered
 	}
 
 	children := a.tree.Children("")
@@ -742,7 +732,11 @@ func (a *Controller) statusSummary() string {
 		head = "HEAD"
 	}
 	filterDesc := strings.TrimSpace(a.filterValue)
-	base := fmt.Sprintf("Showing %d/%d loaded commits on %s — %s", visible, total, head, a.svc.RepoPath())
+	path := a.repoPath
+	if path == "" && a.svc != nil {
+		path = a.svc.RepoPath()
+	}
+	base := fmt.Sprintf("Showing %d/%d loaded commits on %s — %s", visible, total, head, path)
 	if a.hasMore {
 		base += " (more available)"
 	}
@@ -791,4 +785,18 @@ func escapeTclString(s string) string {
 	s = strings.ReplaceAll(s, "{", `\{`)
 	s = strings.ReplaceAll(s, "}", `\}`)
 	return s
+}
+
+func filterEntries(entries []*git.Entry, query string) []*git.Entry {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return entries
+	}
+	var filtered []*git.Entry
+	for _, entry := range entries {
+		if strings.Contains(entry.SearchText, q) {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
 }
