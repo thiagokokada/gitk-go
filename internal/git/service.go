@@ -124,11 +124,18 @@ func (s *Service) BranchLabels() (map[string][]string, error) {
 		if ref.Type() != plumbing.HashReference {
 			return nil
 		}
-		if !ref.Name().IsBranch() {
+		name := ref.Name()
+		isBranch := name.IsBranch()
+		isRemote := name.IsRemote()
+		if !isBranch && !isRemote {
+			return nil
+		}
+		short := name.Short()
+		if isRemote && strings.HasSuffix(short, "/HEAD") {
 			return nil
 		}
 		hash := ref.Hash().String()
-		labels[hash] = append(labels[hash], ref.Name().Short())
+		labels[hash] = append(labels[hash], short)
 		return nil
 	})
 	if err != nil {
