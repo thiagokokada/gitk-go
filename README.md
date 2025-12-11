@@ -4,8 +4,8 @@
 
 `gitk-go` is a lightweight Git history explorer written in Go. It recreates much
 of `gitk` using [`modernc.org/tk9.0`](https://pkg.go.dev/modernc.org/tk9.0) and
-[`go-git`](https://github.com/go-git/go-git) so it runs without Tcl scripts or
-external git commands.
+[`go-git`](https://github.com/go-git/go-git), and it can optionally leverage the
+system `git` binary for faster local-change handling.
 
 ![Screenshot](screenshot.png)
 
@@ -16,7 +16,7 @@ external git commands.
 - Diff viewer highlights additions, removals, headers, and supports per-file navigation
 - Built-in file list to jump to specific file diffs
 - Keyboard shortcuts mirroring common gitk bindings (navigation, paging, reload)
-- Pure-Go git access with no shell commands or extra dependencies
+- Optional acceleration using the system `git` CLI (see below)
 - Auto-detects OS dark mode with optional manual override
 
 ### Usage
@@ -31,11 +31,27 @@ Arguments:
 - `-limit` (default `1000`): number of commits to load per batch
 - `-mode` (default `auto`): choose light, dark, or auto-detected theme
 
+#### git CLI acceleration
+
+By default, `gitk-go` uses pure Go code for repository access. For large
+repositories you can opt-in to faster local-change detection and diff rendering
+by building with the `gitcli` build tag:
+
+```bash
+go build -tags gitcli
+```
+
+This requires the `git` binary to be available in `$PATH`. If the binary is not
+available the build will still succeed, but the accelerated paths will fail at
+runtime, so only enable the tag when `git` is installed.
+
 ### Development
 
 ```bash
 go test ./...
+go test -tags gitcli ./...
 go build ./...
+go build -tags gitcli ./...
 ```
 
 Key packages:

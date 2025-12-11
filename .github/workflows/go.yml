@@ -18,8 +18,14 @@ jobs:
       with:
         go-version-file: go.mod
 
-    - name: Build
+    - name: Build (default)
       run: go build -v -o /dev/null ./...
 
-    - name: Test
+    - name: Build (gitcli)
+      run: go build -tags gitcli -v -o /dev/null ./...
+
+    - name: Test (default)
       run: go test -v ./...
+
+    - name: Test (gitcli)
+      run: go test -tags gitcli -v ./...
