@@ -11,13 +11,17 @@ import (
 	"time"
 
 	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 
 	. "modernc.org/tk9.0"
 	_ "modernc.org/tk9.0/themes/azure"
 )
 
-const defaultLimit = 200
+const (
+	defaultLimit         = 200
+	defaultPrefetchBatch = 5 // number of batches to prefetch in the background
+)
 
 type commitEntry struct {
 	commit     *object.Commit
@@ -27,7 +31,7 @@ type commitEntry struct {
 
 type gitkApp struct {
 	repoPath string
-	limit    int
+	batch    int
 
 	repo    *git.Repository
 	headRef string
@@ -39,19 +43,32 @@ type gitkApp struct {
 	detail      *TextWidget
 	status      *TLabelWidget
 	filterEntry *TEntryWidget
+	loadMoreBtn *TButtonWidget
 
-	filterValue string
+	filterValue    string
+	hasMore        bool
+	loadingBatch   bool
+	prefetchTarget int
 
 	selectedMu   sync.RWMutex
 	selectedHash string
 }
 
 func main() {
-	repoFlag := flag.String("repo", ".", "path to the Git repository to explore")
-	limitFlag := flag.Int("limit", defaultLimit, "maximum number of commits to load")
+	repoFlag := flag.String("repo", "", "path to the Git repository to explore")
+	batchFlag := flag.Int("limit", defaultLimit, "number of commits to load per batch (default 200)")
 	flag.Parse()
 
-	app := &gitkApp{repoPath: *repoFlag, limit: *limitFlag}
+	repoPath := strings.TrimSpace(*repoFlag)
+	if repoPath == "" {
+		if args := flag.Args(); len(args) > 0 {
+			repoPath = args[0]
+		} else {
+			repoPath = "."
+		}
+	}
+
+	app := &gitkApp{repoPath: repoPath, batch: *batchFlag}
 	if err := app.run(); err != nil {
 		log.Fatalf("gitk-go: %v", err)
 	}
@@ -69,12 +86,13 @@ func (a *gitkApp) run() error {
 	}
 	a.repo = repo
 
-	if err := a.loadCommits(); err != nil {
+	if err := a.loadInitialCommits(); err != nil {
 		return err
 	}
 
 	a.buildUI()
 	a.applyFilter(a.filterValue)
+	a.ensurePrefetch()
 	a.setStatus(a.statusSummary())
 
 	ActivateTheme("azure light")
@@ -84,48 +102,73 @@ func (a *gitkApp) run() error {
 	return nil
 }
 
-func (a *gitkApp) loadCommits() error {
-	entries, head, err := a.scanCommits()
+func (a *gitkApp) loadInitialCommits() error {
+	entries, head, hasMore, err := a.scanCommits(0, a.batch)
 	if err != nil {
 		return err
 	}
 	a.commits = entries
 	a.visible = entries
 	a.headRef = head
+	a.hasMore = hasMore
+	if a.batch <= 0 {
+		a.batch = defaultLimit
+	}
+	if a.prefetchTarget == 0 {
+		a.prefetchTarget = a.batch * defaultPrefetchBatch
+	}
 	return nil
 }
 
-func (a *gitkApp) scanCommits() ([]*commitEntry, string, error) {
+func (a *gitkApp) scanCommits(skip, batch int) ([]*commitEntry, string, bool, error) {
+	if batch <= 0 {
+		batch = defaultLimit
+	}
+
 	ref, err := a.repo.Head()
 	if err != nil {
-		return nil, "", fmt.Errorf("resolve HEAD: %w", err)
+		if err == plumbing.ErrReferenceNotFound {
+			return nil, "", false, nil
+		}
+		return nil, "", false, fmt.Errorf("resolve HEAD: %w", err)
 	}
 
 	opts := &git.LogOptions{From: ref.Hash(), Order: git.LogOrderCommitterTime}
 	iter, err := a.repo.Log(opts)
 	if err != nil {
-		return nil, "", fmt.Errorf("read commits: %w", err)
+		return nil, "", false, fmt.Errorf("read commits: %w", err)
 	}
 	defer iter.Close()
 
+	for skipped := 0; skipped < skip; skipped++ {
+		if _, err := iter.Next(); err != nil {
+			if err == io.EOF {
+				return nil, refName(ref), false, nil
+			}
+			return nil, "", false, fmt.Errorf("iterate commits: %w", err)
+		}
+	}
+
 	var entries []*commitEntry
-	for len(entries) < a.limit {
+	for len(entries) < batch {
 		commit, err := iter.Next()
 		if err == io.EOF {
-			break
+			return entries, refName(ref), false, nil
 		}
 		if err != nil {
-			return nil, "", fmt.Errorf("iterate commits: %w", err)
+			return nil, "", false, fmt.Errorf("iterate commits: %w", err)
 		}
 		entries = append(entries, newCommitEntry(commit))
 	}
 
-	head := ref.Name().Short()
-	if head == "" {
-		head = ref.Name().String()
+	hasMore := false
+	if _, err := iter.Next(); err == nil {
+		hasMore = true
+	} else if err != io.EOF {
+		return nil, "", false, fmt.Errorf("iterate commits: %w", err)
 	}
 
-	return entries, head, nil
+	return entries, refName(ref), hasMore, nil
 }
 
 func (a *gitkApp) buildUI() {
@@ -163,6 +206,7 @@ func (a *gitkApp) buildUI() {
 	pane.Add(right.Window)
 
 	GridRowConfigure(left.Window, 0, Weight(1))
+	GridRowConfigure(left.Window, 1, Weight(0))
 	GridColumnConfigure(left.Window, 0, Weight(1))
 	GridRowConfigure(right.Window, 0, Weight(1))
 	GridColumnConfigure(right.Window, 0, Weight(1))
@@ -172,6 +216,10 @@ func (a *gitkApp) buildUI() {
 	a.list.Configure(Yscrollcommand(func(e *Event) { e.ScrollSet(listScroll) }))
 	Grid(a.list, Row(0), Column(0), Sticky(NEWS))
 	Grid(listScroll, Row(0), Column(1), Sticky(NS))
+	a.loadMoreBtn = left.TButton(Txt("Load more commits"), Command(func() {
+		a.loadMoreCommitsAsync(false)
+	}))
+	Grid(a.loadMoreBtn, Row(1), Column(0), Columnspan(2), Sticky(WE), Pady("4p"))
 
 	Bind(a.list, "<<ListboxSelect>>", Command(a.onSelectionChanged))
 
@@ -189,6 +237,7 @@ func (a *gitkApp) buildUI() {
 	Grid(a.status, Row(2), Column(0), Sticky(WE))
 
 	a.clearDetailText("Select a commit to view its details.")
+	a.updateLoadMoreState()
 }
 
 func (a *gitkApp) onSelectionChanged() {
@@ -261,26 +310,89 @@ func (a *gitkApp) diffForCommit(c *object.Commit) (string, error) {
 }
 
 func (a *gitkApp) reloadCommitsAsync() {
-	go func() {
-		entries, head, err := a.scanCommits()
-		if err != nil {
-			msg := fmt.Sprintf("Failed to reload commits: %v", err)
-			log.Print(msg)
-			a.setStatus(msg)
-			return
-		}
+	if a.loadingBatch {
+		return
+	}
+	a.loadingBatch = true
+	currentFilter := a.filterValue
+	go func(filter string) {
+		entries, head, hasMore, err := a.scanCommits(0, a.batch)
 		PostEvent(func() {
+			a.loadingBatch = false
+			if err != nil {
+				msg := fmt.Sprintf("Failed to reload commits: %v", err)
+				log.Print(msg)
+				a.setStatus(msg)
+				return
+			}
 			a.commits = entries
 			a.visible = entries
 			a.headRef = head
-			currentFilter := a.filterValue
-			if a.filterEntry != nil {
-				currentFilter = a.filterEntry.Textvariable()
-			}
-			a.applyFilter(currentFilter)
+			a.hasMore = hasMore
+			a.applyFilter(filter)
 			a.setStatus(a.statusSummary())
+			a.prefetchTarget = a.batch * defaultPrefetchBatch
+			a.ensurePrefetch()
+			a.updateLoadMoreState()
 		}, false)
-	}()
+	}(currentFilter)
+}
+
+func (a *gitkApp) loadMoreCommitsAsync(prefetch bool) {
+	if a.loadingBatch || !a.hasMore {
+		return
+	}
+	a.loadingBatch = true
+	a.updateLoadMoreState()
+	currentFilter := a.filterValue
+	skip := len(a.commits)
+	go func(filter string, skipCount int, background bool) {
+		entries, _, hasMore, err := a.scanCommits(skipCount, a.batch)
+		PostEvent(func() {
+			a.loadingBatch = false
+			if err != nil {
+				msg := fmt.Sprintf("Failed to load more commits: %v", err)
+				log.Print(msg)
+				if !background {
+					a.setStatus(msg)
+				}
+				return
+			}
+			if len(entries) == 0 {
+				a.hasMore = false
+				if !background {
+					a.setStatus("No more commits available.")
+				}
+				return
+			}
+			a.commits = append(a.commits, entries...)
+			a.hasMore = hasMore
+			a.applyFilter(filter)
+			a.setStatus(a.statusSummary())
+			if background && a.hasMore && len(a.commits) < a.prefetchTarget {
+				go a.loadMoreCommitsAsync(true)
+			} else if !background {
+				a.prefetchTarget = len(a.commits) + a.batch*defaultPrefetchBatch
+				a.ensurePrefetch()
+			}
+			a.updateLoadMoreState()
+		}, false)
+	}(currentFilter, skip, prefetch)
+}
+
+func (a *gitkApp) ensurePrefetch() {
+	if !a.hasMore || a.batch <= 0 {
+		return
+	}
+	target := a.prefetchTarget
+	if target == 0 {
+		target = a.batch * defaultPrefetchBatch
+		a.prefetchTarget = target
+	}
+	if len(a.commits) >= target {
+		return
+	}
+	a.loadMoreCommitsAsync(true)
 }
 
 func (a *gitkApp) applyFilter(raw string) {
@@ -307,8 +419,13 @@ func (a *gitkApp) applyFilter(raw string) {
 	}
 
 	if len(a.visible) == 0 {
-		a.clearDetailText("No commits match the current filter.")
+		if len(a.commits) == 0 {
+			a.clearDetailText("Repository has no commits yet.")
+		} else {
+			a.clearDetailText("No commits match the current filter.")
+		}
 		a.setStatus(a.statusSummary())
+		a.updateLoadMoreState()
 		return
 	}
 
@@ -317,6 +434,10 @@ func (a *gitkApp) applyFilter(raw string) {
 	a.list.Activate(0)
 	a.showCommitDetails(0)
 	a.setStatus(a.statusSummary())
+	if query == "" {
+		a.ensurePrefetch()
+	}
+	a.updateLoadMoreState()
 }
 
 func (a *gitkApp) clearDetailText(msg string) {
@@ -367,11 +488,33 @@ func (a *gitkApp) statusSummary() string {
 		head = "HEAD"
 	}
 	filterDesc := strings.TrimSpace(a.filterValue)
-	base := fmt.Sprintf("Showing %d/%d commits on %s (limit %d) — %s", visible, total, head, a.limit, a.repoPath)
+	base := fmt.Sprintf("Showing %d/%d loaded commits on %s — %s", visible, total, head, a.repoPath)
+	if a.hasMore {
+		base += " (more available)"
+	}
 	if filterDesc == "" {
 		return base
 	}
 	return fmt.Sprintf("Filter %q — %s", filterDesc, base)
+}
+
+func (a *gitkApp) updateLoadMoreState() {
+	if a.loadMoreBtn == nil {
+		return
+	}
+	state := "normal"
+	if a.loadingBatch || !a.hasMore {
+		state = "disabled"
+	}
+	a.loadMoreBtn.Configure(State(state))
+}
+
+func refName(ref *plumbing.Reference) string {
+	name := ref.Name().Short()
+	if name == "" {
+		name = ref.Name().String()
+	}
+	return name
 }
 
 func newCommitEntry(c *object.Commit) *commitEntry {
