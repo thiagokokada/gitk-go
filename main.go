@@ -442,6 +442,156 @@ func (a *gitkApp) buildUI() {
 	Grid(a.status, Row(2), Column(0), Sticky(WE))
 
 	a.clearDetailText("Select a commit to view its details.")
+	a.bindShortcuts()
+}
+
+func (a *gitkApp) bindShortcuts() {
+	if a.tree == nil {
+		return
+	}
+	bindNav := func(sequence string, handler func()) {
+		Bind(App, sequence, Command(func() {
+			if a.filterHasFocus() {
+				return
+			}
+			handler()
+		}))
+	}
+	bindAny := func(sequence string, handler func()) {
+		Bind(App, sequence, Command(handler))
+	}
+
+	bindNav("<KeyPress-p>", func() { a.moveSelection(-1) })
+	bindNav("<KeyPress-k>", func() { a.moveSelection(-1) })
+	bindNav("<KeyPress-n>", func() { a.moveSelection(1) })
+	bindNav("<KeyPress-j>", func() { a.moveSelection(1) })
+	bindNav("<KeyPress-Home>", a.selectFirst)
+	bindNav("<KeyPress-End>", a.selectLast)
+
+	bindNav("<Control-Prior>", func() { a.scrollTreePages(-1) })
+	bindNav("<Control-Next>", func() { a.scrollTreePages(1) })
+	bindNav("<Command-Prior>", func() { a.scrollTreePages(-1) })
+	bindNav("<Command-Next>", func() { a.scrollTreePages(1) })
+
+	bindAny("<F5>", func() { a.reloadCommitsAsync() })
+
+	bindNav("<KeyPress-Delete>", func() { a.scrollDetailPages(-1) })
+	bindNav("<KeyPress-BackSpace>", func() { a.scrollDetailPages(-1) })
+	bindNav("<KeyPress-b>", func() { a.scrollDetailPages(-1) })
+	bindNav("<KeyPress-B>", func() { a.scrollDetailPages(-1) })
+	bindNav("<KeyPress-space>", func() { a.scrollDetailPages(1) })
+	bindNav("<KeyPress-u>", func() { a.scrollDetailLines(-18) })
+	bindNav("<KeyPress-U>", func() { a.scrollDetailLines(-18) })
+	bindNav("<KeyPress-d>", func() { a.scrollDetailLines(18) })
+	bindNav("<KeyPress-D>", func() { a.scrollDetailLines(18) })
+
+	bindAny("<KeyPress-/>", func() {
+		if a.filterEntry == nil || a.filterHasFocus() {
+			return
+		}
+		a.focusFilterEntry()
+	})
+}
+
+func (a *gitkApp) filterHasFocus() bool {
+	if a.filterEntry == nil {
+		return false
+	}
+	return Focus() == a.filterEntry.String()
+}
+
+func (a *gitkApp) moveSelection(delta int) {
+	if a.tree == nil || len(a.visible) == 0 {
+		return
+	}
+	idx := a.currentSelectionIndex() + delta
+	if idx < 0 {
+		idx = 0
+	}
+	if idx >= len(a.visible) {
+		idx = len(a.visible) - 1
+	}
+	a.selectTreeIndex(idx)
+}
+
+func (a *gitkApp) selectFirst() {
+	if len(a.visible) == 0 {
+		return
+	}
+	a.selectTreeIndex(0)
+}
+
+func (a *gitkApp) selectLast() {
+	if len(a.visible) == 0 {
+		return
+	}
+	a.selectTreeIndex(len(a.visible) - 1)
+}
+
+func (a *gitkApp) currentSelectionIndex() int {
+	if a.tree == nil {
+		return 0
+	}
+	sel := a.tree.Selection("")
+	if len(sel) == 0 || sel[0] == moreIndicatorID {
+		return 0
+	}
+	if idx, err := strconv.Atoi(sel[0]); err == nil {
+		return idx
+	}
+	return 0
+}
+
+func (a *gitkApp) selectTreeIndex(idx int) {
+	if a.tree == nil || idx < 0 || idx >= len(a.visible) {
+		return
+	}
+	id := strconv.Itoa(idx)
+	a.tree.Selection("set", id)
+	a.tree.Focus(id)
+	a.tree.See(id)
+	a.showCommitDetails(idx)
+}
+
+func (a *gitkApp) scrollTreePages(delta int) {
+	if a.tree == nil || delta == 0 {
+		return
+	}
+	if _, err := evalext.Eval(fmt.Sprintf("%s yview scroll %d pages", a.tree, delta)); err != nil {
+		log.Printf("tree scroll: %v", err)
+	}
+}
+
+func (a *gitkApp) scrollDetailPages(delta int) {
+	a.scrollDetail(delta, "pages")
+}
+
+func (a *gitkApp) scrollDetailLines(delta int) {
+	a.scrollDetail(delta, "units")
+}
+
+func (a *gitkApp) scrollDetail(delta int, unit string) {
+	if a.detail == nil || delta == 0 {
+		return
+	}
+	if _, err := evalext.Eval(fmt.Sprintf("%s yview scroll %d %s", a.detail, delta, unit)); err != nil {
+		log.Printf("detail scroll: %v", err)
+	}
+}
+
+func (a *gitkApp) focusFilterEntry() {
+	if a.filterEntry == nil {
+		return
+	}
+	if _, err := evalext.Eval(fmt.Sprintf("focus %s", a.filterEntry)); err != nil {
+		log.Printf("focus filter: %v", err)
+	}
+	if _, err := evalext.Eval(fmt.Sprintf("%s selection range 0 end", a.filterEntry)); err != nil {
+		log.Printf("select filter: %v", err)
+	}
+	if _, err := evalext.Eval(fmt.Sprintf("%s icursor end", a.filterEntry)); err != nil {
+		log.Printf("cursor filter: %v", err)
+	}
 }
 
 func (a *gitkApp) onTreeSelectionChanged() {
