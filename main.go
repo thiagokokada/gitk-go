@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
 	"log"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -26,6 +29,7 @@ type commitEntry struct {
 	commit     *object.Commit
 	summary    string
 	searchText string
+	graph      string
 }
 
 type gitkApp struct {
@@ -45,6 +49,7 @@ type gitkApp struct {
 	filterEntry  *TEntryWidget
 	loadMoreBtn  *TButtonWidget
 	fileSections []fileSection
+	branchLabels map[string][]string
 
 	filterValue  string
 	hasMore      bool
@@ -94,6 +99,9 @@ func (a *gitkApp) run() error {
 	if err := a.loadInitialCommits(); err != nil {
 		return err
 	}
+	if err := a.loadBranchLabels(); err != nil {
+		return err
+	}
 
 	a.buildUI()
 	a.applyFilter(a.filterValue)
@@ -121,6 +129,56 @@ func (a *gitkApp) loadInitialCommits() error {
 	return nil
 }
 
+func (a *gitkApp) loadBranchLabels() error {
+	labels := map[string][]string{}
+	if a.repo == nil {
+		a.branchLabels = labels
+		return nil
+	}
+	refs, err := a.repo.References()
+	if err != nil {
+		return err
+	}
+	defer refs.Close()
+
+	headRef, err := a.repo.Head()
+	var headHash plumbing.Hash
+	var headBranch string
+	if err == nil && headRef != nil {
+		headHash = headRef.Hash()
+		if headRef.Name().IsBranch() {
+			headBranch = headRef.Name().Short()
+		}
+	}
+
+	err = refs.ForEach(func(ref *plumbing.Reference) error {
+		if ref.Type() != plumbing.HashReference {
+			return nil
+		}
+		if !ref.Name().IsBranch() {
+			return nil
+		}
+		hash := ref.Hash().String()
+		labels[hash] = append(labels[hash], ref.Name().Short())
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	if headHash != plumbing.ZeroHash {
+		key := headHash.String()
+		label := "HEAD"
+		if headBranch != "" {
+			label = fmt.Sprintf("HEAD -> %s", headBranch)
+		}
+		labels[key] = append([]string{label}, labels[key]...)
+	}
+
+	a.branchLabels = labels
+	return nil
+}
+
 func (a *gitkApp) scanCommits(skip, batch int) ([]*commitEntry, string, bool, error) {
 	if batch <= 0 {
 		batch = defaultLimit
@@ -134,7 +192,7 @@ func (a *gitkApp) scanCommits(skip, batch int) ([]*commitEntry, string, bool, er
 		return nil, "", false, fmt.Errorf("resolve HEAD: %w", err)
 	}
 
-	opts := &git.LogOptions{From: ref.Hash(), Order: git.LogOrderCommitterTime}
+	opts := &git.LogOptions{From: ref.Hash(), Order: git.LogOrderDFS}
 	iter, err := a.repo.Log(opts)
 	if err != nil {
 		return nil, "", false, fmt.Errorf("read commits: %w", err)
@@ -169,7 +227,108 @@ func (a *gitkApp) scanCommits(skip, batch int) ([]*commitEntry, string, bool, er
 		return nil, "", false, fmt.Errorf("iterate commits: %w", err)
 	}
 
+	if err := a.populateGraphStrings(entries, skip); err != nil {
+		log.Printf("unable to compute graph column: %v", err)
+	}
 	return entries, refName(ref), hasMore, nil
+}
+
+func (a *gitkApp) populateGraphStrings(entries []*commitEntry, skip int) error {
+	if len(entries) == 0 {
+		return nil
+	}
+	total := skip + len(entries)
+	if total <= 0 {
+		return nil
+	}
+	args := []string{
+		"-C", a.repoPath,
+		"log",
+		"--graph",
+		"--no-color",
+		"--topo-order",
+		fmt.Sprintf("--max-count=%d", total),
+		"--format=%H",
+	}
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command("git", args...)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = err.Error()
+		}
+		return fmt.Errorf("git log --graph: %s", msg)
+	}
+	rows, err := parseGraphRows(stdout.Bytes())
+	if err != nil {
+		return err
+	}
+	if len(rows) < total {
+		return fmt.Errorf("git graph returned %d rows, need %d", len(rows), total)
+	}
+	rows = rows[skip:]
+	if len(rows) > len(entries) {
+		rows = rows[:len(entries)]
+	}
+	graphByHash := make(map[string]string, len(rows))
+	for _, row := range rows {
+		graphByHash[row.hash] = row.graph
+	}
+	for _, entry := range entries {
+		entry.graph = graphByHash[entry.commit.Hash.String()]
+	}
+	return nil
+}
+
+type graphRow struct {
+	hash  string
+	graph string
+}
+
+func parseGraphRows(data []byte) ([]graphRow, error) {
+	var rows []graphRow
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if row, ok := parseGraphLine(line); ok {
+			rows = append(rows, row)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+func parseGraphLine(line string) (graphRow, bool) {
+	trimmed := strings.TrimRight(line, " ")
+	if len(trimmed) < 40 {
+		return graphRow{}, false
+	}
+	hash := trimmed[len(trimmed)-40:]
+	if !isHexHash(hash) {
+		return graphRow{}, false
+	}
+	graph := strings.TrimRight(trimmed[:len(trimmed)-40], " ")
+	return graphRow{hash: hash, graph: graph}, true
+}
+
+func isHexHash(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for _, r := range s {
+		switch {
+		case r >= '0' && r <= '9':
+		case r >= 'a' && r <= 'f':
+		case r >= 'A' && r <= 'F':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func (a *gitkApp) buildUI() {
@@ -215,14 +374,16 @@ func (a *gitkApp) buildUI() {
 	treeScroll := listArea.TScrollbar()
 	a.tree = listArea.TTreeview(
 		Show("headings"),
-		Columns("commit author date"),
+		Columns("graph commit author date"),
 		Selectmode("browse"),
 		Height(18),
 		Yscrollcommand(func(e *Event) { e.ScrollSet(treeScroll) }),
 	)
-	a.tree.Column("commit", Anchor(W), Width(500))
+	a.tree.Column("graph", Anchor(W), Width(120))
+	a.tree.Column("commit", Anchor(W), Width(380))
 	a.tree.Column("author", Anchor(W), Width(280))
 	a.tree.Column("date", Anchor(W), Width(180))
+	a.tree.Heading("graph", Txt("Graph"))
 	a.tree.Heading("commit", Txt("Commit"))
 	a.tree.Heading("author", Txt("Author"))
 	a.tree.Heading("date", Txt("Date"))
@@ -360,15 +521,14 @@ func (a *gitkApp) diffForCommit(c *object.Commit) (string, []fileSection, error)
 	for _, fp := range patch.FilePatches() {
 		path := filePatchPath(fp)
 		fileHeader := fmt.Sprintf("diff --git a/%s b/%s\n", path, path)
+		headerLine := lineNo + 1
 		b.WriteString(fileHeader)
 		lineNo += strings.Count(fileHeader, "\n")
 
-		startLine := 0
 		if fp.IsBinary() {
 			binaryInfo := "(binary files differ)\n"
 			b.WriteString(binaryInfo)
 			lineNo++
-			startLine = lineNo
 		} else {
 			for _, chunk := range fp.Chunks() {
 				if chunk == nil {
@@ -390,16 +550,10 @@ func (a *gitkApp) diffForCommit(c *object.Commit) (string, []fileSection, error)
 					}
 					b.WriteString(prefix + line + "\n")
 					lineNo++
-					if startLine == 0 {
-						startLine = lineNo
-					}
 				}
 			}
 		}
-		if startLine == 0 {
-			startLine = lineNo
-		}
-		sections = append(sections, fileSection{path: path, line: startLine - 1})
+		sections = append(sections, fileSection{path: path, line: headerLine})
 	}
 	return b.String(), sections, nil
 }
@@ -424,6 +578,9 @@ func (a *gitkApp) reloadCommitsAsync() {
 			a.visible = entries
 			a.headRef = head
 			a.hasMore = hasMore
+			if err := a.loadBranchLabels(); err != nil {
+				log.Printf("failed to refresh branch labels: %v", err)
+			}
 			a.applyFilter(filter)
 			a.setStatus(a.statusSummary())
 			a.updateLoadMoreState()
@@ -462,6 +619,9 @@ func (a *gitkApp) loadMoreCommitsAsync(prefetch bool) {
 			}
 			a.commits = append(a.commits, entries...)
 			a.hasMore = hasMore
+			if err := a.loadBranchLabels(); err != nil {
+				log.Printf("failed to refresh branch labels: %v", err)
+			}
 			a.applyFilter(filter)
 			a.setStatus(a.statusSummary())
 			if background && a.hasMore {
@@ -500,8 +660,10 @@ func (a *gitkApp) applyFilter(raw string) {
 		a.tree.Delete(args...)
 	}
 	for idx, entry := range a.visible {
+		labels := a.branchLabels[entry.commit.Hash.String()]
+		graph := formatGraphValue(entry, labels)
 		msg, author, when := commitListColumns(entry)
-		vals := tclList(msg, author, when)
+		vals := tclList(graph, msg, author, when)
 		a.tree.Insert("", "end", Id(strconv.Itoa(idx)), Values(vals))
 	}
 
@@ -763,6 +925,21 @@ func commitListColumns(entry *commitEntry) (msg, author, when string) {
 	author = fmt.Sprintf("%s <%s>", entry.commit.Author.Name, entry.commit.Author.Email)
 	when = entry.commit.Author.When.Format("2006-01-02 15:04")
 	return
+}
+
+func formatGraphValue(entry *commitEntry, labels []string) string {
+	graph := strings.TrimRight(entry.graph, " ")
+	if graph == "" {
+		graph = "*"
+	}
+	if len(labels) != 0 {
+		label := fmt.Sprintf("[%s]", strings.Join(labels, ", "))
+		if graph != "" {
+			graph += " "
+		}
+		graph += label
+	}
+	return graph
 }
 
 func tclList(values ...string) string {
