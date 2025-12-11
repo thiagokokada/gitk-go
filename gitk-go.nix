@@ -1,15 +1,17 @@
 {
   lib,
   stdenv,
+  buildGoModule,
   fontconfig,
   freetype,
+  git,
   libjpeg,
   libpng,
   makeWrapper,
   xorg,
   zlib,
-  buildGoModule,
   version ? "unknown",
+  withGitCli ? true,
 }:
 
 buildGoModule {
@@ -33,28 +35,33 @@ buildGoModule {
     makeWrapper
   ];
 
-  postFixup = lib.optionalString stdenv.isLinux ''
-    wrapProgram $out/bin/gitk-go \
-    --set LD_LIBRARY_PATH ${
-      with xorg;
-      lib.makeLibraryPath [
-        # XXX: not sure if all those libs are necessary
-        libX11
-        libXext
-        libXft
-        libXrender
-        libXfixes
-        libXcursor
-        libXinerama
-        libXrandr
-        fontconfig
-        freetype
-        libpng
-        libjpeg
-        zlib
-      ]
-    }
-  '';
+  postFixup = (
+    # bash
+    lib.concatStringsSep " " [
+      "wrapProgram $out/bin/gitk-go"
+      (lib.optionalString stdenv.isLinux "--set LD_LIBRARY_PATH ${
+        lib.makeLibraryPath [
+          # XXX: not sure if all those libs are necessary
+          xorg.libX11
+          xorg.libXext
+          xorg.libXft
+          xorg.libXrender
+          xorg.libXfixes
+          xorg.libXcursor
+          xorg.libXinerama
+          xorg.libXrandr
+          fontconfig
+          freetype
+          libpng
+          libjpeg
+          zlib
+        ]
+      }")
+      (lib.optionalString withGitCli "--prefix PATH : ${lib.getExe git}")
+    ]
+  );
+
+  tags = lib.optionals withGitCli [ "gitcli" ];
 
   ldflags = [
     "-s"
