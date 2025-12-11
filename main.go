@@ -228,6 +228,8 @@ func (a *gitkApp) buildUI() {
 	a.detail = right.Text(Wrap(NONE), Font(CourierFont(), 11), Exportselection(false), Tabs("1c"))
 	a.detail.Configure(Yscrollcommand(func(e *Event) { e.ScrollSet(detailYScroll) }))
 	a.detail.Configure(Xscrollcommand(func(e *Event) { e.ScrollSet(detailXScroll) }))
+	a.detail.TagConfigure("diffAdd", Background("#dff5de"))
+	a.detail.TagConfigure("diffDel", Background("#f9d6d5"))
 	Grid(a.detail, Row(0), Column(0), Sticky(NEWS))
 	Grid(detailYScroll, Row(0), Column(1), Sticky(NS))
 	Grid(detailXScroll, Row(1), Column(0), Sticky(WE))
@@ -260,7 +262,7 @@ func (a *gitkApp) showCommitDetails(index int) {
 	header := formatCommitHeader(entry.commit)
 	hash := entry.commit.Hash.String()
 	a.setSelectedHash(hash)
-	a.writeDetailText(header + "\nLoading diff...")
+	a.writeDetailText(header+"\nLoading diff...", false)
 
 	go a.populateDiff(entry, header, hash)
 }
@@ -275,7 +277,7 @@ func (a *gitkApp) populateDiff(entry *commitEntry, header, hash string) {
 		if a.currentSelection() != hash {
 			return
 		}
-		a.writeDetailText(output)
+		a.writeDetailText(output, true)
 	}, false)
 }
 
@@ -444,17 +446,46 @@ func (a *gitkApp) clearDetailText(msg string) {
 	if a.detail == nil {
 		return
 	}
-	a.writeDetailText(msg)
+	a.writeDetailText(msg, false)
 }
 
-func (a *gitkApp) writeDetailText(content string) {
+func (a *gitkApp) writeDetailText(content string, highlightDiff bool) {
 	if a.detail == nil {
 		return
 	}
 	a.detail.Configure(State(NORMAL))
 	a.detail.Delete("1.0", END)
 	a.detail.Insert("1.0", content)
+	if highlightDiff {
+		a.highlightDiffLines(content)
+	} else {
+		a.detail.TagRemove("diffAdd", "1.0", END)
+		a.detail.TagRemove("diffDel", "1.0", END)
+	}
 	a.detail.Configure(State("disabled"))
+}
+
+func (a *gitkApp) highlightDiffLines(content string) {
+	a.detail.TagRemove("diffAdd", "1.0", END)
+	a.detail.TagRemove("diffDel", "1.0", END)
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		if len(line) == 0 {
+			continue
+		}
+		tag := ""
+		switch {
+		case strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++"):
+			tag = "diffAdd"
+		case strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---"):
+			tag = "diffDel"
+		default:
+			continue
+		}
+		start := fmt.Sprintf("%d.0", i+1)
+		end := fmt.Sprintf("%d.end", i+1)
+		a.detail.TagAdd(tag, start, end)
+	}
 }
 
 func (a *gitkApp) setSelectedHash(hash string) {
