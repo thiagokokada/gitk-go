@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/filemode"
+	diff "github.com/go-git/go-git/v5/plumbing/format/diff"
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
@@ -46,21 +48,72 @@ func TestNewEntrySearchText(t *testing.T) {
 }
 
 func TestGraphBuilderLine(t *testing.T) {
-	a := plumbing.NewHash("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-	b := plumbing.NewHash("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
-	c := plumbing.NewHash("cccccccccccccccccccccccccccccccccccccccc")
+	head := plumbing.NewHash("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	parent := plumbing.NewHash("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	merge := plumbing.NewHash("cccccccccccccccccccccccccccccccccccccccc")
+	other := plumbing.NewHash("dddddddddddddddddddddddddddddddddddddddd")
 
 	builder := newGraphBuilder()
-	lineA := builder.Line(&object.Commit{Hash: a, ParentHashes: []plumbing.Hash{b}})
-	if lineA != "*" {
-		t.Fatalf("unexpected graph for first commit: %q", lineA)
+	lineHead := builder.Line(&object.Commit{Hash: head, ParentHashes: []plumbing.Hash{parent, merge}})
+	if lineHead != "*" && lineHead != "* |" {
+		t.Fatalf("unexpected graph for merge head: %q", lineHead)
 	}
-	lineB := builder.Line(&object.Commit{Hash: b, ParentHashes: []plumbing.Hash{c}})
-	if lineB != "*" {
-		t.Fatalf("unexpected graph after advancing: %q", lineB)
+	lineParent := builder.Line(&object.Commit{Hash: parent, ParentHashes: []plumbing.Hash{other}})
+	if lineParent != "* |" {
+		t.Fatalf("unexpected graph after shifting columns: %q", lineParent)
 	}
-	lineC := builder.Line(&object.Commit{Hash: c})
-	if lineC != "*" {
-		t.Fatalf("unexpected graph for root commit: %q", lineC)
+	lineMerge := builder.Line(&object.Commit{Hash: merge})
+	if lineMerge != "| *" {
+		t.Fatalf("unexpected graph for secondary branch: %q", lineMerge)
 	}
 }
+
+func TestFormatSummary(t *testing.T) {
+	commit := &object.Commit{
+		Hash:    plumbing.NewHash("abcdef1234567890abcdef1234567890abcdef12"),
+		Author:  object.Signature{Name: "Bob", Email: "bob@example.com", When: time.Unix(0, 0)},
+		Message: strings.Repeat("x", 200),
+	}
+	got := formatSummary(commit)
+	if len(got) == 0 || !strings.Contains(got, commit.Hash.String()[:7]) {
+		t.Fatalf("summary missing hash: %s", got)
+	}
+	if strings.Contains(got, strings.Repeat("x", 150)) {
+		t.Fatalf("summary did not truncate long message: %s", got)
+	}
+}
+
+func TestFilePatchPath(t *testing.T) {
+	fp := testPatch{
+		from: testFile{path: "old.txt"},
+		to:   testFile{path: "new.txt"},
+	}
+	if got := filePatchPath(fp); got != "new.txt" {
+		t.Fatalf("expected new path, got %q", got)
+	}
+	fp = testPatch{
+		from: testFile{path: "old.txt"},
+	}
+	if got := filePatchPath(fp); got != "old.txt" {
+		t.Fatalf("expected old path fallback, got %q", got)
+	}
+}
+
+type testFile struct {
+	path string
+}
+
+func (f testFile) Hash() plumbing.Hash     { return plumbing.ZeroHash }
+func (f testFile) Mode() filemode.FileMode { return 0 }
+func (f testFile) Path() string            { return f.path }
+
+type testPatch struct {
+	from diff.File
+	to   diff.File
+}
+
+func (p testPatch) Files() (diff.File, diff.File) { return p.from, p.to }
+func (p testPatch) IsBinary() bool                { return false }
+func (p testPatch) Chunks() []diff.Chunk          { return nil }
+func (p testPatch) Message() string               { return "" }
+func (p testPatch) IsRename() bool                { return false }
