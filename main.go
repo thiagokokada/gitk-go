@@ -19,10 +19,7 @@ import (
 	_ "modernc.org/tk9.0/themes/azure"
 )
 
-const (
-	defaultLimit         = 200
-	defaultPrefetchBatch = 5 // number of batches to prefetch in the background
-)
+const defaultLimit = 1000
 
 type commitEntry struct {
 	commit     *object.Commit
@@ -46,10 +43,9 @@ type gitkApp struct {
 	filterEntry *TEntryWidget
 	loadMoreBtn *TButtonWidget
 
-	filterValue    string
-	hasMore        bool
-	loadingBatch   bool
-	prefetchTarget int
+	filterValue  string
+	hasMore      bool
+	loadingBatch bool
 
 	selectedMu   sync.RWMutex
 	selectedHash string
@@ -93,7 +89,6 @@ func (a *gitkApp) run() error {
 
 	a.buildUI()
 	a.applyFilter(a.filterValue)
-	a.ensurePrefetch()
 	a.setStatus(a.statusSummary())
 
 	ActivateTheme("azure light")
@@ -114,9 +109,6 @@ func (a *gitkApp) loadInitialCommits() error {
 	a.hasMore = hasMore
 	if a.batch <= 0 {
 		a.batch = defaultLimit
-	}
-	if a.prefetchTarget == 0 {
-		a.prefetchTarget = a.batch * defaultPrefetchBatch
 	}
 	return nil
 }
@@ -351,19 +343,19 @@ func (a *gitkApp) reloadCommitsAsync() {
 			a.hasMore = hasMore
 			a.applyFilter(filter)
 			a.setStatus(a.statusSummary())
-			a.prefetchTarget = a.batch * defaultPrefetchBatch
-			a.ensurePrefetch()
 			a.updateLoadMoreState()
 		}, false)
 	}(currentFilter)
 }
 
 func (a *gitkApp) loadMoreCommitsAsync(prefetch bool) {
-	if a.loadingBatch || !a.hasMore {
+	if a.loadingBatch || (!prefetch && !a.hasMore) {
 		return
 	}
 	a.loadingBatch = true
-	a.updateLoadMoreState()
+	if !prefetch {
+		a.updateLoadMoreState()
+	}
 	currentFilter := a.filterValue
 	skip := len(a.commits)
 	go func(filter string, skipCount int, background bool) {
@@ -389,30 +381,13 @@ func (a *gitkApp) loadMoreCommitsAsync(prefetch bool) {
 			a.hasMore = hasMore
 			a.applyFilter(filter)
 			a.setStatus(a.statusSummary())
-			if background && a.hasMore && len(a.commits) < a.prefetchTarget {
+			if background && a.hasMore {
 				go a.loadMoreCommitsAsync(true)
 			} else if !background {
-				a.prefetchTarget = len(a.commits) + a.batch*defaultPrefetchBatch
-				a.ensurePrefetch()
+				a.updateLoadMoreState()
 			}
-			a.updateLoadMoreState()
 		}, false)
 	}(currentFilter, skip, prefetch)
-}
-
-func (a *gitkApp) ensurePrefetch() {
-	if !a.hasMore || a.batch <= 0 {
-		return
-	}
-	target := a.prefetchTarget
-	if target == 0 {
-		target = a.batch * defaultPrefetchBatch
-		a.prefetchTarget = target
-	}
-	if len(a.commits) >= target {
-		return
-	}
-	a.loadMoreCommitsAsync(true)
 }
 
 func (a *gitkApp) applyFilter(raw string) {
@@ -463,9 +438,6 @@ func (a *gitkApp) applyFilter(raw string) {
 	a.tree.Focus(firstID)
 	a.showCommitDetails(0)
 	a.setStatus(a.statusSummary())
-	if query == "" {
-		a.ensurePrefetch()
-	}
 	a.updateLoadMoreState()
 }
 
