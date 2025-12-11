@@ -207,6 +207,12 @@ func FormatCommitHeader(c *object.Commit) string {
 type LocalChanges struct {
 	HasWorktree bool
 	HasStaged   bool
+
+	UnstagedDiff string
+	StagedDiff   string
+
+	UnstagedSections []FileSection
+	StagedSections   []FileSection
 }
 
 type localChange struct {

@@ -53,8 +53,30 @@ type Controller struct {
 	selectedMu   sync.RWMutex
 	selectedHash string
 
-	shortcutsWin *ToplevelWidget
-	localChanges git.LocalChanges
+	shortcutsWin      *ToplevelWidget
+	showLocalUnstaged bool
+	showLocalStaged   bool
+
+	localDiffMu sync.Mutex
+	localDiffs  map[bool]*localDiffState
+}
+
+type localDiffState struct {
+	sync.Mutex
+	ready      bool
+	loading    bool
+	diff       string
+	sections   []git.FileSection
+	err        error
+	generation int
+}
+
+type localDiffSnapshot struct {
+	ready    bool
+	loading  bool
+	diff     string
+	sections []git.FileSection
+	err      error
 }
 
 func Run(repoPath string, batch int, pref ThemePreference) error {
@@ -71,7 +93,13 @@ func Run(repoPath string, batch int, pref ThemePreference) error {
 	if pref < ThemeAuto || pref > ThemeDark {
 		pref = ThemeAuto
 	}
-	app := &Controller{svc: svc, repoPath: svc.RepoPath(), batch: batch, themePref: pref}
+	app := &Controller{
+		svc:        svc,
+		repoPath:   svc.RepoPath(),
+		batch:      batch,
+		themePref:  pref,
+		localDiffs: make(map[bool]*localDiffState),
+	}
 	return app.run()
 }
 
@@ -87,11 +115,9 @@ func (a *Controller) run() error {
 	if err := a.loadBranchLabels(); err != nil {
 		return err
 	}
-	if err := a.refreshLocalChanges(); err != nil {
-		log.Printf("local changes: %v", err)
-	}
 	a.buildUI()
 	a.applyFilter(a.filterValue)
+	a.refreshLocalChangesAsync(true)
 	a.setStatus(a.statusSummary())
 	App.WmTitle("gitk-go")
 	App.SetResizable(true, true)
@@ -123,17 +149,57 @@ func (a *Controller) loadBranchLabels() error {
 	return nil
 }
 
-func (a *Controller) refreshLocalChanges() error {
-	if a.svc == nil {
-		a.localChanges = git.LocalChanges{}
-		return nil
+func (a *Controller) refreshLocalChangesAsync(prefetch bool) {
+	go func() {
+		var (
+			status    git.LocalChanges
+			repoReady bool
+			err       error
+		)
+		if a.svc != nil {
+			repoReady = true
+			status, err = a.svc.LocalChanges()
+		}
+		if err != nil {
+			log.Printf("local changes: %v", err)
+			return
+		}
+		PostEvent(func() {
+			a.applyLocalChangeStatus(status, repoReady, prefetch)
+		}, false)
+	}()
+}
+
+func (a *Controller) applyLocalChangeStatus(status git.LocalChanges, repoReady bool, prefetch bool) {
+	if !repoReady {
+		a.setLocalRowVisibility(false, false)
+		a.setLocalRowVisibility(true, false)
+		a.resetLocalDiffState(false)
+		a.resetLocalDiffState(true)
+		return
 	}
-	status, err := a.svc.LocalChanges()
-	if err != nil {
-		return err
+	prevUnstaged := a.showLocalUnstaged
+	prevStaged := a.showLocalStaged
+	a.setLocalRowVisibility(false, status.HasWorktree)
+	a.setLocalRowVisibility(true, status.HasStaged)
+	if !status.HasWorktree {
+		a.resetLocalDiffState(false)
 	}
-	a.localChanges = status
-	return nil
+	if !status.HasStaged {
+		a.resetLocalDiffState(true)
+	}
+	shouldLoadUnstaged := prefetch && status.HasWorktree
+	shouldLoadStaged := prefetch && status.HasStaged
+	if !prefetch {
+		shouldLoadUnstaged = status.HasWorktree && !prevUnstaged
+		shouldLoadStaged = status.HasStaged && !prevStaged
+	}
+	if shouldLoadUnstaged {
+		a.ensureLocalDiffLoading(false, true)
+	}
+	if shouldLoadStaged {
+		a.ensureLocalDiffLoading(true, true)
+	}
 }
 
 func (a *Controller) buildUI() {
@@ -300,21 +366,15 @@ func (a *Controller) insertLocalRows() {
 	if a.tree == nil {
 		return
 	}
-	if a.localChanges.HasWorktree {
-		if diffText, _, err := a.svc.WorktreeDiff(false); err == nil && strings.TrimSpace(diffText) != "" {
-			vals := tclList("", localUnstagedLabel, "", "")
-			a.tree.Insert("", "end", Id(localUnstagedRowID), Values(vals), Tags("localUnstaged"))
-		} else {
-			a.localChanges.HasWorktree = false
-		}
+	index := 0
+	if a.showLocalUnstaged {
+		vals := tclList("", localUnstagedLabel, "", "")
+		a.tree.Insert("", index, Id(localUnstagedRowID), Values(vals), Tags("localUnstaged"))
+		index++
 	}
-	if a.localChanges.HasStaged {
-		if diffText, _, err := a.svc.WorktreeDiff(true); err == nil && strings.TrimSpace(diffText) != "" {
-			vals := tclList("", localStagedLabel, "", "")
-			a.tree.Insert("", "end", Id(localStagedRowID), Values(vals), Tags("localStaged"))
-		} else {
-			a.localChanges.HasStaged = false
-		}
+	if a.showLocalStaged {
+		vals := tclList("", localStagedLabel, "", "")
+		a.tree.Insert("", index, Id(localStagedRowID), Values(vals), Tags("localStaged"))
 	}
 }
 
@@ -506,11 +566,11 @@ func (a *Controller) moveSelection(delta int) {
 	}
 	idx := a.currentSelectionIndex() + delta
 	if idx < 0 && delta < 0 {
-		if a.localChanges.HasStaged {
+		if a.showLocalStaged {
 			a.selectSpecialRow(localStagedRowID)
 			return
 		}
-		if a.localChanges.HasWorktree {
+		if a.showLocalUnstaged {
 			a.selectSpecialRow(localUnstagedRowID)
 			return
 		}
@@ -586,7 +646,7 @@ func (a *Controller) handleSpecialRowNav(id string, delta int) bool {
 	switch id {
 	case localUnstagedRowID:
 		if delta > 0 {
-			if a.localChanges.HasStaged {
+			if a.showLocalStaged {
 				a.selectSpecialRow(localStagedRowID)
 			} else if len(a.visible) > 0 {
 				a.selectTreeIndex(0)
@@ -595,7 +655,7 @@ func (a *Controller) handleSpecialRowNav(id string, delta int) bool {
 		return true
 	case localStagedRowID:
 		if delta < 0 {
-			if a.localChanges.HasWorktree {
+			if a.showLocalUnstaged {
 				a.selectSpecialRow(localUnstagedRowID)
 			}
 			return true
@@ -694,22 +754,246 @@ func (a *Controller) showCommitDetails(index int) {
 }
 
 func (a *Controller) showLocalChanges(staged bool) {
-	if a.svc == nil {
-		a.clearDetailText("Repository not ready.")
-		return
-	}
+	a.renderLocalChanges(staged, true)
+}
+
+func (a *Controller) renderLocalChanges(staged bool, requestReload bool) {
 	header := localUnstagedLabel
 	if staged {
 		header = localStagedLabel
 	}
-	diff, sections, err := a.svc.WorktreeDiff(staged)
-	if err != nil {
-		a.clearDetailText(fmt.Sprintf("%s\nUnable to compute diff: %v", header, err))
+	snap := a.snapshotLocalDiff(staged)
+	if requestReload && snap.ready {
+		a.presentLocalDiff(header, snap)
+		a.ensureLocalDiffLoading(staged, true)
 		return
 	}
+	if requestReload {
+		a.ensureLocalDiffLoading(staged, true)
+		snap = a.snapshotLocalDiff(staged)
+	} else if !snap.ready && !snap.loading {
+		a.ensureLocalDiffLoading(staged, false)
+		snap = a.snapshotLocalDiff(staged)
+	}
+	a.presentLocalDiff(header, snap)
+}
+
+func (a *Controller) presentLocalDiff(header string, snap localDiffSnapshot) {
 	a.setSelectedHash("")
-	a.writeDetailText(diff, len(sections) > 0)
-	a.setFileSections(sections)
+	if !snap.ready {
+		a.clearDetailText(fmt.Sprintf("%s\nLoading local changes...", header))
+		return
+	}
+	if snap.err != nil {
+		a.clearDetailText(fmt.Sprintf("%s\nUnable to compute diff: %v", header, snap.err))
+		return
+	}
+	diff := snap.diff
+	if strings.TrimSpace(diff) == "" {
+		a.clearDetailText(fmt.Sprintf("%s\nNo changes.", header))
+		return
+	}
+	a.writeDetailText(diff, len(snap.sections) > 0)
+	a.setFileSections(snap.sections)
+}
+
+func (a *Controller) snapshotLocalDiff(staged bool) localDiffSnapshot {
+	state := a.localDiffState(staged, false)
+	if state == nil {
+		return localDiffSnapshot{}
+	}
+	state.Lock()
+	defer state.Unlock()
+	snap := localDiffSnapshot{
+		ready:   state.ready,
+		loading: state.loading,
+		diff:    state.diff,
+		err:     state.err,
+	}
+	if len(state.sections) > 0 {
+		snap.sections = append([]git.FileSection(nil), state.sections...)
+	}
+	return snap
+}
+
+func (a *Controller) ensureLocalDiffLoading(staged bool, force bool) {
+	state := a.localDiffState(staged, true)
+	state.Lock()
+	if state.loading {
+		state.Unlock()
+		return
+	}
+	if state.ready && !force {
+		state.Unlock()
+		return
+	}
+	state.loading = true
+	state.ready = false
+	state.diff = ""
+	state.sections = nil
+	state.err = nil
+	state.generation++
+	gen := state.generation
+	state.Unlock()
+	go a.computeLocalDiff(staged, gen)
+}
+
+func (a *Controller) computeLocalDiff(staged bool, gen int) {
+	if a.svc == nil {
+		return
+	}
+	diff, sections, err := a.svc.WorktreeDiff(staged)
+	state := a.localDiffState(staged, true)
+	state.Lock()
+	if gen != state.generation {
+		state.Unlock()
+		return
+	}
+	state.loading = false
+	state.ready = true
+	state.diff = diff
+	if len(sections) > 0 {
+		state.sections = append([]git.FileSection(nil), sections...)
+	} else {
+		state.sections = nil
+	}
+	state.err = err
+	state.Unlock()
+	PostEvent(func() {
+		a.onLocalDiffLoaded(staged)
+	}, false)
+}
+
+func (a *Controller) resetLocalDiffState(staged bool) {
+	state := a.localDiffState(staged, false)
+	if state == nil {
+		return
+	}
+	state.Lock()
+	state.loading = false
+	state.ready = false
+	state.diff = ""
+	state.sections = nil
+	state.err = nil
+	state.generation++
+	state.Unlock()
+}
+
+func (a *Controller) localDiffState(staged bool, create bool) *localDiffState {
+	a.localDiffMu.Lock()
+	defer a.localDiffMu.Unlock()
+	if a.localDiffs == nil {
+		if !create {
+			return nil
+		}
+		a.localDiffs = make(map[bool]*localDiffState)
+	}
+	if st, ok := a.localDiffs[staged]; ok {
+		return st
+	}
+	if !create {
+		return nil
+	}
+	st := &localDiffState{}
+	a.localDiffs[staged] = st
+	return st
+}
+
+func (a *Controller) onLocalDiffLoaded(staged bool) {
+	snap := a.snapshotLocalDiff(staged)
+	if snap.err == nil {
+		if strings.TrimSpace(snap.diff) == "" {
+			a.setLocalRowVisibility(staged, false)
+		} else {
+			a.setLocalRowVisibility(staged, true)
+		}
+	}
+	targetID := localRowID(staged)
+	if a.tree == nil {
+		return
+	}
+	sel := a.tree.Selection("")
+	if len(sel) == 0 || sel[0] != targetID {
+		return
+	}
+	a.renderLocalChanges(staged, false)
+}
+
+func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
+	var current bool
+	if staged {
+		current = a.showLocalStaged
+	} else {
+		current = a.showLocalUnstaged
+	}
+	if current == show {
+		return
+	}
+	if staged {
+		a.showLocalStaged = show
+	} else {
+		a.showLocalUnstaged = show
+	}
+	if a.tree == nil {
+		return
+	}
+	id := localRowID(staged)
+	if show {
+		if !a.treeItemExists(id) {
+			a.insertSingleLocalRow(staged)
+		}
+		return
+	}
+	if a.treeItemExists(id) {
+		a.tree.Delete(id)
+	}
+}
+
+func (a *Controller) insertSingleLocalRow(staged bool) {
+	if a.tree == nil {
+		return
+	}
+	label := localRowLabel(staged)
+	tag := localRowTag(staged)
+	index := 0
+	if staged && a.showLocalUnstaged {
+		index = 1
+	}
+	vals := tclList("", label, "", "")
+	a.tree.Insert("", index, Id(localRowID(staged)), Values(vals), Tags(tag))
+}
+
+func localRowID(staged bool) string {
+	if staged {
+		return localStagedRowID
+	}
+	return localUnstagedRowID
+}
+
+func localRowLabel(staged bool) string {
+	if staged {
+		return localStagedLabel
+	}
+	return localUnstagedLabel
+}
+
+func localRowTag(staged bool) string {
+	if staged {
+		return "localStaged"
+	}
+	return "localUnstaged"
+}
+
+func (a *Controller) treeItemExists(id string) bool {
+	if a.tree == nil || id == "" {
+		return false
+	}
+	out, err := evalext.Eval(fmt.Sprintf("%s exists %s", a.tree, id))
+	if err != nil {
+		log.Printf("tree exists %s: %v", id, err)
+		return false
+	}
+	return strings.TrimSpace(out) == "1"
 }
 
 func (a *Controller) populateDiff(entry *git.Entry, hash string) {
@@ -750,10 +1034,8 @@ func (a *Controller) reloadCommitsAsync() {
 			if err := a.loadBranchLabels(); err != nil {
 				log.Printf("failed to refresh branch labels: %v", err)
 			}
-			if err := a.refreshLocalChanges(); err != nil {
-				log.Printf("failed to refresh local changes: %v", err)
-			}
 			a.applyFilter(filter)
+			a.refreshLocalChangesAsync(true)
 			a.setStatus(a.statusSummary())
 		}, false)
 	}(currentFilter)
@@ -790,10 +1072,8 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 			if err := a.loadBranchLabels(); err != nil {
 				log.Printf("failed to refresh branch labels: %v", err)
 			}
-			if err := a.refreshLocalChanges(); err != nil {
-				log.Printf("failed to refresh local changes: %v", err)
-			}
 			a.applyFilter(filter)
+			a.refreshLocalChangesAsync(false)
 			a.setStatus(a.statusSummary())
 			if background && a.hasMore {
 				go a.loadMoreCommitsAsync(true)
