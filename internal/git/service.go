@@ -147,38 +147,6 @@ func (s *Service) BranchLabels() (map[string][]string, error) {
 	return labels, nil
 }
 
-func (s *Service) Diff(commit *object.Commit) (string, []FileSection, error) {
-	currentTree, err := commit.Tree()
-	if err != nil {
-		return "", nil, err
-	}
-	var parentTree *object.Tree
-	if commit.NumParents() > 0 {
-		parent, err := commit.Parent(0)
-		if err != nil {
-			return "", nil, err
-		}
-		parentTree, err = parent.Tree()
-		if err != nil {
-			return "", nil, err
-		}
-	}
-	changes, err := object.DiffTree(parentTree, currentTree)
-	if err != nil {
-		return "", nil, err
-	}
-	if len(changes) == 0 {
-		header := FormatCommitHeader(commit)
-		return header + "\nNo file level changes.", nil, nil
-	}
-	patch, err := changes.Patch()
-	if err != nil {
-		return "", nil, err
-	}
-	header := FormatCommitHeader(commit)
-	return renderPatch(header, patch)
-}
-
 func FormatCommitHeader(c *object.Commit) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "commit %s\n", c.Hash)
