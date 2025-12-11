@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -131,5 +132,39 @@ func TestBuildTreeRows(t *testing.T) {
 	}
 	if !strings.Contains(rows[1].Date, "2025-02-01 11:00") {
 		t.Fatalf("unexpected date column: %q", rows[1].Date)
+	}
+}
+
+func TestThemePreferenceFromString(t *testing.T) {
+	if got := ThemePreferenceFromString("Dark"); got != ThemeDark {
+		t.Fatalf("expected ThemeDark, got %v", got)
+	}
+	if got := ThemePreferenceFromString("light"); got != ThemeLight {
+		t.Fatalf("expected ThemeLight, got %v", got)
+	}
+	if got := ThemePreferenceFromString("other"); got != ThemeAuto {
+		t.Fatalf("expected ThemeAuto fallback, got %v", got)
+	}
+}
+
+func TestPaletteForPreference(t *testing.T) {
+	orig := detectDarkMode
+	t.Cleanup(func() { detectDarkMode = orig })
+
+	detectDarkMode = func() (bool, error) { return true, nil }
+	if pal := paletteForPreference(ThemeAuto); pal.ThemeName != darkPalette.ThemeName {
+		t.Fatalf("expected dark palette for auto detection, got %+v", pal)
+	}
+
+	detectDarkMode = func() (bool, error) { return false, fmt.Errorf("boom") }
+	if pal := paletteForPreference(ThemeAuto); pal.ThemeName != lightPalette.ThemeName {
+		t.Fatalf("expected light palette fallback on detection failure, got %+v", pal)
+	}
+
+	if pal := paletteForPreference(ThemeLight); pal.ThemeName != lightPalette.ThemeName {
+		t.Fatalf("explicit light preference should use light palette, got %+v", pal)
+	}
+	if pal := paletteForPreference(ThemeDark); pal.ThemeName != darkPalette.ThemeName {
+		t.Fatalf("explicit dark preference should use dark palette, got %+v", pal)
 	}
 }

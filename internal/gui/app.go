@@ -20,9 +20,11 @@ const (
 )
 
 type Controller struct {
-	svc      *git.Service
-	repoPath string
-	batch    int
+	svc       *git.Service
+	repoPath  string
+	batch     int
+	themePref ThemePreference
+	palette   colorPalette
 
 	headRef string
 
@@ -45,7 +47,7 @@ type Controller struct {
 	selectedHash string
 }
 
-func Run(repoPath string, batch int) error {
+func Run(repoPath string, batch int, pref ThemePreference) error {
 	if err := InitializeExtension("eval"); err != nil && err != AlreadyInitialized {
 		return fmt.Errorf("init eval extension: %v", err)
 	}
@@ -56,11 +58,18 @@ func Run(repoPath string, batch int) error {
 	if batch <= 0 {
 		batch = git.DefaultBatch
 	}
-	app := &Controller{svc: svc, repoPath: svc.RepoPath(), batch: batch}
+	if pref < ThemeAuto || pref > ThemeDark {
+		pref = ThemeAuto
+	}
+	app := &Controller{svc: svc, repoPath: svc.RepoPath(), batch: batch, themePref: pref}
 	return app.run()
 }
 
 func (a *Controller) run() error {
+	a.palette = paletteForPreference(a.themePref)
+	if a.palette.ThemeName != "" {
+		ActivateTheme(a.palette.ThemeName)
+	}
 	if err := a.loadInitialCommits(); err != nil {
 		return err
 	}
@@ -70,7 +79,6 @@ func (a *Controller) run() error {
 	a.buildUI()
 	a.applyFilter(a.filterValue)
 	a.setStatus(a.statusSummary())
-	ActivateTheme("azure light")
 	App.WmTitle("gitk-go")
 	App.SetResizable(true, true)
 	App.Center().Wait()
@@ -184,9 +192,21 @@ func (a *Controller) buildUI() {
 	a.detail = textFrame.Text(Wrap(NONE), Font(CourierFont(), 11), Exportselection(false), Tabs("1c"))
 	a.detail.Configure(Yscrollcommand(func(e *Event) { e.ScrollSet(detailYScroll) }))
 	a.detail.Configure(Xscrollcommand(func(e *Event) { e.ScrollSet(detailXScroll) }))
-	a.detail.TagConfigure("diffAdd", Background("#dff5de"))
-	a.detail.TagConfigure("diffDel", Background("#f9d6d5"))
-	a.detail.TagConfigure("diffHeader", Background("#e4e4e4"))
+	addColor := a.palette.DiffAdd
+	if addColor == "" {
+		addColor = lightPalette.DiffAdd
+	}
+	delColor := a.palette.DiffDel
+	if delColor == "" {
+		delColor = lightPalette.DiffDel
+	}
+	headerColor := a.palette.DiffHeader
+	if headerColor == "" {
+		headerColor = lightPalette.DiffHeader
+	}
+	a.detail.TagConfigure("diffAdd", Background(addColor))
+	a.detail.TagConfigure("diffDel", Background(delColor))
+	a.detail.TagConfigure("diffHeader", Background(headerColor))
 	Grid(a.detail, Row(0), Column(0), Sticky(NEWS))
 	Grid(detailYScroll, Row(0), Column(1), Sticky(NS))
 	Grid(detailXScroll, Row(1), Column(0), Sticky(WE))

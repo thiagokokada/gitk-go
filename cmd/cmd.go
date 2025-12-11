@@ -15,6 +15,7 @@ func Run() error {
 func run(args []string) error {
 	fs := flag.NewFlagSet("gitk-go", flag.ContinueOnError)
 	limit := fs.Int("limit", git.DefaultBatch, "number of commits to load per batch")
+	mode := fs.String("mode", gui.ThemeAuto.String(), "color mode: auto, light, or dark")
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return nil
@@ -26,5 +27,5 @@ func run(args []string) error {
 	if len(remaining) > 0 {
 		repoPath = remaining[len(remaining)-1]
 	}
-	return gui.Run(repoPath, *limit)
+	return gui.Run(repoPath, *limit, gui.ThemePreferenceFromString(*mode))
 }

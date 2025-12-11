@@ -13,17 +13,19 @@ external git commands.
 - Built-in file list to jump to specific file diffs
 - Keyboard shortcuts mirroring common gitk bindings (navigation, paging, reload)
 - Pure-Go git access with no shell commands or extra dependencies
+- Auto-detects OS dark mode with optional manual override
 
 ### Usage
 
 ```bash
-go run . [-limit N] /path/to/repo
+go run . [-limit N] [-mode auto|light|dark] /path/to/repo
 ```
 
 Arguments:
 
 - First positional argument (optional): repository root or `.git` directory (defaults to current directory)
 - `-limit` (default `1000`): number of commits to load per batch
+- `-mode` (default `auto`): choose light, dark, or auto-detected theme
 
 ### Development
 
