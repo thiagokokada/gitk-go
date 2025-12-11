@@ -1103,15 +1103,14 @@ func formatGraphValue(entry *git.Entry, labels []string) string {
 func tclList(values ...string) string {
 	parts := make([]string, len(values))
 	for i, v := range values {
-		parts[i] = fmt.Sprintf("{%s}", escapeTclString(v))
+		parts[i] = fmt.Sprintf("\"%s\"", escapeTclString(v))
 	}
 	return strings.Join(parts, " ")
 }
 
 func escapeTclString(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
-	s = strings.ReplaceAll(s, "{", `\{`)
-	s = strings.ReplaceAll(s, "}", `\}`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
 	return s
 }
 

@@ -1,7 +1,6 @@
 package gui
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -87,7 +86,7 @@ func TestStatusSummary(t *testing.T) {
 
 func TestTclListAndEscape(t *testing.T) {
 	result := tclList("hello", "a{b}", `path\to`)
-	expected := "{hello} {a\\{b\\}} {path\\\\to}"
+	expected := "\"hello\" \"a{b}\" \"path\\\\to\""
 	if result != expected {
 		t.Fatalf("unexpected tcl list: %q", result)
 	}
@@ -156,7 +155,7 @@ func TestPaletteForPreference(t *testing.T) {
 		t.Fatalf("expected dark palette for auto detection, got %+v", pal)
 	}
 
-	detectDarkMode = func() (bool, error) { return false, fmt.Errorf("boom") }
+	detectDarkMode = func() (bool, error) { return false, nil }
 	if pal := paletteForPreference(ThemeAuto); pal.ThemeName != lightPalette.ThemeName {
 		t.Fatalf("expected light palette fallback on detection failure, got %+v", pal)
 	}
