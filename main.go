@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,7 +40,7 @@ type gitkApp struct {
 	commits []*commitEntry
 	visible []*commitEntry
 
-	list        *ListboxWidget
+	tree        *TTreeviewWidget
 	detail      *TextWidget
 	status      *TLabelWidget
 	filterEntry *TEntryWidget
@@ -197,35 +198,48 @@ func (a *gitkApp) buildUI() {
 	Grid(clearBtn, Row(1), Column(2), Sticky(E), Padx("4p"))
 	Grid(controls.TButton(Txt("Reload"), Command(a.reloadCommitsAsync)), Row(1), Column(3), Sticky(E))
 
-	pane := App.TPanedwindow(Orient(HORIZONTAL))
+	pane := App.TPanedwindow(Orient(VERTICAL))
 	Grid(pane, Row(1), Column(0), Sticky(NEWS), Padx("4p"), Pady("4p"))
 
-	left := pane.TFrame()
-	right := pane.TFrame()
-	pane.Add(left.Window)
-	pane.Add(right.Window)
+	listArea := pane.TFrame()
+	diffArea := pane.TFrame()
+	pane.Add(listArea.Window)
+	pane.Add(diffArea.Window)
 
-	GridRowConfigure(left.Window, 0, Weight(1))
-	GridRowConfigure(left.Window, 1, Weight(0))
-	GridColumnConfigure(left.Window, 0, Weight(1))
-	GridRowConfigure(right.Window, 0, Weight(1))
-	GridColumnConfigure(right.Window, 0, Weight(1))
+	GridRowConfigure(listArea.Window, 0, Weight(1))
+	GridRowConfigure(listArea.Window, 1, Weight(0))
+	GridColumnConfigure(listArea.Window, 0, Weight(1))
+	GridRowConfigure(diffArea.Window, 0, Weight(1))
+	GridColumnConfigure(diffArea.Window, 0, Weight(1))
 
-	listScroll := left.TScrollbar(Command(func(e *Event) { e.Yview(a.list) }))
-	a.list = left.Listbox(Selectmode(BROWSE), Exportselection(false), Font(CourierFont(), 11))
-	a.list.Configure(Yscrollcommand(func(e *Event) { e.ScrollSet(listScroll) }))
-	Grid(a.list, Row(0), Column(0), Sticky(NEWS))
-	Grid(listScroll, Row(0), Column(1), Sticky(NS))
-	a.loadMoreBtn = left.TButton(Txt("Load more commits"), Command(func() {
+	treeScroll := listArea.TScrollbar()
+	a.tree = listArea.TTreeview(
+		Show("headings"),
+		Columns("commit author date"),
+		Selectmode("browse"),
+		Height(18),
+		Yscrollcommand(func(e *Event) { e.ScrollSet(treeScroll) }),
+	)
+	a.tree.Column("commit", Anchor(W), Width(500))
+	a.tree.Column("author", Anchor(W), Width(280))
+	a.tree.Column("date", Anchor(W), Width(180))
+	a.tree.Heading("commit", Txt("Commit"))
+	a.tree.Heading("author", Txt("Author"))
+	a.tree.Heading("date", Txt("Date"))
+	Grid(a.tree, Row(0), Column(0), Sticky(NEWS))
+	Grid(treeScroll, Row(0), Column(1), Sticky(NS))
+	treeScroll.Configure(Command(func(e *Event) { e.Yview(a.tree) }))
+
+	a.loadMoreBtn = listArea.TButton(Txt("Load more commits"), Command(func() {
 		a.loadMoreCommitsAsync(false)
 	}))
 	Grid(a.loadMoreBtn, Row(1), Column(0), Columnspan(2), Sticky(WE), Pady("4p"))
 
-	Bind(a.list, "<<ListboxSelect>>", Command(a.onSelectionChanged))
+	Bind(a.tree, "<<TreeviewSelect>>", Command(a.onTreeSelectionChanged))
 
-	detailYScroll := right.TScrollbar(Command(func(e *Event) { e.Yview(a.detail) }))
-	detailXScroll := right.TScrollbar(Orient(HORIZONTAL), Command(func(e *Event) { e.Xview(a.detail) }))
-	a.detail = right.Text(Wrap(NONE), Font(CourierFont(), 11), Exportselection(false), Tabs("1c"))
+	detailYScroll := diffArea.TScrollbar(Command(func(e *Event) { e.Yview(a.detail) }))
+	detailXScroll := diffArea.TScrollbar(Orient(HORIZONTAL), Command(func(e *Event) { e.Xview(a.detail) }))
+	a.detail = diffArea.Text(Wrap(NONE), Font(CourierFont(), 11), Exportselection(false), Tabs("1c"))
 	a.detail.Configure(Yscrollcommand(func(e *Event) { e.ScrollSet(detailYScroll) }))
 	a.detail.Configure(Xscrollcommand(func(e *Event) { e.ScrollSet(detailXScroll) }))
 	a.detail.TagConfigure("diffAdd", Background("#dff5de"))
@@ -242,15 +256,19 @@ func (a *gitkApp) buildUI() {
 	a.updateLoadMoreState()
 }
 
-func (a *gitkApp) onSelectionChanged() {
-	if a.list == nil {
+func (a *gitkApp) onTreeSelectionChanged() {
+	if a.tree == nil {
 		return
 	}
-	selection := a.list.Curselection()
-	if len(selection) == 0 {
+	sel := a.tree.Selection("")
+	if len(sel) == 0 {
 		return
 	}
-	a.showCommitDetails(selection[0])
+	idx, err := strconv.Atoi(sel[0])
+	if err != nil || idx < 0 || idx >= len(a.visible) {
+		return
+	}
+	a.showCommitDetails(idx)
 }
 
 func (a *gitkApp) showCommitDetails(index int) {
@@ -398,10 +416,10 @@ func (a *gitkApp) ensurePrefetch() {
 }
 
 func (a *gitkApp) applyFilter(raw string) {
-	if a.list == nil {
+	a.filterValue = raw
+	if a.tree == nil {
 		return
 	}
-	a.filterValue = raw
 	query := strings.ToLower(strings.TrimSpace(raw))
 	if query == "" {
 		a.visible = a.commits
@@ -415,9 +433,18 @@ func (a *gitkApp) applyFilter(raw string) {
 		a.visible = filtered
 	}
 
-	a.list.Delete(0, END)
-	for _, entry := range a.visible {
-		a.list.Insert(END, entry.summary)
+	children := a.tree.Children("")
+	if len(children) != 0 {
+		args := make([]any, len(children))
+		for i, child := range children {
+			args[i] = child
+		}
+		a.tree.Delete(args...)
+	}
+	for idx, entry := range a.visible {
+		msg, author, when := commitListColumns(entry)
+		vals := tclList(msg, author, when)
+		a.tree.Insert("", "end", Id(strconv.Itoa(idx)), Values(vals))
 	}
 
 	if len(a.visible) == 0 {
@@ -431,9 +458,9 @@ func (a *gitkApp) applyFilter(raw string) {
 		return
 	}
 
-	a.list.SelectionClear(0, END)
-	a.list.SelectionSet(0)
-	a.list.Activate(0)
+	firstID := strconv.Itoa(0)
+	a.tree.Selection("set", firstID)
+	a.tree.Focus(firstID)
 	a.showCommitDetails(0)
 	a.setStatus(a.statusSummary())
 	if query == "" {
@@ -589,4 +616,30 @@ func formatCommitHeader(c *object.Commit) string {
 		fmt.Fprintf(&b, "    %s\n", line)
 	}
 	return b.String()
+}
+
+func commitListColumns(entry *commitEntry) (msg, author, when string) {
+	firstLine := strings.SplitN(strings.TrimSpace(entry.commit.Message), "\n", 2)[0]
+	if len(firstLine) > 80 {
+		firstLine = firstLine[:77] + "..."
+	}
+	msg = fmt.Sprintf("%s  %s", entry.commit.Hash.String()[:7], firstLine)
+	author = fmt.Sprintf("%s <%s>", entry.commit.Author.Name, entry.commit.Author.Email)
+	when = entry.commit.Author.When.Format("2006-01-02 15:04")
+	return
+}
+
+func tclList(values ...string) string {
+	parts := make([]string, len(values))
+	for i, v := range values {
+		parts[i] = fmt.Sprintf("{%s}", escapeTclString(v))
+	}
+	return strings.Join(parts, " ")
+}
+
+func escapeTclString(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, "{", `\{`)
+	s = strings.ReplaceAll(s, "}", `\}`)
+	return s
 }
