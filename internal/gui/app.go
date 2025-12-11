@@ -18,6 +18,7 @@ import (
 const (
 	autoLoadThreshold  = 0.98
 	moreIndicatorID    = "__more__"
+	loadingIndicatorID = "__loading__"
 	localUnstagedRowID = "__local_unstaged__"
 	localStagedRowID   = "__local_staged__"
 	diffDebounceDelay  = 60 * time.Millisecond
@@ -118,34 +119,14 @@ func (a *Controller) run() error {
 		ActivateTheme(a.palette.ThemeName)
 	}
 	applyAppIcon()
-	if err := a.loadInitialCommits(); err != nil {
-		return err
-	}
-	if err := a.loadBranchLabels(); err != nil {
-		return err
-	}
 	a.buildUI()
-	a.applyFilter(a.filterValue)
+	a.showInitialLoadingRow()
+	a.setStatus("Loading commits...")
 	a.refreshLocalChangesAsync(true)
-	a.setStatus(a.statusSummary())
+	a.reloadCommitsAsync()
 	App.WmTitle("gitk-go")
 	App.SetResizable(true, true)
 	App.Center().Wait()
-	return nil
-}
-
-func (a *Controller) loadInitialCommits() error {
-	entries, head, hasMore, err := a.svc.ScanCommits(0, a.batch)
-	if err != nil {
-		return err
-	}
-	a.commits = entries
-	a.visible = entries
-	a.headRef = head
-	a.hasMore = hasMore
-	if a.batch <= 0 {
-		a.batch = git.DefaultBatch
-	}
 	return nil
 }
 
@@ -346,6 +327,20 @@ func (a *Controller) buildUI() {
 
 	a.clearDetailText("Select a commit to view its details.")
 	a.bindShortcuts()
+}
+
+func (a *Controller) showInitialLoadingRow() {
+	if a.tree == nil {
+		return
+	}
+	if len(a.commits) != 0 || len(a.visible) != 0 {
+		return
+	}
+	if a.treeItemExists(loadingIndicatorID) {
+		return
+	}
+	vals := tclList("", "Loading commits...", "", "")
+	a.tree.Insert("", "end", Id(loadingIndicatorID), Values(vals))
 }
 
 func (a *Controller) initTreeContextMenu() {
@@ -805,6 +800,8 @@ func (a *Controller) onTreeSelectionChanged() {
 	}
 	switch sel[0] {
 	case moreIndicatorID:
+		return
+	case loadingIndicatorID:
 		return
 	case localUnstagedRowID:
 		a.showLocalChanges(false)
