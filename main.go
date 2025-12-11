@@ -55,16 +55,16 @@ type gitkApp struct {
 }
 
 func main() {
-	repoFlag := flag.String("repo", "", "path to the Git repository to explore")
 	batchFlag := flag.Int("limit", defaultLimit, "number of commits to load per batch (default 200)")
 	flag.Parse()
 
-	repoPath := strings.TrimSpace(*repoFlag)
-	if repoPath == "" {
-		if args := flag.Args(); len(args) > 0 {
-			repoPath = args[0]
+	repoPath := "."
+	if args := flag.Args(); len(args) > 0 {
+		last := args[len(args)-1]
+		if strings.HasPrefix(last, "-") {
+			// treat as flag without repo argument
 		} else {
-			repoPath = "."
+			repoPath = last
 		}
 	}
 

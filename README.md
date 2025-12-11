@@ -17,10 +17,10 @@ without Tcl scripts or external runtimes.
 ### Running
 
 ```bash
-go run . -repo /path/to/repo -limit 200
+go run . /path/to/repo -limit 200
 ```
 
-Flags:
+Arguments and flags:
 
-- `-repo` (default `.`): repository root or `.git` directory
+- First positional argument (optional): repository root or `.git` directory; defaults to the current directory.
 - `-limit` (default `200`): number of commits per batch
