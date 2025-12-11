@@ -70,6 +70,7 @@ func (a *Controller) run() error {
 	if a.palette.ThemeName != "" {
 		ActivateTheme(a.palette.ThemeName)
 	}
+	applyAppIcon()
 	if err := a.loadInitialCommits(); err != nil {
 		return err
 	}
