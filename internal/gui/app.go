@@ -291,6 +291,13 @@ func (a *Controller) buildUI() {
 	fileFrame := diffPane.TFrame()
 	diffPane.Add(textFrame.Window)
 	diffPane.Add(fileFrame.Window)
+	configurePane := func(window *Window, options string) {
+		if _, err := evalext.Eval(fmt.Sprintf("%s pane %s %s", diffPane, window, options)); err != nil {
+			log.Printf("pane %s %s: %v", window, options, err)
+		}
+	}
+	configurePane(textFrame.Window, "-weight 5")
+	configurePane(fileFrame.Window, "-weight 1")
 
 	GridRowConfigure(fileFrame.Window, 0, Weight(1))
 	GridColumnConfigure(fileFrame.Window, 0, Weight(1))
