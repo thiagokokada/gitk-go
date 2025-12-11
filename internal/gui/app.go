@@ -15,8 +15,15 @@ import (
 )
 
 const (
-	autoLoadThreshold = 0.98
-	moreIndicatorID   = "__more__"
+	autoLoadThreshold  = 0.98
+	moreIndicatorID    = "__more__"
+	localUnstagedRowID = "__local_unstaged__"
+	localStagedRowID   = "__local_staged__"
+)
+
+const (
+	localUnstagedLabel = "Local uncommitted changes, not checked in to index"
+	localStagedLabel   = "Local changes checked into index but not committed"
 )
 
 type Controller struct {
@@ -47,6 +54,7 @@ type Controller struct {
 	selectedHash string
 
 	shortcutsWin *ToplevelWidget
+	localChanges git.LocalChanges
 }
 
 func Run(repoPath string, batch int, pref ThemePreference) error {
@@ -79,6 +87,9 @@ func (a *Controller) run() error {
 	if err := a.loadBranchLabels(); err != nil {
 		return err
 	}
+	if err := a.refreshLocalChanges(); err != nil {
+		log.Printf("local changes: %v", err)
+	}
 	a.buildUI()
 	a.applyFilter(a.filterValue)
 	a.setStatus(a.statusSummary())
@@ -109,6 +120,19 @@ func (a *Controller) loadBranchLabels() error {
 		return err
 	}
 	a.branchLabels = labels
+	return nil
+}
+
+func (a *Controller) refreshLocalChanges() error {
+	if a.svc == nil {
+		a.localChanges = git.LocalChanges{}
+		return nil
+	}
+	status, err := a.svc.LocalChanges()
+	if err != nil {
+		return err
+	}
+	a.localChanges = status
 	return nil
 }
 
@@ -171,6 +195,16 @@ func (a *Controller) buildUI() {
 	a.tree.Heading("commit", Txt("Commit"))
 	a.tree.Heading("author", Txt("Author"))
 	a.tree.Heading("date", Txt("Date"))
+	unstagedColor := a.palette.LocalUnstagedRow
+	if unstagedColor == "" {
+		unstagedColor = "#fde2e1"
+	}
+	stagedColor := a.palette.LocalStagedRow
+	if stagedColor == "" {
+		stagedColor = "#e2f7e1"
+	}
+	a.tree.TagConfigure("localUnstaged", Background(unstagedColor))
+	a.tree.TagConfigure("localStaged", Background(stagedColor))
 	Grid(a.tree, Row(0), Column(0), Sticky(NEWS))
 	Grid(treeScroll, Row(0), Column(1), Sticky(NS))
 	treeScroll.Configure(Command(func(e *Event) { e.Yview(a.tree) }))
@@ -258,6 +292,28 @@ func (a *Controller) bindShortcuts() {
 			} else {
 				bindAny(seq, sc.handler)
 			}
+		}
+	}
+}
+
+func (a *Controller) insertLocalRows() {
+	if a.tree == nil {
+		return
+	}
+	if a.localChanges.HasWorktree {
+		if diffText, _, err := a.svc.WorktreeDiff(false); err == nil && strings.TrimSpace(diffText) != "" {
+			vals := tclList("", localUnstagedLabel, "", "")
+			a.tree.Insert("", "end", Id(localUnstagedRowID), Values(vals), Tags("localUnstaged"))
+		} else {
+			a.localChanges.HasWorktree = false
+		}
+	}
+	if a.localChanges.HasStaged {
+		if diffText, _, err := a.svc.WorktreeDiff(true); err == nil && strings.TrimSpace(diffText) != "" {
+			vals := tclList("", localStagedLabel, "", "")
+			a.tree.Insert("", "end", Id(localStagedRowID), Values(vals), Tags("localStaged"))
+		} else {
+			a.localChanges.HasStaged = false
 		}
 	}
 }
@@ -436,10 +492,30 @@ func (a *Controller) showShortcutsDialog() {
 }
 
 func (a *Controller) moveSelection(delta int) {
-	if a.tree == nil || len(a.visible) == 0 {
+	if a.tree == nil {
+		return
+	}
+	sel := a.tree.Selection("")
+	if len(sel) > 0 {
+		if a.handleSpecialRowNav(sel[0], delta) {
+			return
+		}
+	}
+	if len(a.visible) == 0 {
 		return
 	}
 	idx := a.currentSelectionIndex() + delta
+	if idx < 0 && delta < 0 {
+		if a.localChanges.HasStaged {
+			a.selectSpecialRow(localStagedRowID)
+			return
+		}
+		if a.localChanges.HasWorktree {
+			a.selectSpecialRow(localUnstagedRowID)
+			return
+		}
+		idx = 0
+	}
 	if idx < 0 {
 		idx = 0
 	}
@@ -461,6 +537,21 @@ func (a *Controller) selectLast() {
 		return
 	}
 	a.selectTreeIndex(len(a.visible) - 1)
+}
+
+func (a *Controller) selectSpecialRow(id string) {
+	if a.tree == nil {
+		return
+	}
+	a.tree.Selection("set", id)
+	a.tree.Focus(id)
+	a.tree.See(id)
+	switch id {
+	case localUnstagedRowID:
+		a.showLocalChanges(false)
+	case localStagedRowID:
+		a.showLocalChanges(true)
+	}
 }
 
 func (a *Controller) currentSelectionIndex() int {
@@ -486,6 +577,39 @@ func (a *Controller) selectTreeIndex(idx int) {
 	a.tree.Focus(id)
 	a.tree.See(id)
 	a.showCommitDetails(idx)
+}
+
+func (a *Controller) handleSpecialRowNav(id string, delta int) bool {
+	if delta == 0 {
+		return true
+	}
+	switch id {
+	case localUnstagedRowID:
+		if delta > 0 {
+			if a.localChanges.HasStaged {
+				a.selectSpecialRow(localStagedRowID)
+			} else if len(a.visible) > 0 {
+				a.selectTreeIndex(0)
+			}
+		}
+		return true
+	case localStagedRowID:
+		if delta < 0 {
+			if a.localChanges.HasWorktree {
+				a.selectSpecialRow(localUnstagedRowID)
+			}
+			return true
+		}
+		if delta > 0 {
+			if len(a.visible) > 0 {
+				a.selectTreeIndex(0)
+			}
+			return true
+		}
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *Controller) scrollTreePages(delta int) {
@@ -537,7 +661,14 @@ func (a *Controller) onTreeSelectionChanged() {
 	if len(sel) == 0 {
 		return
 	}
-	if sel[0] == moreIndicatorID {
+	switch sel[0] {
+	case moreIndicatorID:
+		return
+	case localUnstagedRowID:
+		a.showLocalChanges(false)
+		return
+	case localStagedRowID:
+		a.showLocalChanges(true)
 		return
 	}
 	idx, err := strconv.Atoi(sel[0])
@@ -560,6 +691,25 @@ func (a *Controller) showCommitDetails(index int) {
 	a.writeDetailText(header+"\nLoading diff...", false)
 
 	go a.populateDiff(entry, hash)
+}
+
+func (a *Controller) showLocalChanges(staged bool) {
+	if a.svc == nil {
+		a.clearDetailText("Repository not ready.")
+		return
+	}
+	header := localUnstagedLabel
+	if staged {
+		header = localStagedLabel
+	}
+	diff, sections, err := a.svc.WorktreeDiff(staged)
+	if err != nil {
+		a.clearDetailText(fmt.Sprintf("%s\nUnable to compute diff: %v", header, err))
+		return
+	}
+	a.setSelectedHash("")
+	a.writeDetailText(diff, len(sections) > 0)
+	a.setFileSections(sections)
 }
 
 func (a *Controller) populateDiff(entry *git.Entry, hash string) {
@@ -600,6 +750,9 @@ func (a *Controller) reloadCommitsAsync() {
 			if err := a.loadBranchLabels(); err != nil {
 				log.Printf("failed to refresh branch labels: %v", err)
 			}
+			if err := a.refreshLocalChanges(); err != nil {
+				log.Printf("failed to refresh local changes: %v", err)
+			}
 			a.applyFilter(filter)
 			a.setStatus(a.statusSummary())
 		}, false)
@@ -637,6 +790,9 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 			if err := a.loadBranchLabels(); err != nil {
 				log.Printf("failed to refresh branch labels: %v", err)
 			}
+			if err := a.refreshLocalChanges(); err != nil {
+				log.Printf("failed to refresh local changes: %v", err)
+			}
 			a.applyFilter(filter)
 			a.setStatus(a.statusSummary())
 			if background && a.hasMore {
@@ -661,6 +817,7 @@ func (a *Controller) applyFilter(raw string) {
 		}
 		a.tree.Delete(args...)
 	}
+	a.insertLocalRows()
 	rows := buildTreeRows(a.visible, a.branchLabels)
 	for _, row := range rows {
 		vals := tclList(row.Graph, row.Commit, row.Author, row.Date)

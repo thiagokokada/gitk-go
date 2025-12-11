@@ -4,6 +4,7 @@ go 1.25
 
 require (
 	github.com/go-git/go-git/v5 v5.16.4
+	github.com/pmezard/go-difflib v1.0.0
 	github.com/thiagokokada/dark-mode-go v0.0.1
 	modernc.org/tk9.0 v1.73.0
 )

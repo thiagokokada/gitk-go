@@ -27,24 +27,30 @@ func (p ThemePreference) String() string {
 }
 
 type colorPalette struct {
-	ThemeName  string
-	DiffAdd    string
-	DiffDel    string
-	DiffHeader string
+	ThemeName        string
+	DiffAdd          string
+	DiffDel          string
+	DiffHeader       string
+	LocalUnstagedRow string
+	LocalStagedRow   string
 }
 
 var (
 	lightPalette = colorPalette{
-		ThemeName:  "azure light",
-		DiffAdd:    "#dff5de",
-		DiffDel:    "#f9d6d5",
-		DiffHeader: "#e4e4e4",
+		ThemeName:        "azure light",
+		DiffAdd:          "#dff5de",
+		DiffDel:          "#f9d6d5",
+		DiffHeader:       "#e4e4e4",
+		LocalUnstagedRow: "#fde2e1",
+		LocalStagedRow:   "#e2f7e1",
 	}
 	darkPalette = colorPalette{
-		ThemeName:  "azure dark",
-		DiffAdd:    "#1f3d2b",
-		DiffDel:    "#3d1f29",
-		DiffHeader: "#2f2f2f",
+		ThemeName:        "azure dark",
+		DiffAdd:          "#1f3d2b",
+		DiffDel:          "#3d1f29",
+		DiffHeader:       "#2f2f2f",
+		LocalUnstagedRow: "#4a1f23",
+		LocalStagedRow:   "#1f3b2a",
 	}
 	detectDarkMode = darkmode.IsDarkMode
 )

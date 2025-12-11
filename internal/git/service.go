@@ -3,14 +3,19 @@ package git
 import (
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	gitlib "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/filemode"
 	diff "github.com/go-git/go-git/v5/plumbing/format/diff"
+	gitindex "github.com/go-git/go-git/v5/plumbing/format/index"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/pmezard/go-difflib/difflib"
 )
 
 const DefaultBatch = 1000
@@ -169,48 +174,7 @@ func (s *Service) Diff(commit *object.Commit) (string, []FileSection, error) {
 		return "", nil, err
 	}
 	header := FormatCommitHeader(commit)
-	var sections []FileSection
-	var b strings.Builder
-	b.WriteString(header)
-	b.WriteString("\n")
-	lineNo := strings.Count(header+"\n", "\n")
-	for _, fp := range patch.FilePatches() {
-		path := filePatchPath(fp)
-		fileHeader := fmt.Sprintf("diff --git a/%s b/%s\n", path, path)
-		headerLine := lineNo + 1
-		b.WriteString(fileHeader)
-		lineNo += strings.Count(fileHeader, "\n")
-		if fp.IsBinary() {
-			binaryInfo := "(binary files differ)\n"
-			b.WriteString(binaryInfo)
-			lineNo++
-		} else {
-			for _, chunk := range fp.Chunks() {
-				if chunk == nil {
-					continue
-				}
-				lines := strings.Split(chunk.Content(), "\n")
-				for i, line := range lines {
-					if i == len(lines)-1 && line == "" {
-						continue
-					}
-					var prefix string
-					switch chunk.Type() {
-					case diff.Add:
-						prefix = "+"
-					case diff.Delete:
-						prefix = "-"
-					default:
-						prefix = " "
-					}
-					b.WriteString(prefix + line + "\n")
-					lineNo++
-				}
-			}
-		}
-		sections = append(sections, FileSection{Path: path, Line: headerLine})
-	}
-	return b.String(), sections, nil
+	return renderPatch(header, patch)
 }
 
 func FormatCommitHeader(c *object.Commit) string {
@@ -231,6 +195,107 @@ func FormatCommitHeader(c *object.Commit) string {
 		fmt.Fprintf(&b, "    %s\n", line)
 	}
 	return b.String()
+}
+
+type LocalChanges struct {
+	HasWorktree bool
+	HasStaged   bool
+}
+
+type localChange struct {
+	path string
+	from *object.File
+	to   *object.File
+}
+
+func (s *Service) LocalChanges() (LocalChanges, error) {
+	var res LocalChanges
+	if s.repo == nil {
+		return res, nil
+	}
+	wt, err := s.repo.Worktree()
+	if err != nil {
+		return res, err
+	}
+	status, err := wt.Status()
+	if err != nil {
+		return res, err
+	}
+	for _, st := range status {
+		if st.Worktree != gitlib.Unmodified && st.Worktree != gitlib.Untracked {
+			res.HasWorktree = true
+		}
+		if st.Staging != gitlib.Unmodified {
+			res.HasStaged = true
+		}
+		if res.HasWorktree && res.HasStaged {
+			break
+		}
+	}
+	return res, nil
+}
+
+func (s *Service) WorktreeDiff(staged bool) (string, []FileSection, error) {
+	if s.repo == nil {
+		return "", nil, fmt.Errorf("repository not initialized")
+	}
+	wt, err := s.repo.Worktree()
+	if err != nil {
+		return "", nil, err
+	}
+	status, err := wt.Status()
+	if err != nil {
+		return "", nil, err
+	}
+	headTree, err := s.headTree()
+	if err != nil && err != plumbing.ErrReferenceNotFound {
+		return "", nil, err
+	}
+	var idx *gitindex.Index
+	if staged {
+		idx, err = s.repo.Storer.Index()
+		if err != nil {
+			return "", nil, err
+		}
+	}
+	var paths []string
+	for path, st := range status {
+		include := false
+		if staged {
+			include = st.Staging != gitlib.Unmodified
+		} else {
+			include = st.Worktree != gitlib.Unmodified && st.Worktree != gitlib.Untracked
+		}
+		if include {
+			paths = append(paths, path)
+		}
+	}
+	sort.Strings(paths)
+	var diffs []localChange
+	for _, path := range paths {
+		fromFile, err := fileFromTree(headTree, path)
+		if err != nil {
+			return "", nil, err
+		}
+		var toFile *object.File
+		if staged {
+			toFile, err = fileFromIndex(idx, s.repo, path)
+		} else {
+			toFile, err = fileFromDisk(s.repoPath, path)
+		}
+		if err != nil {
+			return "", nil, err
+		}
+		if fromFile == nil && toFile == nil {
+			continue
+		}
+		diffs = append(diffs, localChange{path: path, from: fromFile, to: toFile})
+	}
+	header := localDiffHeader(staged) + "\n"
+	if len(diffs) == 0 {
+		return "", nil, nil
+	}
+	return renderLocalDiff(header, diffs)
 }
 
 func (s *Service) populateGraphStrings(entries []*Entry, skip int) error {
@@ -314,6 +379,73 @@ func filePatchPath(fp diff.FilePatch) string {
 	return "(unknown)"
 }
 
+func localDiffHeader(staged bool) string {
+	if staged {
+		return "Local changes checked into index but not committed"
+	}
+	return "Local uncommitted changes, not checked in to index"
+}
+
+func renderPatch(header string, patch interface{ FilePatches() []diff.FilePatch }) (string, []FileSection, error) {
+	if patch == nil {
+		return header, nil, nil
+	}
+	var b strings.Builder
+	lineNo := 0
+	if header != "" {
+		if !strings.HasSuffix(header, "\n") {
+			header += "\n"
+		}
+		b.WriteString(header)
+		lineNo = strings.Count(header, "\n")
+	}
+	filePatches := patch.FilePatches()
+	if len(filePatches) == 0 {
+		if header == "" {
+			return "No changes.", nil, nil
+		}
+		b.WriteString("No changes.\n")
+		return b.String(), nil, nil
+	}
+	var sections []FileSection
+	for _, fp := range filePatches {
+		path := filePatchPath(fp)
+		fileHeader := fmt.Sprintf("diff --git a/%s b/%s\n", path, path)
+		headerLine := lineNo + 1
+		b.WriteString(fileHeader)
+		lineNo += strings.Count(fileHeader, "\n")
+		if fp.IsBinary() {
+			b.WriteString("(binary files differ)\n")
+			lineNo++
+		} else {
+			for _, chunk := range fp.Chunks() {
+				if chunk == nil {
+					continue
+				}
+				lines := strings.Split(chunk.Content(), "\n")
+				for i, line := range lines {
+					if i == len(lines)-1 && line == "" {
+						continue
+					}
+					var prefix string
+					switch chunk.Type() {
+					case diff.Add:
+						prefix = "+"
+					case diff.Delete:
+						prefix = "-"
+					default:
+						prefix = " "
+					}
+					b.WriteString(prefix + line + "\n")
+					lineNo++
+				}
+			}
+		}
+		sections = append(sections, FileSection{Path: path, Line: headerLine})
+	}
+	return b.String(), sections, nil
+}
+
 type graphBuilder struct {
 	columns []plumbing.Hash
 }
@@ -388,4 +520,187 @@ func refName(ref *plumbing.Reference) string {
 		name = ref.Name().String()
 	}
 	return name
+}
+
+func (s *Service) headTree() (*object.Tree, error) {
+	if s.repo == nil {
+		return nil, nil
+	}
+	ref, err := s.repo.Head()
+	if err != nil {
+		if err == plumbing.ErrReferenceNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	commit, err := s.repo.CommitObject(ref.Hash())
+	if err != nil {
+		return nil, err
+	}
+	return commit.Tree()
+}
+
+func fileFromTree(tree *object.Tree, path string) (*object.File, error) {
+	if tree == nil {
+		return nil, nil
+	}
+	f, err := tree.File(path)
+	if err == object.ErrFileNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func fileFromIndex(idx *gitindex.Index, repo *gitlib.Repository, path string) (*object.File, error) {
+	if idx == nil || repo == nil {
+		return nil, nil
+	}
+	entry, err := idx.Entry(path)
+	if err == gitindex.ErrEntryNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	blob, err := object.GetBlob(repo.Storer, entry.Hash)
+	if err != nil {
+		return nil, err
+	}
+	return object.NewFile(entry.Name, entry.Mode, blob), nil
+}
+
+func fileFromDisk(root, path string) (*object.File, error) {
+	if root == "" {
+		return nil, fmt.Errorf("repository root not set")
+	}
+	fullPath := filepath.Join(root, path)
+	file, err := os.Open(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer file.Close()
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+	mem := &plumbing.MemoryObject{}
+	mem.SetType(plumbing.BlobObject)
+	if _, err := mem.Write(data); err != nil {
+		return nil, err
+	}
+	blob, err := object.DecodeBlob(mem)
+	if err != nil {
+		return nil, err
+	}
+	mode := filemode.Regular
+	if info, err := file.Stat(); err == nil {
+		if m, err := filemode.NewFromOSFileMode(info.Mode()); err == nil {
+			mode = m
+		}
+	}
+	return object.NewFile(path, mode, blob), nil
+}
+
+func renderLocalDiff(header string, diffs []localChange) (string, []FileSection, error) {
+	var b strings.Builder
+	lineNo := 0
+	if header != "" {
+		if !strings.HasSuffix(header, "\n") {
+			header += "\n"
+		}
+		b.WriteString(header)
+		lineNo = strings.Count(header, "\n")
+	}
+	var sections []FileSection
+	for _, diffItem := range diffs {
+		if diffItem.path == "" {
+			continue
+		}
+		fileHeader := fmt.Sprintf("diff --git a/%s b/%s\n", diffItem.path, diffItem.path)
+		sections = append(sections, FileSection{Path: diffItem.path, Line: lineNo + 1})
+		b.WriteString(fileHeader)
+		lineNo += strings.Count(fileHeader, "\n")
+
+		isBinary, err := binaryChange(diffItem)
+		if err != nil {
+			return "", nil, err
+		}
+		if isBinary {
+			b.WriteString("(binary files differ)\n")
+			lineNo++
+			continue
+		}
+
+		fromLines, err := fileLines(diffItem.from)
+		if err != nil {
+			return "", nil, err
+		}
+		toLines, err := fileLines(diffItem.to)
+		if err != nil {
+			return "", nil, err
+		}
+
+		ud := difflib.UnifiedDiff{
+			A:        fromLines,
+			B:        toLines,
+			FromFile: fmt.Sprintf("a/%s", diffItem.path),
+			ToFile:   fmt.Sprintf("b/%s", diffItem.path),
+			Context:  3,
+		}
+		diffText, err := difflib.GetUnifiedDiffString(ud)
+		if err != nil {
+			return "", nil, err
+		}
+		if diffText == "" {
+			b.WriteString("(no textual changes)\n")
+			lineNo++
+			continue
+		}
+		b.WriteString(diffText)
+		lineNo += strings.Count(diffText, "\n")
+		if !strings.HasSuffix(diffText, "\n") {
+			b.WriteString("\n")
+			lineNo++
+		}
+	}
+	return b.String(), sections, nil
+}
+
+func binaryChange(ch localChange) (bool, error) {
+	if ch.from != nil {
+		bin, err := ch.from.IsBinary()
+		if err != nil {
+			return false, err
+		}
+		if bin {
+			return true, nil
+		}
+	}
+	if ch.to != nil {
+		bin, err := ch.to.IsBinary()
+		if err != nil {
+			return false, err
+		}
+		if bin {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func fileLines(f *object.File) ([]string, error) {
+	if f == nil {
+		return []string{}, nil
+	}
+	content, err := f.Contents()
+	if err != nil {
+		return nil, err
+	}
+	return difflib.SplitLines(content), nil
 }
