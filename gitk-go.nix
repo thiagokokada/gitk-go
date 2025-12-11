@@ -27,6 +27,8 @@ buildGoModule {
     ];
   };
 
+  vendorHash = "sha256-irXhhMvUmMRo5x0tSFCn/zK+V90qBCGuCKAamRFNoDI=";
+
   nativeBuildInputs = lib.optionals stdenv.isLinux [
     makeWrapper
   ];
@@ -53,8 +55,6 @@ buildGoModule {
       ]
     }
   '';
-
-  vendorHash = "sha256-AN8MRJw4EGM4KcE0B0sFOS+8K5AaPuFLVhCFjZJrVaQ=";
 
   ldflags = [
     "-s"
