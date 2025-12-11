@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/thiagokokada/gitk-go/internal/git"
 
@@ -19,6 +20,7 @@ const (
 	moreIndicatorID    = "__more__"
 	localUnstagedRowID = "__local_unstaged__"
 	localStagedRowID   = "__local_staged__"
+	diffDebounceDelay  = 60 * time.Millisecond
 )
 
 const (
@@ -59,6 +61,11 @@ type Controller struct {
 
 	localDiffMu sync.Mutex
 	localDiffs  map[bool]*localDiffState
+
+	diffLoadMu      sync.Mutex
+	diffLoadTimer   *time.Timer
+	pendingDiff     *git.Entry
+	pendingDiffHash string
 }
 
 type localDiffState struct {
@@ -749,11 +756,11 @@ func (a *Controller) showCommitDetails(index int) {
 	a.setSelectedHash(hash)
 	a.setFileSections(nil)
 	a.writeDetailText(header+"\nLoading diff...", false)
-
-	go a.populateDiff(entry, hash)
+	a.scheduleDiffLoad(entry, hash)
 }
 
 func (a *Controller) showLocalChanges(staged bool) {
+	a.cancelPendingDiffLoad()
 	a.renderLocalChanges(staged, true)
 }
 
@@ -1009,6 +1016,43 @@ func (a *Controller) populateDiff(entry *git.Entry, hash string) {
 		a.writeDetailText(diff, highlight)
 		a.setFileSections(sections)
 	}, false)
+}
+
+func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
+	if entry == nil {
+		return
+	}
+	a.diffLoadMu.Lock()
+	defer a.diffLoadMu.Unlock()
+	a.pendingDiff = entry
+	a.pendingDiffHash = hash
+	if a.diffLoadTimer != nil {
+		a.diffLoadTimer.Stop()
+	}
+	a.diffLoadTimer = time.AfterFunc(diffDebounceDelay, func() {
+		a.diffLoadMu.Lock()
+		pending := a.pendingDiff
+		pendingHash := a.pendingDiffHash
+		a.pendingDiff = nil
+		a.pendingDiffHash = ""
+		a.diffLoadTimer = nil
+		a.diffLoadMu.Unlock()
+		if pending == nil {
+			return
+		}
+		go a.populateDiff(pending, pendingHash)
+	})
+}
+
+func (a *Controller) cancelPendingDiffLoad() {
+	a.diffLoadMu.Lock()
+	if a.diffLoadTimer != nil {
+		a.diffLoadTimer.Stop()
+		a.diffLoadTimer = nil
+	}
+	a.pendingDiff = nil
+	a.pendingDiffHash = ""
+	a.diffLoadMu.Unlock()
 }
 
 func (a *Controller) reloadCommitsAsync() {
