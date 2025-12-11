@@ -40,13 +40,15 @@ type Controller struct {
 	commits []*git.Entry
 	visible []*git.Entry
 
-	tree         *TTreeviewWidget
-	fileList     *ListboxWidget
-	detail       *TextWidget
-	status       *TLabelWidget
-	filterEntry  *TEntryWidget
-	fileSections []git.FileSection
-	branchLabels map[string][]string
+	tree            *TTreeviewWidget
+	treeMenu        *MenuWidget
+	fileList        *ListboxWidget
+	detail          *TextWidget
+	status          *TLabelWidget
+	filterEntry     *TEntryWidget
+	fileSections    []git.FileSection
+	branchLabels    map[string][]string
+	contextTargetID string
 
 	filterValue  string
 	hasMore      bool
@@ -283,6 +285,8 @@ func (a *Controller) buildUI() {
 	treeScroll.Configure(Command(func(e *Event) { e.Yview(a.tree) }))
 
 	Bind(a.tree, "<<TreeviewSelect>>", Command(a.onTreeSelectionChanged))
+	a.initTreeContextMenu()
+	a.bindTreeContextMenu()
 
 	diffPane := diffArea.TPanedwindow(Orient(HORIZONTAL))
 	Grid(diffPane, Row(0), Column(0), Sticky(NEWS))
@@ -342,6 +346,70 @@ func (a *Controller) buildUI() {
 
 	a.clearDetailText("Select a commit to view its details.")
 	a.bindShortcuts()
+}
+
+func (a *Controller) initTreeContextMenu() {
+	menu := App.Menu(Tearoff(false))
+	item := menu.AddCommand(Command(a.copySelectedCommitReference))
+	a.configureMenuLabel(menu, item, "Copy commit reference")
+	a.treeMenu = menu
+}
+
+func (a *Controller) bindTreeContextMenu() {
+	if a.tree == nil {
+		return
+	}
+	handler := func(e *Event) {
+		a.showTreeContextMenu(e)
+	}
+	Bind(a.tree, "<Button-2>", Command(handler))
+	Bind(a.tree, "<Button-3>", Command(handler))
+}
+
+func (a *Controller) showTreeContextMenu(e *Event) {
+	if a.treeMenu == nil || a.tree == nil || e == nil {
+		return
+	}
+	item := strings.TrimSpace(a.tree.IdentifyItem(e.X, e.Y))
+	if _, ok := a.treeCommitIndex(item); !ok {
+		return
+	}
+	a.tree.Selection("set", item)
+	a.tree.Focus(item)
+	a.contextTargetID = item
+	Popup(a.treeMenu.Window, e.XRoot, e.YRoot, nil)
+}
+
+func (a *Controller) copySelectedCommitReference() {
+	id := a.contextTargetID
+	if id == "" && a.tree != nil {
+		if sel := a.tree.Selection(""); len(sel) > 0 {
+			id = sel[0]
+		}
+	}
+	idx, ok := a.treeCommitIndex(id)
+	if !ok {
+		return
+	}
+	entry := a.visible[idx]
+	if entry == nil || entry.Commit == nil {
+		return
+	}
+	hash := entry.Commit.Hash.String()
+	ClipboardClear()
+	ClipboardAppend(hash)
+	a.setStatus(fmt.Sprintf("Copied %s to clipboard.", hash))
+}
+
+func (a *Controller) treeCommitIndex(id string) (int, bool) {
+	if id == "" {
+		return 0, false
+	}
+	idx, err := strconv.Atoi(id)
+	if err != nil || idx < 0 || idx >= len(a.visible) {
+		return 0, false
+	}
+	return idx, true
 }
 
 func (a *Controller) bindShortcuts() {
@@ -1443,6 +1511,16 @@ func escapeTclString(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, `"`, `\"`)
 	return s
+}
+
+func (a *Controller) configureMenuLabel(menu *MenuWidget, item *MenuItem, text string) {
+	if menu == nil || item == nil || text == "" {
+		return
+	}
+	safe := escapeTclString(text)
+	if _, err := evalext.Eval(fmt.Sprintf("%s entryconfigure %s -label {%s}", menu, item, safe)); err != nil {
+		log.Printf("menu label (%s): %v", text, err)
+	}
 }
 
 func filterEntries(entries []*git.Entry, query string) []*git.Entry {
