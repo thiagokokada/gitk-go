@@ -1,9 +1,13 @@
 ## gitk-go
 
+![Icon](internal/gui/appicon.svg)
+
 `gitk-go` is a lightweight Git history explorer written in Go. It recreates much
 of `gitk` using [`modernc.org/tk9.0`](https://pkg.go.dev/modernc.org/tk9.0) and
 [`go-git`](https://github.com/go-git/go-git) so it runs without Tcl scripts or
 external git commands.
+
+![Screenshot](screenshot.png)
 
 ### Features
 
