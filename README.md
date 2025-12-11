@@ -30,6 +30,7 @@ Arguments:
 - First positional argument (optional): repository root or `.git` directory (defaults to current directory)
 - `-limit` (default `1000`): number of commits to load per batch
 - `-mode` (default `auto`): choose light, dark, or auto-detected theme
+- `-version`: print the build version (plus active build tags when available) and exit. Version info comes from Go's build metadata (`go build -buildvcs` captures git revision automatically).
 
 #### git CLI acceleration
 
