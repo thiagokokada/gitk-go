@@ -69,7 +69,7 @@ type fileSection struct {
 }
 
 func main() {
-	batchFlag := flag.Int("limit", defaultLimit, "number of commits to load per batch (default 200)")
+	batchFlag := flag.Int("limit", defaultLimit, "number of commits to load per batch")
 	flag.Parse()
 
 	if err := InitializeExtension("eval"); err != nil && err != AlreadyInitialized {
