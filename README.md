@@ -1,26 +1,41 @@
 ## gitk-go
 
-`gitk-go` is a lightweight Git history explorer written in Go. It recreates
-much of the `gitk` experience using the
-[`modernc.org/tk9.0`](https://pkg.go.dev/modernc.org/tk9.0) bindings so it runs
-without Tcl scripts or external runtimes.
+`gitk-go` is a lightweight Git history explorer written in Go. It recreates much
+of `gitk` using [`modernc.org/tk9.0`](https://pkg.go.dev/modernc.org/tk9.0) and
+[`go-git`](https://github.com/go-git/go-git) so it runs without Tcl scripts or
+external git commands.
 
 ### Features
 
-- Tk-based UI with commit list, diff viewer, and status bar
-- Uses `go-git`(https://github.com/go-git/go-git) to read repositories without
-  shelling out to git
-- Real-time filtering across hashes, authors, emails, and messages
-- Batching logic keeps memory usage stable while browsing large repos
-- Explicit reload and load-more controls when you want to refresh history
+- Three-column commit list with branch graph, author, and date columns
+- Background batching keeps the UI responsive and automatically loads more
+- Diff viewer highlights additions, removals, headers, and supports per-file navigation
+- Built-in file list to jump to specific file diffs
+- Keyboard shortcuts mirroring common gitk bindings (navigation, paging, reload)
+- Pure-Go git access with no shell commands or extra dependencies
 
-### Running
+### Usage
 
 ```bash
-go run . /path/to/repo -limit 200
+go run . [-limit N] /path/to/repo
 ```
 
-Arguments and flags:
+Arguments:
 
-- First positional argument (optional): repository root or `.git` directory; defaults to the current directory.
-- `-limit` (default `200`): number of commits per batch
+- First positional argument (optional): repository root or `.git` directory (defaults to current directory)
+- `-limit` (default `1000`): number of commits to load per batch
+
+### Development
+
+```bash
+go test ./...
+go build ./...
+```
+
+Key packages:
+
+- `cmd`: CLI parsing and entry point
+- `internal/git`: repository access, commit scanning, graph building
+- `internal/gui`: Tk UI and controller logic
+
+See `AGENTS.md` for guidelines followed by the automation helping maintain this project.
