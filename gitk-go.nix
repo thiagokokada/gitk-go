@@ -1,5 +1,13 @@
 {
   lib,
+  stdenv,
+  fontconfig,
+  freetype,
+  libjpeg,
+  libpng,
+  makeWrapper,
+  xorg,
+  zlib,
   buildGoModule,
   version ? "unknown",
 }:
@@ -18,6 +26,33 @@ buildGoModule {
       ./main.go
     ];
   };
+
+  nativeBuildInputs = lib.optionals stdenv.isLinux [
+    makeWrapper
+  ];
+
+  postFixup = lib.optionalString stdenv.isLinux ''
+    wrapProgram $out/bin/gitk-go \
+    --set LD_LIBRARY_PATH ${
+      with xorg;
+      lib.makeLibraryPath [
+        # XXX: not sure if all those libs are necessary
+        libX11
+        libXext
+        libXft
+        libXrender
+        libXfixes
+        libXcursor
+        libXinerama
+        libXrandr
+        fontconfig
+        freetype
+        libpng
+        libjpeg
+        zlib
+      ]
+    }
+  '';
 
   vendorHash = "sha256-AN8MRJw4EGM4KcE0B0sFOS+8K5AaPuFLVhCFjZJrVaQ=";
 
