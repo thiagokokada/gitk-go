@@ -9,3 +9,4 @@ agents should follow these rules:
 4. Use `go test ./...` and `go fmt` before sending changes whenever the environment allows it.
 5. README and AGENTS should stay ASCII-only and concise.
 6. Describe any sandbox or permission issues observed while running commands so maintainers can reproduce locally.
+7. Keep GUI assets (icons, images, etc.) inside `internal/gui/assets` and reference them there when using `go:embed`.

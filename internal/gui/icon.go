@@ -7,7 +7,7 @@ import (
 	. "modernc.org/tk9.0"
 )
 
-//go:embed appicon.svg
+//go:embed assets/appicon.svg
 var appIconSVG string
 
 func applyAppIcon() {
