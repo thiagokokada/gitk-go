@@ -488,12 +488,10 @@ func (a *Controller) applyFilter(raw string) {
 		}
 		a.tree.Delete(args...)
 	}
-	for idx, entry := range a.visible {
-		labels := a.branchLabels[entry.Commit.Hash.String()]
-		graph := formatGraphValue(entry, labels)
-		msg, author, when := commitListColumns(entry)
-		vals := tclList(graph, msg, author, when)
-		a.tree.Insert("", "end", Id(strconv.Itoa(idx)), Values(vals))
+	rows := buildTreeRows(a.visible, a.branchLabels)
+	for _, row := range rows {
+		vals := tclList(row.Graph, row.Commit, row.Author, row.Date)
+		a.tree.Insert("", "end", Id(row.ID), Values(vals))
 	}
 	if a.hasMore && len(a.visible) > 0 {
 		vals := tclList("", "Loading more commits...", "", "")
@@ -799,4 +797,34 @@ func filterEntries(entries []*git.Entry, query string) []*git.Entry {
 		}
 	}
 	return filtered
+}
+
+type treeRow struct {
+	ID     string
+	Graph  string
+	Commit string
+	Author string
+	Date   string
+}
+
+func buildTreeRows(entries []*git.Entry, labels map[string][]string) []treeRow {
+	if len(entries) == 0 {
+		return nil
+	}
+	rows := make([]treeRow, 0, len(entries))
+	for i, entry := range entries {
+		if entry == nil || entry.Commit == nil {
+			continue
+		}
+		msg, author, when := commitListColumns(entry)
+		graph := formatGraphValue(entry, labels[entry.Commit.Hash.String()])
+		rows = append(rows, treeRow{
+			ID:     strconv.Itoa(i),
+			Graph:  graph,
+			Commit: msg,
+			Author: author,
+			Date:   when,
+		})
+	}
+	return rows
 }

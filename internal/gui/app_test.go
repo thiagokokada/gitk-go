@@ -91,3 +91,45 @@ func TestTclListAndEscape(t *testing.T) {
 		t.Fatalf("unexpected tcl list: %q", result)
 	}
 }
+
+func TestBuildTreeRows(t *testing.T) {
+	now := time.Date(2025, 2, 1, 12, 0, 0, 0, time.UTC)
+	entry1 := &git.Entry{
+		Commit: &object.Commit{
+			Hash:    plumbing.NewHash("1111111111111111111111111111111111111111"),
+			Author:  object.Signature{Name: "Alice", Email: "alice@example.com", When: now},
+			Message: "first message",
+		},
+		Graph: "* |",
+	}
+	entry2 := &git.Entry{
+		Commit: &object.Commit{
+			Hash:    plumbing.NewHash("2222222222222222222222222222222222222222"),
+			Author:  object.Signature{Name: "Bob", Email: "bob@example.com", When: now.Add(-time.Hour)},
+			Message: "second message line\nmore",
+		},
+		Graph: "|/",
+	}
+	labels := map[string][]string{
+		entry1.Commit.Hash.String(): {"HEAD -> main"},
+	}
+	rows := buildTreeRows([]*git.Entry{entry1, entry2}, labels)
+	if len(rows) != 2 {
+		t.Fatalf("expected two rows, got %d", len(rows))
+	}
+	if rows[0].ID != "0" || rows[1].ID != "1" {
+		t.Fatalf("unexpected row ids: %#v", rows)
+	}
+	if rows[0].Graph != "* | [HEAD -> main]" {
+		t.Fatalf("unexpected graph: %q", rows[0].Graph)
+	}
+	if !strings.Contains(rows[0].Commit, "first message") {
+		t.Fatalf("missing commit message in row: %q", rows[0].Commit)
+	}
+	if !strings.Contains(rows[1].Author, "Bob") || !strings.Contains(rows[1].Author, "bob@example.com") {
+		t.Fatalf("unexpected author column: %q", rows[1].Author)
+	}
+	if !strings.Contains(rows[1].Date, "2025-02-01 11:00") {
+		t.Fatalf("unexpected date column: %q", rows[1].Date)
+	}
+}
