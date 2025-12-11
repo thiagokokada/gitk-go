@@ -20,10 +20,15 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 
 	. "modernc.org/tk9.0"
+	evalext "modernc.org/tk9.0/extensions/eval"
 	_ "modernc.org/tk9.0/themes/azure"
 )
 
-const defaultLimit = 1000
+const (
+	defaultLimit      = 1000
+	autoLoadThreshold = 0.98
+	moreIndicatorID   = "__more__"
+)
 
 type commitEntry struct {
 	commit     *object.Commit
@@ -47,7 +52,6 @@ type gitkApp struct {
 	detail       *TextWidget
 	status       *TLabelWidget
 	filterEntry  *TEntryWidget
-	loadMoreBtn  *TButtonWidget
 	fileSections []fileSection
 	branchLabels map[string][]string
 
@@ -67,6 +71,10 @@ type fileSection struct {
 func main() {
 	batchFlag := flag.Int("limit", defaultLimit, "number of commits to load per batch (default 200)")
 	flag.Parse()
+
+	if err := InitializeExtension("eval"); err != nil && err != AlreadyInitialized {
+		log.Fatalf("init eval extension: %v", err)
+	}
 
 	repoPath := "."
 	if args := flag.Args(); len(args) > 0 {
@@ -377,7 +385,10 @@ func (a *gitkApp) buildUI() {
 		Columns("graph commit author date"),
 		Selectmode("browse"),
 		Height(18),
-		Yscrollcommand(func(e *Event) { e.ScrollSet(treeScroll) }),
+		Yscrollcommand(func(e *Event) {
+			e.ScrollSet(treeScroll)
+			a.maybeLoadMoreOnScroll()
+		}),
 	)
 	a.tree.Column("graph", Anchor(W), Width(120))
 	a.tree.Column("commit", Anchor(W), Width(380))
@@ -390,11 +401,6 @@ func (a *gitkApp) buildUI() {
 	Grid(a.tree, Row(0), Column(0), Sticky(NEWS))
 	Grid(treeScroll, Row(0), Column(1), Sticky(NS))
 	treeScroll.Configure(Command(func(e *Event) { e.Yview(a.tree) }))
-
-	a.loadMoreBtn = listArea.TButton(Txt("Load more commits"), Command(func() {
-		a.loadMoreCommitsAsync(false)
-	}))
-	Grid(a.loadMoreBtn, Row(1), Column(0), Columnspan(2), Sticky(WE), Pady("4p"))
 
 	Bind(a.tree, "<<TreeviewSelect>>", Command(a.onTreeSelectionChanged))
 
@@ -436,7 +442,6 @@ func (a *gitkApp) buildUI() {
 	Grid(a.status, Row(2), Column(0), Sticky(WE))
 
 	a.clearDetailText("Select a commit to view its details.")
-	a.updateLoadMoreState()
 }
 
 func (a *gitkApp) onTreeSelectionChanged() {
@@ -445,6 +450,9 @@ func (a *gitkApp) onTreeSelectionChanged() {
 	}
 	sel := a.tree.Selection("")
 	if len(sel) == 0 {
+		return
+	}
+	if sel[0] == moreIndicatorID {
 		return
 	}
 	idx, err := strconv.Atoi(sel[0])
@@ -583,7 +591,6 @@ func (a *gitkApp) reloadCommitsAsync() {
 			}
 			a.applyFilter(filter)
 			a.setStatus(a.statusSummary())
-			a.updateLoadMoreState()
 		}, false)
 	}(currentFilter)
 }
@@ -593,9 +600,6 @@ func (a *gitkApp) loadMoreCommitsAsync(prefetch bool) {
 		return
 	}
 	a.loadingBatch = true
-	if !prefetch {
-		a.updateLoadMoreState()
-	}
 	currentFilter := a.filterValue
 	skip := len(a.commits)
 	go func(filter string, skipCount int, background bool) {
@@ -626,8 +630,6 @@ func (a *gitkApp) loadMoreCommitsAsync(prefetch bool) {
 			a.setStatus(a.statusSummary())
 			if background && a.hasMore {
 				go a.loadMoreCommitsAsync(true)
-			} else if !background {
-				a.updateLoadMoreState()
 			}
 		}, false)
 	}(currentFilter, skip, prefetch)
@@ -666,6 +668,10 @@ func (a *gitkApp) applyFilter(raw string) {
 		vals := tclList(graph, msg, author, when)
 		a.tree.Insert("", "end", Id(strconv.Itoa(idx)), Values(vals))
 	}
+	if a.hasMore && len(a.visible) > 0 {
+		vals := tclList("", "Loading more commits...", "", "")
+		a.tree.Insert("", "end", Id(moreIndicatorID), Values(vals))
+	}
 
 	if len(a.visible) == 0 {
 		if len(a.commits) == 0 {
@@ -674,7 +680,6 @@ func (a *gitkApp) applyFilter(raw string) {
 			a.clearDetailText("No commits match the current filter.")
 		}
 		a.setStatus(a.statusSummary())
-		a.updateLoadMoreState()
 		return
 	}
 
@@ -683,7 +688,63 @@ func (a *gitkApp) applyFilter(raw string) {
 	a.tree.Focus(firstID)
 	a.showCommitDetails(0)
 	a.setStatus(a.statusSummary())
-	a.updateLoadMoreState()
+	a.scheduleAutoLoadCheck()
+}
+
+func (a *gitkApp) scheduleAutoLoadCheck() {
+	if a.tree == nil || a.filterValue == "" || !a.hasMore {
+		return
+	}
+	PostEvent(func() {
+		a.maybeLoadMoreOnScroll()
+	}, false)
+}
+
+func (a *gitkApp) maybeLoadMoreOnScroll() {
+	if a.tree == nil || a.loadingBatch || !a.hasMore {
+		return
+	}
+	if len(a.visible) == 0 {
+		return
+	}
+	start, end, err := a.treeYviewRange()
+	if err != nil {
+		log.Printf("tree yview: %v", err)
+		return
+	}
+	if a.filterValue == "" && len(a.visible) >= a.batch && start <= 0 && end >= 1 {
+		return
+	}
+	if end >= autoLoadThreshold {
+		a.loadMoreCommitsAsync(false)
+	}
+}
+
+func (a *gitkApp) treeYviewRange() (float64, float64, error) {
+	if a.tree == nil {
+		return 0, 0, fmt.Errorf("tree widget not ready")
+	}
+	path := a.tree.String()
+	if path == "" {
+		return 0, 0, fmt.Errorf("tree widget has empty path")
+	}
+	out, err := evalext.Eval(fmt.Sprintf("%s yview", path))
+	if err != nil {
+		return 0, 0, err
+	}
+	fields := strings.Fields(strings.TrimSpace(out))
+	if len(fields) < 2 {
+		return 0, 0, fmt.Errorf("unexpected treeview yview output %q", out)
+	}
+	start, err := strconv.ParseFloat(fields[0], 64)
+	if err != nil {
+		return 0, 0, err
+	}
+	end, err := strconv.ParseFloat(fields[1], 64)
+	if err != nil {
+		return 0, 0, err
+	}
+	return start, end, nil
 }
 
 func (a *gitkApp) clearDetailText(msg string) {
@@ -852,17 +913,6 @@ func (a *gitkApp) statusSummary() string {
 		return base
 	}
 	return fmt.Sprintf("Filter %q — %s", filterDesc, base)
-}
-
-func (a *gitkApp) updateLoadMoreState() {
-	if a.loadMoreBtn == nil {
-		return
-	}
-	state := "normal"
-	if a.loadingBatch || !a.hasMore {
-		state = "disabled"
-	}
-	a.loadMoreBtn.Configure(State(state))
 }
 
 func refName(ref *plumbing.Reference) string {
