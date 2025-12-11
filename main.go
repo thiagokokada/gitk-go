@@ -13,6 +13,7 @@ import (
 
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	diff "github.com/go-git/go-git/v5/plumbing/format/diff"
 	"github.com/go-git/go-git/v5/plumbing/object"
 
 	. "modernc.org/tk9.0"
@@ -37,11 +38,13 @@ type gitkApp struct {
 	commits []*commitEntry
 	visible []*commitEntry
 
-	tree        *TTreeviewWidget
-	detail      *TextWidget
-	status      *TLabelWidget
-	filterEntry *TEntryWidget
-	loadMoreBtn *TButtonWidget
+	tree         *TTreeviewWidget
+	fileList     *ListboxWidget
+	detail       *TextWidget
+	status       *TLabelWidget
+	filterEntry  *TEntryWidget
+	loadMoreBtn  *TButtonWidget
+	fileSections []fileSection
 
 	filterValue  string
 	hasMore      bool
@@ -49,6 +52,11 @@ type gitkApp struct {
 
 	selectedMu   sync.RWMutex
 	selectedHash string
+}
+
+type fileSection struct {
+	path string
+	line int
 }
 
 func main() {
@@ -229,17 +237,39 @@ func (a *gitkApp) buildUI() {
 
 	Bind(a.tree, "<<TreeviewSelect>>", Command(a.onTreeSelectionChanged))
 
-	detailYScroll := diffArea.TScrollbar(Command(func(e *Event) { e.Yview(a.detail) }))
-	detailXScroll := diffArea.TScrollbar(Orient(HORIZONTAL), Command(func(e *Event) { e.Xview(a.detail) }))
-	a.detail = diffArea.Text(Wrap(NONE), Font(CourierFont(), 11), Exportselection(false), Tabs("1c"))
+	diffPane := diffArea.TPanedwindow(Orient(HORIZONTAL))
+	Grid(diffPane, Row(0), Column(0), Sticky(NEWS))
+
+	textFrame := diffPane.TFrame()
+	fileFrame := diffPane.TFrame()
+	diffPane.Add(textFrame.Window)
+	diffPane.Add(fileFrame.Window)
+
+	GridRowConfigure(fileFrame.Window, 0, Weight(1))
+	GridColumnConfigure(fileFrame.Window, 0, Weight(1))
+	GridRowConfigure(textFrame.Window, 0, Weight(1))
+	GridColumnConfigure(textFrame.Window, 0, Weight(1))
+
+	detailYScroll := textFrame.TScrollbar(Command(func(e *Event) { e.Yview(a.detail) }))
+	detailXScroll := textFrame.TScrollbar(Orient(HORIZONTAL), Command(func(e *Event) { e.Xview(a.detail) }))
+	a.detail = textFrame.Text(Wrap(NONE), Font(CourierFont(), 11), Exportselection(false), Tabs("1c"))
 	a.detail.Configure(Yscrollcommand(func(e *Event) { e.ScrollSet(detailYScroll) }))
 	a.detail.Configure(Xscrollcommand(func(e *Event) { e.ScrollSet(detailXScroll) }))
 	a.detail.TagConfigure("diffAdd", Background("#dff5de"))
 	a.detail.TagConfigure("diffDel", Background("#f9d6d5"))
+	a.detail.TagConfigure("diffHeader", Background("#e4e4e4"))
 	Grid(a.detail, Row(0), Column(0), Sticky(NEWS))
 	Grid(detailYScroll, Row(0), Column(1), Sticky(NS))
 	Grid(detailXScroll, Row(1), Column(0), Sticky(WE))
 	a.detail.Configure(State("disabled"))
+
+	fileScroll := fileFrame.TScrollbar()
+	a.fileList = fileFrame.Listbox(Exportselection(false), Width(40))
+	a.fileList.Configure(Yscrollcommand(func(e *Event) { e.ScrollSet(fileScroll) }))
+	Grid(a.fileList, Row(0), Column(0), Sticky(NEWS))
+	Grid(fileScroll, Row(0), Column(1), Sticky(NS))
+	fileScroll.Configure(Command(func(e *Event) { e.Yview(a.fileList) }))
+	Bind(a.fileList, "<<ListboxSelect>>", Command(a.onFileSelectionChanged))
 
 	a.status = App.TLabel(Anchor(W), Relief(SUNKEN), Padding("4p"))
 	Grid(a.status, Row(2), Column(0), Sticky(WE))
@@ -272,53 +302,106 @@ func (a *gitkApp) showCommitDetails(index int) {
 	header := formatCommitHeader(entry.commit)
 	hash := entry.commit.Hash.String()
 	a.setSelectedHash(hash)
+	a.setFileSections(nil)
 	a.writeDetailText(header+"\nLoading diff...", false)
 
-	go a.populateDiff(entry, header, hash)
+	go a.populateDiff(entry, hash)
 }
 
-func (a *gitkApp) populateDiff(entry *commitEntry, header, hash string) {
-	diff, err := a.diffForCommit(entry.commit)
+func (a *gitkApp) populateDiff(entry *commitEntry, hash string) {
+	diff, sections, err := a.diffForCommit(entry.commit)
 	if err != nil {
 		diff = fmt.Sprintf("Unable to compute diff: %v", err)
 	}
-	output := header + "\n" + diff
+	highlight := len(sections) > 0
 	PostEvent(func() {
 		if a.currentSelection() != hash {
 			return
 		}
-		a.writeDetailText(output, true)
+		a.writeDetailText(diff, highlight)
+		a.setFileSections(sections)
 	}, false)
 }
 
-func (a *gitkApp) diffForCommit(c *object.Commit) (string, error) {
+func (a *gitkApp) diffForCommit(c *object.Commit) (string, []fileSection, error) {
 	currentTree, err := c.Tree()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	var parentTree *object.Tree
 	if c.NumParents() > 0 {
 		parent, err := c.Parent(0)
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 		parentTree, err = parent.Tree()
 		if err != nil {
-			return "", err
+			return "", nil, err
 		}
 	}
 	changes, err := object.DiffTree(parentTree, currentTree)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if len(changes) == 0 {
-		return "No file level changes.", nil
+		header := formatCommitHeader(c)
+		return header + "\nNo file level changes.", nil, nil
 	}
 	patch, err := changes.Patch()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return patch.String(), nil
+	header := formatCommitHeader(c)
+	var sections []fileSection
+	var b strings.Builder
+	b.WriteString(header)
+	b.WriteString("\n")
+	lineNo := strings.Count(header+"\n", "\n")
+	for _, fp := range patch.FilePatches() {
+		path := filePatchPath(fp)
+		fileHeader := fmt.Sprintf("diff --git a/%s b/%s\n", path, path)
+		b.WriteString(fileHeader)
+		lineNo += strings.Count(fileHeader, "\n")
+
+		startLine := 0
+		if fp.IsBinary() {
+			binaryInfo := "(binary files differ)\n"
+			b.WriteString(binaryInfo)
+			lineNo++
+			startLine = lineNo
+		} else {
+			for _, chunk := range fp.Chunks() {
+				if chunk == nil {
+					continue
+				}
+				lines := strings.Split(chunk.Content(), "\n")
+				for i, line := range lines {
+					if i == len(lines)-1 && line == "" {
+						continue
+					}
+					var prefix string
+					switch chunk.Type() {
+					case diff.Add:
+						prefix = "+"
+					case diff.Delete:
+						prefix = "-"
+					default:
+						prefix = " "
+					}
+					b.WriteString(prefix + line + "\n")
+					lineNo++
+					if startLine == 0 {
+						startLine = lineNo
+					}
+				}
+			}
+		}
+		if startLine == 0 {
+			startLine = lineNo
+		}
+		sections = append(sections, fileSection{path: path, line: startLine - 1})
+	}
+	return b.String(), sections, nil
 }
 
 func (a *gitkApp) reloadCommitsAsync() {
@@ -446,6 +529,7 @@ func (a *gitkApp) clearDetailText(msg string) {
 		return
 	}
 	a.writeDetailText(msg, false)
+	a.setFileSections(nil)
 }
 
 func (a *gitkApp) writeDetailText(content string, highlightDiff bool) {
@@ -460,6 +544,7 @@ func (a *gitkApp) writeDetailText(content string, highlightDiff bool) {
 	} else {
 		a.detail.TagRemove("diffAdd", "1.0", END)
 		a.detail.TagRemove("diffDel", "1.0", END)
+		a.detail.TagRemove("diffHeader", "1.0", END)
 	}
 	a.detail.Configure(State("disabled"))
 }
@@ -467,6 +552,7 @@ func (a *gitkApp) writeDetailText(content string, highlightDiff bool) {
 func (a *gitkApp) highlightDiffLines(content string) {
 	a.detail.TagRemove("diffAdd", "1.0", END)
 	a.detail.TagRemove("diffDel", "1.0", END)
+	a.detail.TagRemove("diffHeader", "1.0", END)
 	lines := strings.Split(content, "\n")
 	for i, line := range lines {
 		if len(line) == 0 {
@@ -474,6 +560,8 @@ func (a *gitkApp) highlightDiffLines(content string) {
 		}
 		tag := ""
 		switch {
+		case strings.HasPrefix(line, "diff --git"):
+			tag = "diffHeader"
 		case strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++"):
 			tag = "diffAdd"
 		case strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---"):
@@ -485,6 +573,82 @@ func (a *gitkApp) highlightDiffLines(content string) {
 		end := fmt.Sprintf("%d.end", i+1)
 		a.detail.TagAdd(tag, start, end)
 	}
+}
+
+func (a *gitkApp) setFileSections(sections []fileSection) {
+	a.fileSections = sections
+	if a.fileList == nil {
+		return
+	}
+	a.fileList.Configure(State("normal"))
+	a.fileList.Delete(0, END)
+	if len(sections) == 0 {
+		a.fileList.Insert(END, "(no files)")
+		a.fileList.Configure(State("disabled"))
+		return
+	}
+	for _, sec := range sections {
+		a.fileList.Insert(END, sec.path)
+	}
+	a.fileList.SelectionClear(0, END)
+	a.fileList.Activate(0)
+	a.fileList.Configure(State("normal"))
+}
+
+func (a *gitkApp) onFileSelectionChanged() {
+	if len(a.fileSections) == 0 || a.fileList == nil {
+		return
+	}
+	selection := a.fileList.Curselection()
+	if len(selection) == 0 {
+		return
+	}
+	idx := selection[0]
+	if idx < 0 || idx >= len(a.fileSections) {
+		return
+	}
+	a.scrollDiffToLine(a.fileSections[idx].line)
+}
+
+func (a *gitkApp) scrollDiffToLine(line int) {
+	if a.detail == nil || line <= 0 {
+		return
+	}
+	defer func() {
+		recover()
+	}()
+	totalLines := a.textLineCount()
+	if totalLines <= 1 {
+		a.detail.Yviewmoveto(0)
+		return
+	}
+	fraction := float64(line-1) / float64(totalLines-1)
+	if fraction < 0 {
+		fraction = 0
+	}
+	if fraction > 1 {
+		fraction = 1
+	}
+	a.detail.Yviewmoveto(fraction)
+}
+
+func (a *gitkApp) textLineCount() int {
+	if a.detail == nil {
+		return 0
+	}
+	index := a.detail.Index(END)
+	parts := strings.SplitN(index, ".", 2)
+	if len(parts) == 0 {
+		return 0
+	}
+	lines, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0
+	}
+	if lines > 0 {
+		lines--
+	}
+	return lines
 }
 
 func (a *gitkApp) setSelectedHash(hash string) {
@@ -614,4 +778,15 @@ func escapeTclString(s string) string {
 	s = strings.ReplaceAll(s, "{", `\{`)
 	s = strings.ReplaceAll(s, "}", `\}`)
 	return s
+}
+
+func filePatchPath(fp diff.FilePatch) string {
+	from, to := fp.Files()
+	if to != nil && to.Path() != "" {
+		return to.Path()
+	}
+	if from != nil && from.Path() != "" {
+		return from.Path()
+	}
+	return "(unknown)"
 }
