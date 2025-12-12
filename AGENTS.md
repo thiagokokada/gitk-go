@@ -10,3 +10,5 @@ agents should follow these rules:
 5. README and AGENTS should stay ASCII-only and concise.
 6. Describe any sandbox or permission issues observed while running commands so maintainers can reproduce locally.
 7. Keep GUI assets (icons, images, etc.) inside `internal/gui/assets` and reference them there when using `go:embed`.
+8. Group related controller/state fields into dedicated structs instead of leaving long flat structs.
+9. When working with mutexes, prefer `defer mu.Unlock()` immediately after locking unless there is a strong reason not to.
