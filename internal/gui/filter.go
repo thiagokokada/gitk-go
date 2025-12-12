@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -80,7 +81,7 @@ func (a *Controller) scheduleFilterApply(raw string) {
 		a.applyFilter("")
 		return
 	}
-	a.debugf("scheduleFilterApply: value=%q", raw)
+	slog.Debug("scheduleFilterApply", slog.String("value", raw))
 	var timer *time.Timer
 	timer = time.AfterFunc(filterDebounceDelay, func() {
 		a.flushFilterDebounce(timer)

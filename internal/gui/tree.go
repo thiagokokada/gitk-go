@@ -3,6 +3,7 @@ package gui
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -134,7 +135,11 @@ func (a *Controller) scheduleAutoLoadCheck() {
 	if a.tree.widget == nil || a.filter.value == "" || !a.tree.hasMore {
 		return
 	}
-	a.debugf("scheduleAutoLoadCheck: filter=%q visible=%d more=%t", a.filter.value, len(a.visible), a.tree.hasMore)
+	slog.Debug("scheduleAutoLoadCheck",
+		slog.String("filter", a.filter.value),
+		slog.Int("visible", len(a.visible)),
+		slog.Bool("has_more", a.tree.hasMore),
+	)
 	PostEvent(func() {
 		a.maybeLoadMoreOnScroll()
 	}, false)

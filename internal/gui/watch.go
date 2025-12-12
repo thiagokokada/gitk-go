@@ -3,6 +3,7 @@ package gui
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -102,7 +103,10 @@ func (a *Controller) watchLoop(w *fsnotify.Watcher) {
 			if shouldIgnoreWatchPath(ev.Name) {
 				continue
 			}
-			a.debugf("fsnotify: %s %s", ev.Op.String(), ev.Name)
+			slog.Debug("fsnotify event",
+				slog.String("op", ev.Op.String()),
+				slog.String("path", ev.Name),
+			)
 			a.scheduleAutoReload()
 		case err, ok := <-w.Errors:
 			if !ok {
@@ -119,7 +123,7 @@ func (a *Controller) scheduleAutoReload() {
 	if !a.watch.enabled || a.watch.debounce == nil {
 		return
 	}
-	a.debugf("auto reload: scheduling diff refresh")
+	slog.Debug("auto reload scheduled")
 	a.watch.debounce.Trigger()
 }
 

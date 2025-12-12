@@ -3,6 +3,8 @@ package gui
 import (
 	"fmt"
 	"log"
+	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -182,6 +184,11 @@ func (a *Controller) run() error {
 	if a.palette.ThemeName != "" {
 		ActivateTheme(a.palette.ThemeName)
 	}
+	level := slog.LevelInfo
+	if a.verbose {
+		level = slog.LevelDebug
+	}
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
 	applyAppIcon()
 	a.buildUI()
 	a.initAutoReload(a.autoReloadRequested)
@@ -444,6 +451,7 @@ func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
 	defer a.diff.mu.Unlock()
 	a.diff.pendingDiff = entry
 	a.diff.pendingHash = hash
+	slog.Debug("scheduleDiffLoad", slog.String("hash", hash))
 	if a.diff.loadTimer != nil {
 		a.diff.loadTimer.Stop()
 	}
@@ -479,7 +487,10 @@ func (a *Controller) reloadCommitsAsync() {
 	}
 	a.tree.loadingBatch = true
 	currentFilter := a.filter.value
-	a.debugf("reloadCommitsAsync: start batch=%d filter=%q", a.batch, currentFilter)
+	slog.Debug("reloadCommitsAsync start",
+		slog.Int("batch", a.batch),
+		slog.String("filter", currentFilter),
+	)
 	go func(filter string) {
 		entries, head, hasMore, err := a.svc.ScanCommits(0, a.batch)
 		PostEvent(func() {
@@ -494,7 +505,11 @@ func (a *Controller) reloadCommitsAsync() {
 			a.visible = entries
 			a.headRef = head
 			a.tree.hasMore = hasMore
-			a.debugf("reloadCommitsAsync: loaded %d entries (head=%s more=%t)", len(entries), head, hasMore)
+			slog.Debug("reloadCommitsAsync loaded",
+				slog.Int("count", len(entries)),
+				slog.String("head", head),
+				slog.Bool("has_more", hasMore),
+			)
 			if err := a.loadBranchLabels(); err != nil {
 				log.Printf("failed to refresh branch labels: %v", err)
 			}
@@ -512,7 +527,11 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 	a.tree.loadingBatch = true
 	currentFilter := a.filter.value
 	skip := len(a.commits)
-	a.debugf("loadMoreCommitsAsync: skip=%d prefetch=%t filter=%q", skip, prefetch, currentFilter)
+	slog.Debug("loadMoreCommitsAsync start",
+		slog.Int("skip", skip),
+		slog.Bool("prefetch", prefetch),
+		slog.String("filter", currentFilter),
+	)
 	go func(filter string, skipCount int, background bool) {
 		entries, _, hasMore, err := a.svc.ScanCommits(skipCount, a.batch)
 		PostEvent(func() {
@@ -534,7 +553,12 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 			}
 			a.commits = append(a.commits, entries...)
 			a.tree.hasMore = hasMore
-			a.debugf("loadMoreCommitsAsync: appended %d (total=%d) more=%t background=%t", len(entries), len(a.commits), hasMore, background)
+			slog.Debug("loadMoreCommitsAsync loaded",
+				slog.Int("added", len(entries)),
+				slog.Int("total", len(a.commits)),
+				slog.Bool("has_more", hasMore),
+				slog.Bool("background", background),
+			)
 			if err := a.loadBranchLabels(); err != nil {
 				log.Printf("failed to refresh branch labels: %v", err)
 			}
@@ -730,13 +754,6 @@ func (a *Controller) setStatus(msg string) {
 	PostEvent(func() {
 		a.status.Configure(Txt(text))
 	}, false)
-}
-
-func (a *Controller) debugf(format string, args ...any) {
-	if !a.verbose {
-		return
-	}
-	log.Printf(format, args...)
 }
 
 func (a *Controller) statusSummary() string {
