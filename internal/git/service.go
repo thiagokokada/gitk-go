@@ -5,7 +5,6 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	gitlib "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -22,7 +21,6 @@ type Service struct {
 type repoState struct {
 	*gitlib.Repository
 	path string
-	mu   sync.RWMutex
 }
 
 type Entry struct {
@@ -57,8 +55,6 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 	if batch <= 0 {
 		batch = DefaultBatch
 	}
-	s.repo.mu.RLock()
-	defer s.repo.mu.RUnlock()
 	ref, err := s.repo.Head()
 	if err != nil {
 		if err == plumbing.ErrReferenceNotFound {
@@ -108,8 +104,6 @@ func (s *Service) BranchLabels() (map[string][]string, error) {
 	if s.repo.Repository == nil {
 		return labels, nil
 	}
-	s.repo.mu.RLock()
-	defer s.repo.mu.RUnlock()
 	refs, err := s.repo.References()
 	if err != nil {
 		return nil, err
@@ -423,23 +417,4 @@ func refName(ref *plumbing.Reference) string {
 		name = ref.Name().String()
 	}
 	return name
-}
-
-// headTree expects the caller to hold s.repo.mu.
-func (s *Service) headTree() (*object.Tree, error) {
-	if s.repo.Repository == nil {
-		return nil, nil
-	}
-	ref, err := s.repo.Head()
-	if err != nil {
-		if err == plumbing.ErrReferenceNotFound {
-			return nil, nil
-		}
-		return nil, err
-	}
-	commit, err := s.repo.CommitObject(ref.Hash())
-	if err != nil {
-		return nil, err
-	}
-	return commit.Tree()
 }

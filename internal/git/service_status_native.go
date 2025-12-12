@@ -6,12 +6,11 @@ import gitlib "github.com/go-git/go-git/v5"
 
 func (s *Service) LocalChanges() (LocalChanges, error) {
 	var res LocalChanges
-	if s.repo.Repository == nil {
-		return res, nil
+	repo, err := s.repoForWorktree()
+	if err != nil {
+		return res, err
 	}
-	s.repo.mu.Lock()
-	defer s.repo.mu.Unlock()
-	wt, err := s.repo.Worktree()
+	wt, err := repo.Worktree()
 	if err != nil {
 		return res, err
 	}

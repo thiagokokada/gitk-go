@@ -25,12 +25,11 @@ type localChange struct {
 }
 
 func (s *Service) WorktreeDiff(staged bool) (string, []FileSection, error) {
-	if s.repo.Repository == nil {
-		return "", nil, fmt.Errorf("repository not initialized")
+	repo, err := s.repoForWorktree()
+	if err != nil {
+		return "", nil, err
 	}
-	s.repo.mu.Lock()
-	defer s.repo.mu.Unlock()
-	wt, err := s.repo.Worktree()
+	wt, err := repo.Worktree()
 	if err != nil {
 		return "", nil, err
 	}
@@ -38,13 +37,13 @@ func (s *Service) WorktreeDiff(staged bool) (string, []FileSection, error) {
 	if err != nil {
 		return "", nil, err
 	}
-	headTree, err := s.headTree()
+	headTree, err := headTreeFromRepo(repo)
 	if err != nil && err != plumbing.ErrReferenceNotFound {
 		return "", nil, err
 	}
 	var idx *gitindex.Index
 	if staged {
-		idx, err = s.repo.Storer.Index()
+		idx, err = repo.Storer.Index()
 		if err != nil {
 			return "", nil, err
 		}
@@ -70,7 +69,7 @@ func (s *Service) WorktreeDiff(staged bool) (string, []FileSection, error) {
 		}
 		var toFile *object.File
 		if staged {
-			toFile, err = fileFromIndex(idx, s.repo.Repository, path)
+			toFile, err = fileFromIndex(idx, repo, path)
 		} else {
 			toFile, err = fileFromDisk(s.repo.path, path)
 		}
@@ -252,4 +251,22 @@ func fileLines(f *object.File) ([]string, error) {
 		return nil, err
 	}
 	return difflib.SplitLines(content), nil
+}
+
+func headTreeFromRepo(repo *gitlib.Repository) (*object.Tree, error) {
+	if repo == nil {
+		return nil, nil
+	}
+	ref, err := repo.Head()
+	if err != nil {
+		if err == plumbing.ErrReferenceNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	commit, err := repo.CommitObject(ref.Hash())
+	if err != nil {
+		return nil, err
+	}
+	return commit.Tree()
 }
