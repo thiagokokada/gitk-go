@@ -134,6 +134,7 @@ func (a *Controller) scheduleAutoLoadCheck() {
 	if a.tree.widget == nil || a.filter.value == "" || !a.tree.hasMore {
 		return
 	}
+	a.debugf("scheduleAutoLoadCheck: filter=%q visible=%d more=%t", a.filter.value, len(a.visible), a.tree.hasMore)
 	PostEvent(func() {
 		a.maybeLoadMoreOnScroll()
 	}, false)

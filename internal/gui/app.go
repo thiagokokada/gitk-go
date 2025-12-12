@@ -479,6 +479,7 @@ func (a *Controller) reloadCommitsAsync() {
 	}
 	a.tree.loadingBatch = true
 	currentFilter := a.filter.value
+	a.debugf("reloadCommitsAsync: start batch=%d filter=%q", a.batch, currentFilter)
 	go func(filter string) {
 		entries, head, hasMore, err := a.svc.ScanCommits(0, a.batch)
 		PostEvent(func() {
@@ -493,6 +494,7 @@ func (a *Controller) reloadCommitsAsync() {
 			a.visible = entries
 			a.headRef = head
 			a.tree.hasMore = hasMore
+			a.debugf("reloadCommitsAsync: loaded %d entries (head=%s more=%t)", len(entries), head, hasMore)
 			if err := a.loadBranchLabels(); err != nil {
 				log.Printf("failed to refresh branch labels: %v", err)
 			}
@@ -510,6 +512,7 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 	a.tree.loadingBatch = true
 	currentFilter := a.filter.value
 	skip := len(a.commits)
+	a.debugf("loadMoreCommitsAsync: skip=%d prefetch=%t filter=%q", skip, prefetch, currentFilter)
 	go func(filter string, skipCount int, background bool) {
 		entries, _, hasMore, err := a.svc.ScanCommits(skipCount, a.batch)
 		PostEvent(func() {
@@ -531,6 +534,7 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 			}
 			a.commits = append(a.commits, entries...)
 			a.tree.hasMore = hasMore
+			a.debugf("loadMoreCommitsAsync: appended %d (total=%d) more=%t background=%t", len(entries), len(a.commits), hasMore, background)
 			if err := a.loadBranchLabels(); err != nil {
 				log.Printf("failed to refresh branch labels: %v", err)
 			}

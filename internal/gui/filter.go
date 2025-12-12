@@ -80,6 +80,7 @@ func (a *Controller) scheduleFilterApply(raw string) {
 		a.applyFilter("")
 		return
 	}
+	a.debugf("scheduleFilterApply: value=%q", raw)
 	var timer *time.Timer
 	timer = time.AfterFunc(filterDebounceDelay, func() {
 		a.flushFilterDebounce(timer)
