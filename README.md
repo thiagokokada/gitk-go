@@ -13,7 +13,7 @@ system `git` binary for faster local-change handling.
 
 - Three-column commit list with branch graph, author, and date columns
 - Background batching keeps the UI responsive and automatically loads more
-- Diff viewer highlights additions, removals, headers, and supports per-file navigation
+- Diff viewer highlights additions, removals, headers, and supports per-file navigation plus optional syntax highlighting
 - Built-in file list to jump to specific file diffs
 - Keyboard shortcuts mirroring common gitk bindings (navigation, paging, reload)
 - Optional acceleration using the system `git` CLI (see below)
@@ -31,6 +31,18 @@ Arguments:
 - `-limit` (default `1000`): number of commits to load per batch
 - `-mode` (default `auto`): choose light, dark, or auto-detected theme
 - `-version`: print the build version (plus active build tags when available) and exit. Version info comes from Go's build metadata (`go build -buildvcs` captures git revision automatically).
+
+#### Build tags
+
+`gitk-go` exposes a couple of build tags to tweak behavior when compiling:
+
+- `gitcli`: Opt-in to using the system `git` binary for local-change detection and
+  diff generation. This is recommended on very large repositories when `git` is
+  available in `PATH`.
+- `nosyntaxhighlight`: Disable syntax highlighting inside the diff viewer and fall
+  back to the plain diff colors.
+
+You can combine tags as needed, for example `go build -tags "gitcli,nosyntaxhighlight"`.
 
 #### git CLI acceleration
 

@@ -66,6 +66,7 @@ type diffState struct {
 	detail       *TextWidget
 	fileList     *ListboxWidget
 	fileSections []git.FileSection
+	syntaxTags   map[string]string
 
 	mu          sync.Mutex
 	loadTimer   *time.Timer
@@ -166,6 +167,7 @@ func Run(repoPath string, batch int, pref ThemePreference) error {
 		batch:     batch,
 		themePref: pref,
 	}
+	app.diff.syntaxTags = make(map[string]string)
 	return app.run()
 }
 
@@ -550,10 +552,12 @@ func (a *Controller) writeDetailText(content string, highlightDiff bool) {
 	a.diff.detail.Insert("1.0", content)
 	if highlightDiff {
 		a.highlightDiffLines(content)
+		a.applySyntaxHighlight(content)
 	} else {
 		a.diff.detail.TagRemove("diffAdd", "1.0", END)
 		a.diff.detail.TagRemove("diffDel", "1.0", END)
 		a.diff.detail.TagRemove("diffHeader", "1.0", END)
+		a.clearSyntaxHighlight()
 	}
 	a.diff.detail.Configure(State("disabled"))
 }

@@ -3,6 +3,7 @@ module github.com/thiagokokada/gitk-go
 go 1.25
 
 require (
+	github.com/alecthomas/chroma/v2 v2.20.0
 	github.com/go-git/go-git/v5 v5.16.4
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/thiagokokada/dark-mode-go v0.0.1
@@ -17,6 +18,7 @@ require (
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
+	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect

@@ -85,3 +85,7 @@ func paletteForPreference(pref ThemePreference) colorPalette {
 		return lightPalette
 	}
 }
+
+func (p colorPalette) isDark() bool {
+	return strings.Contains(strings.ToLower(p.ThemeName), "dark")
+}
