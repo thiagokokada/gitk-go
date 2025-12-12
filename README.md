@@ -17,6 +17,7 @@ system `git` binary for faster local-change handling.
 - Built-in file list to jump to specific file diffs
 - Keyboard shortcuts mirroring common gitk bindings (navigation, paging, reload)
 - Optional acceleration using the system `git` CLI (see below)
+- Automatic reload watcher (with UI toggle) to keep history fresh as the repository changes
 - Auto-detects OS dark mode with optional manual override
 
 ### Usage
@@ -30,6 +31,8 @@ Arguments:
 - First positional argument (optional): repository root or `.git` directory (defaults to current directory)
 - `-limit` (default `1000`): number of commits to load per batch
 - `-mode` (default `auto`): choose light, dark, or auto-detected theme
+- `-watch` (default `true`): automatically reload commits when the repository changes
+- `-verbose`: emit additional debug logging (fsnotify events, reload scheduling)
 - `-version`: print the build version (plus active build tags when available) and exit. Version info comes from Go's build metadata (`go build -buildvcs` captures git revision automatically).
 
 #### Build tags

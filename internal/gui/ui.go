@@ -34,7 +34,8 @@ func (a *Controller) buildUI() {
 		a.applyFilter("")
 	}))
 	Grid(clearBtn, Row(1), Column(2), Sticky(E), Padx("4p"))
-	Grid(controls.TButton(Txt("Reload"), Command(a.reloadCommitsAsync)), Row(1), Column(3), Sticky(E))
+	a.watch.button = controls.TButton(Txt("Reload"), Command(a.onReloadButton))
+	Grid(a.watch.button, Row(1), Column(3), Sticky(E))
 
 	pane := App.TPanedwindow(Orient(VERTICAL))
 	Grid(pane, Row(1), Column(0), Sticky(NEWS), Padx("4p"), Pady("4p"))

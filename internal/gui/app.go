@@ -30,11 +30,13 @@ const (
 )
 
 type Controller struct {
-	svc       *git.Service
-	repoPath  string
-	batch     int
-	themePref ThemePreference
-	palette   colorPalette
+	svc                 *git.Service
+	repoPath            string
+	batch               int
+	themePref           ThemePreference
+	palette             colorPalette
+	autoReloadRequested bool
+	verbose             bool
 
 	headRef string
 
@@ -49,6 +51,7 @@ type Controller struct {
 
 	selection  selectionState
 	localDiffs localDiffCache
+	watch      autoReloadState
 }
 
 type treeState struct {
@@ -147,7 +150,7 @@ type localDiffSnapshot struct {
 	err      error
 }
 
-func Run(repoPath string, batch int, pref ThemePreference) error {
+func Run(repoPath string, batch int, pref ThemePreference, autoReload bool, verbose bool) error {
 	if err := InitializeExtension("eval"); err != nil && err != AlreadyInitialized {
 		return fmt.Errorf("init eval extension: %v", err)
 	}
@@ -162,22 +165,26 @@ func Run(repoPath string, batch int, pref ThemePreference) error {
 		pref = ThemeAuto
 	}
 	app := &Controller{
-		svc:       svc,
-		repoPath:  svc.RepoPath(),
-		batch:     batch,
-		themePref: pref,
+		svc:                 svc,
+		repoPath:            svc.RepoPath(),
+		batch:               batch,
+		themePref:           pref,
+		autoReloadRequested: autoReload,
+		verbose:             verbose,
 	}
 	app.diff.syntaxTags = make(map[string]string)
 	return app.run()
 }
 
 func (a *Controller) run() error {
+	defer a.shutdown()
 	a.palette = paletteForPreference(a.themePref)
 	if a.palette.ThemeName != "" {
 		ActivateTheme(a.palette.ThemeName)
 	}
 	applyAppIcon()
 	a.buildUI()
+	a.initAutoReload(a.autoReloadRequested)
 	a.showInitialLoadingRow()
 	a.setStatus("Loading commits...")
 	a.refreshLocalChangesAsync(true)
@@ -719,6 +726,13 @@ func (a *Controller) setStatus(msg string) {
 	PostEvent(func() {
 		a.status.Configure(Txt(text))
 	}, false)
+}
+
+func (a *Controller) debugf(format string, args ...any) {
+	if !a.verbose {
+		return
+	}
+	log.Printf(format, args...)
 }
 
 func (a *Controller) statusSummary() string {

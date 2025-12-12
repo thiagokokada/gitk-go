@@ -215,3 +215,5 @@ modernc.org/tk9.0 v1.73.0 h1:fjO37ctT1RisbMyQfLTZZy/dmnzAP/DdWp0ScsFl9aM=
 modernc.org/tk9.0 v1.73.0/go.mod h1:UpvpHG34NphSkg1TStMzmOdA2HKdZTUZn5RMXkvuC1g=
 modernc.org/token v1.1.0 h1:Xl7Ap9dKaEs5kLoOQeQmPWevfnk/DM5qcLcYlA8ys6Y=
 modernc.org/token v1.1.0/go.mod h1:UGzOrNV1mAFSEB63lOFHIpNRUVMvYTc6yu1SMY/XTDM=
+github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
+github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
