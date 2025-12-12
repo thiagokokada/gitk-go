@@ -22,15 +22,15 @@ func (a *Controller) buildUI() {
 	Grid(controls.TLabel(Txt(repoLabel), Anchor(W)), Row(0), Column(0), Columnspan(4), Sticky(W))
 
 	Grid(controls.TLabel(Txt("Filter:"), Anchor(E)), Row(1), Column(0), Sticky(E))
-	a.filterEntry = controls.TEntry(Width(40), Textvariable(""))
-	Grid(a.filterEntry, Row(1), Column(1), Sticky(WE), Padx("4p"))
+	a.tree.filter = controls.TEntry(Width(40), Textvariable(""))
+	Grid(a.tree.filter, Row(1), Column(1), Sticky(WE), Padx("4p"))
 
-	Bind(a.filterEntry, "<KeyRelease>", Command(func() {
-		a.applyFilter(a.filterEntry.Textvariable())
+	Bind(a.tree.filter, "<KeyRelease>", Command(func() {
+		a.applyFilter(a.tree.filter.Textvariable())
 	}))
 
 	clearBtn := controls.TButton(Txt("Clear"), Command(func() {
-		a.filterEntry.Configure(Textvariable(""))
+		a.tree.filter.Configure(Textvariable(""))
 		a.applyFilter("")
 	}))
 	Grid(clearBtn, Row(1), Column(2), Sticky(E), Padx("4p"))
@@ -51,7 +51,7 @@ func (a *Controller) buildUI() {
 	GridColumnConfigure(diffArea.Window, 0, Weight(1))
 
 	treeScroll := listArea.TScrollbar()
-	a.tree = listArea.TTreeview(
+	a.tree.widget = listArea.TTreeview(
 		Show("headings"),
 		Columns("graph commit author date"),
 		Selectmode("browse"),
@@ -61,14 +61,14 @@ func (a *Controller) buildUI() {
 			a.maybeLoadMoreOnScroll()
 		}),
 	)
-	a.tree.Column("graph", Anchor(W), Width(120))
-	a.tree.Column("commit", Anchor(W), Width(380))
-	a.tree.Column("author", Anchor(W), Width(280))
-	a.tree.Column("date", Anchor(W), Width(180))
-	a.tree.Heading("graph", Txt("Graph"))
-	a.tree.Heading("commit", Txt("Commit"))
-	a.tree.Heading("author", Txt("Author"))
-	a.tree.Heading("date", Txt("Date"))
+	a.tree.widget.Column("graph", Anchor(W), Width(120))
+	a.tree.widget.Column("commit", Anchor(W), Width(380))
+	a.tree.widget.Column("author", Anchor(W), Width(280))
+	a.tree.widget.Column("date", Anchor(W), Width(180))
+	a.tree.widget.Heading("graph", Txt("Graph"))
+	a.tree.widget.Heading("commit", Txt("Commit"))
+	a.tree.widget.Heading("author", Txt("Author"))
+	a.tree.widget.Heading("date", Txt("Date"))
 	unstagedColor := a.palette.LocalUnstagedRow
 	if unstagedColor == "" {
 		unstagedColor = "#fde2e1"
@@ -77,13 +77,13 @@ func (a *Controller) buildUI() {
 	if stagedColor == "" {
 		stagedColor = "#e2f7e1"
 	}
-	a.tree.TagConfigure("localUnstaged", Background(unstagedColor))
-	a.tree.TagConfigure("localStaged", Background(stagedColor))
-	Grid(a.tree, Row(0), Column(0), Sticky(NEWS))
+	a.tree.widget.TagConfigure("localUnstaged", Background(unstagedColor))
+	a.tree.widget.TagConfigure("localStaged", Background(stagedColor))
+	Grid(a.tree.widget, Row(0), Column(0), Sticky(NEWS))
 	Grid(treeScroll, Row(0), Column(1), Sticky(NS))
-	treeScroll.Configure(Command(func(e *Event) { e.Yview(a.tree) }))
+	treeScroll.Configure(Command(func(e *Event) { e.Yview(a.tree.widget) }))
 
-	Bind(a.tree, "<<TreeviewSelect>>", Command(a.onTreeSelectionChanged))
+	Bind(a.tree.widget, "<<TreeviewSelect>>", Command(a.onTreeSelectionChanged))
 	a.initTreeContextMenu()
 	a.bindTreeContextMenu()
 
@@ -107,11 +107,11 @@ func (a *Controller) buildUI() {
 	GridRowConfigure(textFrame.Window, 0, Weight(1))
 	GridColumnConfigure(textFrame.Window, 0, Weight(1))
 
-	detailYScroll := textFrame.TScrollbar(Command(func(e *Event) { e.Yview(a.detail) }))
-	detailXScroll := textFrame.TScrollbar(Orient(HORIZONTAL), Command(func(e *Event) { e.Xview(a.detail) }))
-	a.detail = textFrame.Text(Wrap(NONE), Font(CourierFont(), 11), Exportselection(false), Tabs("1c"))
-	a.detail.Configure(Yscrollcommand(func(e *Event) { e.ScrollSet(detailYScroll) }))
-	a.detail.Configure(Xscrollcommand(func(e *Event) { e.ScrollSet(detailXScroll) }))
+	detailYScroll := textFrame.TScrollbar(Command(func(e *Event) { e.Yview(a.diff.detail) }))
+	detailXScroll := textFrame.TScrollbar(Orient(HORIZONTAL), Command(func(e *Event) { e.Xview(a.diff.detail) }))
+	a.diff.detail = textFrame.Text(Wrap(NONE), Font(CourierFont(), 11), Exportselection(false), Tabs("1c"))
+	a.diff.detail.Configure(Yscrollcommand(func(e *Event) { e.ScrollSet(detailYScroll) }))
+	a.diff.detail.Configure(Xscrollcommand(func(e *Event) { e.ScrollSet(detailXScroll) }))
 	addColor := a.palette.DiffAdd
 	if addColor == "" {
 		addColor = lightPalette.DiffAdd
@@ -124,21 +124,21 @@ func (a *Controller) buildUI() {
 	if headerColor == "" {
 		headerColor = lightPalette.DiffHeader
 	}
-	a.detail.TagConfigure("diffAdd", Background(addColor))
-	a.detail.TagConfigure("diffDel", Background(delColor))
-	a.detail.TagConfigure("diffHeader", Background(headerColor))
-	Grid(a.detail, Row(0), Column(0), Sticky(NEWS))
+	a.diff.detail.TagConfigure("diffAdd", Background(addColor))
+	a.diff.detail.TagConfigure("diffDel", Background(delColor))
+	a.diff.detail.TagConfigure("diffHeader", Background(headerColor))
+	Grid(a.diff.detail, Row(0), Column(0), Sticky(NEWS))
 	Grid(detailYScroll, Row(0), Column(1), Sticky(NS))
 	Grid(detailXScroll, Row(1), Column(0), Sticky(WE))
-	a.detail.Configure(State("disabled"))
+	a.diff.detail.Configure(State("disabled"))
 
 	fileScroll := fileFrame.TScrollbar()
-	a.fileList = fileFrame.Listbox(Exportselection(false), Width(40))
-	a.fileList.Configure(Yscrollcommand(func(e *Event) { e.ScrollSet(fileScroll) }))
-	Grid(a.fileList, Row(0), Column(0), Sticky(NEWS))
+	a.diff.fileList = fileFrame.Listbox(Exportselection(false), Width(40))
+	a.diff.fileList.Configure(Yscrollcommand(func(e *Event) { e.ScrollSet(fileScroll) }))
+	Grid(a.diff.fileList, Row(0), Column(0), Sticky(NEWS))
 	Grid(fileScroll, Row(0), Column(1), Sticky(NS))
-	fileScroll.Configure(Command(func(e *Event) { e.Yview(a.fileList) }))
-	Bind(a.fileList, "<<ListboxSelect>>", Command(a.onFileSelectionChanged))
+	fileScroll.Configure(Command(func(e *Event) { e.Yview(a.diff.fileList) }))
+	Bind(a.diff.fileList, "<<ListboxSelect>>", Command(a.onFileSelectionChanged))
 
 	a.status = App.TLabel(Anchor(W), Relief(SUNKEN), Padding("4p"))
 	Grid(a.status, Row(2), Column(0), Sticky(WE))
@@ -148,7 +148,7 @@ func (a *Controller) buildUI() {
 }
 
 func (a *Controller) showInitialLoadingRow() {
-	if a.tree == nil {
+	if a.tree.widget == nil {
 		return
 	}
 	if len(a.commits) != 0 || len(a.visible) != 0 {
@@ -158,45 +158,45 @@ func (a *Controller) showInitialLoadingRow() {
 		return
 	}
 	vals := tclList("", "Loading commits...", "", "")
-	a.tree.Insert("", "end", Id(loadingIndicatorID), Values(vals))
+	a.tree.widget.Insert("", "end", Id(loadingIndicatorID), Values(vals))
 }
 
 func (a *Controller) initTreeContextMenu() {
 	menu := App.Menu(Tearoff(false))
 	item := menu.AddCommand(Command(a.copySelectedCommitReference))
 	a.configureMenuLabel(menu, item, "Copy commit reference")
-	a.treeMenu = menu
+	a.tree.menu = menu
 }
 
 func (a *Controller) bindTreeContextMenu() {
-	if a.tree == nil {
+	if a.tree.widget == nil {
 		return
 	}
 	handler := func(e *Event) {
 		a.showTreeContextMenu(e)
 	}
-	Bind(a.tree, "<Button-2>", Command(handler))
-	Bind(a.tree, "<Button-3>", Command(handler))
+	Bind(a.tree.widget, "<Button-2>", Command(handler))
+	Bind(a.tree.widget, "<Button-3>", Command(handler))
 }
 
 func (a *Controller) showTreeContextMenu(e *Event) {
-	if a.treeMenu == nil || a.tree == nil || e == nil {
+	if a.tree.menu == nil || a.tree.widget == nil || e == nil {
 		return
 	}
-	item := strings.TrimSpace(a.tree.IdentifyItem(e.X, e.Y))
+	item := strings.TrimSpace(a.tree.widget.IdentifyItem(e.X, e.Y))
 	if _, ok := a.treeCommitIndex(item); !ok {
 		return
 	}
-	a.tree.Selection("set", item)
-	a.tree.Focus(item)
-	a.contextTargetID = item
-	Popup(a.treeMenu.Window, e.XRoot, e.YRoot, nil)
+	a.tree.widget.Selection("set", item)
+	a.tree.widget.Focus(item)
+	a.tree.contextTargetID = item
+	Popup(a.tree.menu.Window, e.XRoot, e.YRoot, nil)
 }
 
 func (a *Controller) copySelectedCommitReference() {
-	id := a.contextTargetID
-	if id == "" && a.tree != nil {
-		if sel := a.tree.Selection(""); len(sel) > 0 {
+	id := a.tree.contextTargetID
+	if id == "" && a.tree.widget != nil {
+		if sel := a.tree.widget.Selection(""); len(sel) > 0 {
 			id = sel[0]
 		}
 	}

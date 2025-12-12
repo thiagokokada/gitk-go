@@ -11,26 +11,26 @@ import (
 )
 
 func (a *Controller) insertLocalRows() {
-	if a.tree == nil {
+	if a.tree.widget == nil {
 		return
 	}
 	index := 0
-	if a.showLocalUnstaged {
+	if a.tree.showLocalUnstaged {
 		vals := tclList("", localUnstagedLabel, "", "")
-		a.tree.Insert("", index, Id(localUnstagedRowID), Values(vals), Tags("localUnstaged"))
+		a.tree.widget.Insert("", index, Id(localUnstagedRowID), Values(vals), Tags("localUnstaged"))
 		index++
 	}
-	if a.showLocalStaged {
+	if a.tree.showLocalStaged {
 		vals := tclList("", localStagedLabel, "", "")
-		a.tree.Insert("", index, Id(localStagedRowID), Values(vals), Tags("localStaged"))
+		a.tree.widget.Insert("", index, Id(localStagedRowID), Values(vals), Tags("localStaged"))
 	}
 }
 
 func (a *Controller) onTreeSelectionChanged() {
-	if a.tree == nil {
+	if a.tree.widget == nil {
 		return
 	}
-	sel := a.tree.Selection("")
+	sel := a.tree.widget.Selection("")
 	if len(sel) == 0 {
 		return
 	}
@@ -56,19 +56,19 @@ func (a *Controller) onTreeSelectionChanged() {
 func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
 	var current bool
 	if staged {
-		current = a.showLocalStaged
+		current = a.tree.showLocalStaged
 	} else {
-		current = a.showLocalUnstaged
+		current = a.tree.showLocalUnstaged
 	}
 	if current == show {
 		return
 	}
 	if staged {
-		a.showLocalStaged = show
+		a.tree.showLocalStaged = show
 	} else {
-		a.showLocalUnstaged = show
+		a.tree.showLocalUnstaged = show
 	}
-	if a.tree == nil {
+	if a.tree.widget == nil {
 		return
 	}
 	id := localRowID(staged)
@@ -79,22 +79,22 @@ func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
 		return
 	}
 	if a.treeItemExists(id) {
-		a.tree.Delete(id)
+		a.tree.widget.Delete(id)
 	}
 }
 
 func (a *Controller) insertSingleLocalRow(staged bool) {
-	if a.tree == nil {
+	if a.tree.widget == nil {
 		return
 	}
 	label := localRowLabel(staged)
 	tag := localRowTag(staged)
 	index := 0
-	if staged && a.showLocalUnstaged {
+	if staged && a.tree.showLocalUnstaged {
 		index = 1
 	}
 	vals := tclList("", label, "", "")
-	a.tree.Insert("", index, Id(localRowID(staged)), Values(vals), Tags(tag))
+	a.tree.widget.Insert("", index, Id(localRowID(staged)), Values(vals), Tags(tag))
 }
 
 func localRowID(staged bool) string {
@@ -119,10 +119,10 @@ func localRowTag(staged bool) string {
 }
 
 func (a *Controller) treeItemExists(id string) bool {
-	if a.tree == nil || id == "" {
+	if a.tree.widget == nil || id == "" {
 		return false
 	}
-	out, err := evalext.Eval(fmt.Sprintf("%s exists %s", a.tree, id))
+	out, err := evalext.Eval(fmt.Sprintf("%s exists %s", a.tree.widget, id))
 	if err != nil {
 		log.Printf("tree exists %s: %v", id, err)
 		return false
@@ -131,29 +131,29 @@ func (a *Controller) treeItemExists(id string) bool {
 }
 
 func (a *Controller) applyFilter(raw string) {
-	a.filterValue = raw
+	a.tree.filterValue = raw
 	a.visible = filterEntries(a.commits, raw)
-	if a.tree == nil {
+	if a.tree.widget == nil {
 		return
 	}
 
-	children := a.tree.Children("")
+	children := a.tree.widget.Children("")
 	if len(children) != 0 {
 		args := make([]any, len(children))
 		for i, child := range children {
 			args[i] = child
 		}
-		a.tree.Delete(args...)
+		a.tree.widget.Delete(args...)
 	}
 	a.insertLocalRows()
-	rows := buildTreeRows(a.visible, a.branchLabels)
+	rows := buildTreeRows(a.visible, a.tree.branchLabels)
 	for _, row := range rows {
 		vals := tclList(row.Graph, row.Commit, row.Author, row.Date)
-		a.tree.Insert("", "end", Id(row.ID), Values(vals))
+		a.tree.widget.Insert("", "end", Id(row.ID), Values(vals))
 	}
-	if a.hasMore && len(a.visible) > 0 {
+	if a.tree.hasMore && len(a.visible) > 0 {
 		vals := tclList("", "Loading more commits...", "", "")
-		a.tree.Insert("", "end", Id(moreIndicatorID), Values(vals))
+		a.tree.widget.Insert("", "end", Id(moreIndicatorID), Values(vals))
 	}
 
 	if len(a.visible) == 0 {
@@ -167,15 +167,15 @@ func (a *Controller) applyFilter(raw string) {
 	}
 
 	firstID := strconv.Itoa(0)
-	a.tree.Selection("set", firstID)
-	a.tree.Focus(firstID)
+	a.tree.widget.Selection("set", firstID)
+	a.tree.widget.Focus(firstID)
 	a.showCommitDetails(0)
 	a.setStatus(a.statusSummary())
 	a.scheduleAutoLoadCheck()
 }
 
 func (a *Controller) scheduleAutoLoadCheck() {
-	if a.tree == nil || a.filterValue == "" || !a.hasMore {
+	if a.tree.widget == nil || a.tree.filterValue == "" || !a.tree.hasMore {
 		return
 	}
 	PostEvent(func() {
@@ -184,7 +184,7 @@ func (a *Controller) scheduleAutoLoadCheck() {
 }
 
 func (a *Controller) maybeLoadMoreOnScroll() {
-	if a.tree == nil || a.loadingBatch || !a.hasMore {
+	if a.tree.widget == nil || a.tree.loadingBatch || !a.tree.hasMore {
 		return
 	}
 	if len(a.visible) == 0 {
@@ -195,7 +195,7 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 		log.Printf("tree yview: %v", err)
 		return
 	}
-	if a.filterValue == "" && len(a.visible) >= a.batch && start <= 0 && end >= 1 {
+	if a.tree.filterValue == "" && len(a.visible) >= a.batch && start <= 0 && end >= 1 {
 		return
 	}
 	if end >= autoLoadThreshold {
@@ -204,10 +204,10 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 }
 
 func (a *Controller) treeYviewRange() (float64, float64, error) {
-	if a.tree == nil {
+	if a.tree.widget == nil {
 		return 0, 0, fmt.Errorf("tree widget not ready")
 	}
-	path := a.tree.String()
+	path := a.tree.widget.String()
 	if path == "" {
 		return 0, 0, fmt.Errorf("tree widget has empty path")
 	}

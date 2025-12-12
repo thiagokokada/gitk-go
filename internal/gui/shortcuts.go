@@ -11,7 +11,7 @@ import (
 )
 
 func (a *Controller) bindShortcuts() {
-	if a.tree == nil {
+	if a.tree.widget == nil {
 		return
 	}
 	bindNav := func(sequence string, handler func()) {
@@ -140,7 +140,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			sequences:   []string{"<KeyPress-/>"},
 			navigation:  false,
 			handler: func() {
-				if a.filterEntry == nil || a.filterHasFocus() {
+				if a.tree.filter == nil || a.filterHasFocus() {
 					return
 				}
 				a.focusFilterEntry()
@@ -174,19 +174,19 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 }
 
 func (a *Controller) filterHasFocus() bool {
-	if a.filterEntry == nil {
+	if a.tree.filter == nil {
 		return false
 	}
-	return Focus() == a.filterEntry.String()
+	return Focus() == a.tree.filter.String()
 }
 
 func (a *Controller) showShortcutsDialog() {
-	if a.shortcutsWin != nil {
-		Destroy(a.shortcutsWin.Window)
-		a.shortcutsWin = nil
+	if a.shortcuts.window != nil {
+		Destroy(a.shortcuts.window.Window)
+		a.shortcuts.window = nil
 	}
 	dialog := App.Toplevel()
-	a.shortcutsWin = dialog
+	a.shortcuts.window = dialog
 	dialog.Window.WmTitle("Keyboard Shortcuts")
 	WmTransient(dialog.Window, App)
 	WmAttributes(dialog.Window, "-topmost", 1)
@@ -208,18 +208,18 @@ func (a *Controller) showShortcutsDialog() {
 	Grid(closeBtn, Row(2), Column(0), Sticky(E), Pady("8p 0"))
 
 	Bind(dialog.Window, "<Destroy>", Command(func() {
-		if a.shortcutsWin == dialog {
-			a.shortcutsWin = nil
+		if a.shortcuts.window == dialog {
+			a.shortcuts.window = nil
 		}
 	}))
 	dialog.Window.Center()
 }
 
 func (a *Controller) moveSelection(delta int) {
-	if a.tree == nil {
+	if a.tree.widget == nil {
 		return
 	}
-	sel := a.tree.Selection("")
+	sel := a.tree.widget.Selection("")
 	if len(sel) > 0 {
 		if a.handleSpecialRowNav(sel[0], delta) {
 			return
@@ -230,11 +230,11 @@ func (a *Controller) moveSelection(delta int) {
 	}
 	idx := a.currentSelectionIndex() + delta
 	if idx < 0 && delta < 0 {
-		if a.showLocalStaged {
+		if a.tree.showLocalStaged {
 			a.selectSpecialRow(localStagedRowID)
 			return
 		}
-		if a.showLocalUnstaged {
+		if a.tree.showLocalUnstaged {
 			a.selectSpecialRow(localUnstagedRowID)
 			return
 		}
@@ -264,12 +264,12 @@ func (a *Controller) selectLast() {
 }
 
 func (a *Controller) selectSpecialRow(id string) {
-	if a.tree == nil {
+	if a.tree.widget == nil {
 		return
 	}
-	a.tree.Selection("set", id)
-	a.tree.Focus(id)
-	a.tree.See(id)
+	a.tree.widget.Selection("set", id)
+	a.tree.widget.Focus(id)
+	a.tree.widget.See(id)
 	switch id {
 	case localUnstagedRowID:
 		a.showLocalChanges(false)
@@ -279,10 +279,10 @@ func (a *Controller) selectSpecialRow(id string) {
 }
 
 func (a *Controller) currentSelectionIndex() int {
-	if a.tree == nil {
+	if a.tree.widget == nil {
 		return 0
 	}
-	sel := a.tree.Selection("")
+	sel := a.tree.widget.Selection("")
 	if len(sel) == 0 || sel[0] == moreIndicatorID {
 		return 0
 	}
@@ -293,13 +293,13 @@ func (a *Controller) currentSelectionIndex() int {
 }
 
 func (a *Controller) selectTreeIndex(idx int) {
-	if a.tree == nil || idx < 0 || idx >= len(a.visible) {
+	if a.tree.widget == nil || idx < 0 || idx >= len(a.visible) {
 		return
 	}
 	id := strconv.Itoa(idx)
-	a.tree.Selection("set", id)
-	a.tree.Focus(id)
-	a.tree.See(id)
+	a.tree.widget.Selection("set", id)
+	a.tree.widget.Focus(id)
+	a.tree.widget.See(id)
 	a.showCommitDetails(idx)
 }
 
@@ -310,7 +310,7 @@ func (a *Controller) handleSpecialRowNav(id string, delta int) bool {
 	switch id {
 	case localUnstagedRowID:
 		if delta > 0 {
-			if a.showLocalStaged {
+			if a.tree.showLocalStaged {
 				a.selectSpecialRow(localStagedRowID)
 			} else if len(a.visible) > 0 {
 				a.selectTreeIndex(0)
@@ -319,7 +319,7 @@ func (a *Controller) handleSpecialRowNav(id string, delta int) bool {
 		return true
 	case localStagedRowID:
 		if delta < 0 {
-			if a.showLocalUnstaged {
+			if a.tree.showLocalUnstaged {
 				a.selectSpecialRow(localUnstagedRowID)
 			}
 			return true
@@ -337,10 +337,10 @@ func (a *Controller) handleSpecialRowNav(id string, delta int) bool {
 }
 
 func (a *Controller) scrollTreePages(delta int) {
-	if a.tree == nil || delta == 0 {
+	if a.tree.widget == nil || delta == 0 {
 		return
 	}
-	if _, err := evalext.Eval(fmt.Sprintf("%s yview scroll %d pages", a.tree, delta)); err != nil {
+	if _, err := evalext.Eval(fmt.Sprintf("%s yview scroll %d pages", a.tree.widget, delta)); err != nil {
 		log.Printf("tree scroll: %v", err)
 	}
 }
@@ -354,25 +354,25 @@ func (a *Controller) scrollDetailLines(delta int) {
 }
 
 func (a *Controller) scrollDetail(delta int, unit string) {
-	if a.detail == nil || delta == 0 {
+	if a.diff.detail == nil || delta == 0 {
 		return
 	}
-	if _, err := evalext.Eval(fmt.Sprintf("%s yview scroll %d %s", a.detail, delta, unit)); err != nil {
+	if _, err := evalext.Eval(fmt.Sprintf("%s yview scroll %d %s", a.diff.detail, delta, unit)); err != nil {
 		log.Printf("detail scroll: %v", err)
 	}
 }
 
 func (a *Controller) focusFilterEntry() {
-	if a.filterEntry == nil {
+	if a.tree.filter == nil {
 		return
 	}
-	if _, err := evalext.Eval(fmt.Sprintf("focus %s", a.filterEntry)); err != nil {
+	if _, err := evalext.Eval(fmt.Sprintf("focus %s", a.tree.filter)); err != nil {
 		log.Printf("focus filter: %v", err)
 	}
-	if _, err := evalext.Eval(fmt.Sprintf("%s selection range 0 end", a.filterEntry)); err != nil {
+	if _, err := evalext.Eval(fmt.Sprintf("%s selection range 0 end", a.tree.filter)); err != nil {
 		log.Printf("select filter: %v", err)
 	}
-	if _, err := evalext.Eval(fmt.Sprintf("%s icursor end", a.filterEntry)); err != nil {
+	if _, err := evalext.Eval(fmt.Sprintf("%s icursor end", a.tree.filter)); err != nil {
 		log.Printf("cursor filter: %v", err)
 	}
 }

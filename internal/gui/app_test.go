@@ -78,8 +78,10 @@ func TestStatusSummary(t *testing.T) {
 		visible: []*git.Entry{
 			{},
 		},
-		hasMore:     true,
-		filterValue: "feature",
+		tree: treeState{
+			hasMore:     true,
+			filterValue: "feature",
+		},
 	}
 	summary := ctrl.statusSummary()
 	if !strings.Contains(summary, "Showing 1/2") {
