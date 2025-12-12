@@ -305,8 +305,9 @@ func (a *Controller) presentLocalDiff(header string, snap localDiffSnapshot) {
 		a.clearDetailText(fmt.Sprintf("%s\nNo changes.", header))
 		return
 	}
-	a.writeDetailText(diff, len(snap.sections) > 0)
-	a.setFileSections(snap.sections)
+	diff, sections := prepareDiffDisplay(diff, snap.sections)
+	a.writeDetailText(diff, len(sections) > 0)
+	a.setFileSections(sections)
 }
 
 func (a *Controller) snapshotLocalDiff(staged bool) localDiffSnapshot {
@@ -417,6 +418,7 @@ func (a *Controller) populateDiff(entry *git.Entry, hash string) {
 	if err != nil {
 		diff = fmt.Sprintf("Unable to compute diff: %v", err)
 	}
+	diff, sections = prepareDiffDisplay(diff, sections)
 	highlight := len(sections) > 0
 	PostEvent(func() {
 		if a.currentSelection() != hash {
@@ -582,10 +584,46 @@ func (a *Controller) highlightDiffLines(content string) {
 		default:
 			continue
 		}
-		start := fmt.Sprintf("%d.0", i+1)
-		end := fmt.Sprintf("%d.end", i+1)
+		lineNo := i + 1
+		start := fmt.Sprintf("%d.0", lineNo)
+		end := fmt.Sprintf("%d.0", lineNo+1)
+		if lineNo == len(lines) {
+			end = fmt.Sprintf("%d.end", lineNo)
+		}
 		a.diff.detail.TagAdd(tag, start, end)
 	}
+}
+
+func prepareDiffDisplay(content string, sections []git.FileSection) (string, []git.FileSection) {
+	if content == "" {
+		return content, sections
+	}
+	lines := strings.Split(content, "\n")
+	var b strings.Builder
+	newSections := make([]git.FileSection, len(sections))
+	copy(newSections, sections)
+	extraLines := 0
+	nextSection := 0
+	for i, line := range lines {
+		lineNo := i + 1
+		for nextSection < len(newSections) && newSections[nextSection].Line == lineNo {
+			newSections[nextSection].Line = lineNo + extraLines
+			nextSection++
+		}
+		if strings.HasPrefix(line, "diff --git ") && b.Len() > 0 {
+			b.WriteString("\n")
+			extraLines++
+		}
+		b.WriteString(line)
+		if i < len(lines)-1 {
+			b.WriteString("\n")
+		}
+	}
+	for nextSection < len(newSections) {
+		newSections[nextSection].Line += extraLines
+		nextSection++
+	}
+	return b.String(), newSections
 }
 
 func (a *Controller) setFileSections(sections []git.FileSection) {

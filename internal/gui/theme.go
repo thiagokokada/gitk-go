@@ -46,9 +46,9 @@ var (
 	}
 	darkPalette = colorPalette{
 		ThemeName:        "azure dark",
-		DiffAdd:          "#1f3d2b",
-		DiffDel:          "#3d1f29",
-		DiffHeader:       "#2f2f2f",
+		DiffAdd:          "#1c6135",
+		DiffDel:          "#612238",
+		DiffHeader:       "#3a3a3a",
 		LocalUnstagedRow: "#4a1f23",
 		LocalStagedRow:   "#1f3b2a",
 	}
