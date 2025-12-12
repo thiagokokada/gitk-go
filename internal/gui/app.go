@@ -320,12 +320,11 @@ func (a *Controller) snapshotLocalDiff(staged bool) localDiffSnapshot {
 func (a *Controller) ensureLocalDiffLoading(staged bool, force bool) {
 	state := a.localDiffState(staged, true)
 	state.Lock()
+	defer state.Unlock()
 	if state.loading {
-		state.Unlock()
 		return
 	}
 	if state.ready && !force {
-		state.Unlock()
 		return
 	}
 	state.loading = true
@@ -335,7 +334,6 @@ func (a *Controller) ensureLocalDiffLoading(staged bool, force bool) {
 	state.err = nil
 	state.generation++
 	gen := state.generation
-	state.Unlock()
 	go a.computeLocalDiff(staged, gen)
 }
 
@@ -346,8 +344,8 @@ func (a *Controller) computeLocalDiff(staged bool, gen int) {
 	diff, sections, err := a.svc.WorktreeDiff(staged)
 	state := a.localDiffState(staged, true)
 	state.Lock()
+	defer state.Unlock()
 	if gen != state.generation {
-		state.Unlock()
 		return
 	}
 	state.loading = false
@@ -359,7 +357,6 @@ func (a *Controller) computeLocalDiff(staged bool, gen int) {
 		state.sections = nil
 	}
 	state.err = err
-	state.Unlock()
 	PostEvent(func() {
 		a.onLocalDiffLoaded(staged)
 	}, false)
@@ -371,13 +368,13 @@ func (a *Controller) resetLocalDiffState(staged bool) {
 		return
 	}
 	state.Lock()
+	defer state.Unlock()
 	state.loading = false
 	state.ready = false
 	state.diff = ""
 	state.sections = nil
 	state.err = nil
 	state.generation++
-	state.Unlock()
 }
 
 func (a *Controller) localDiffState(staged bool, create bool) *localDiffState {
@@ -432,12 +429,12 @@ func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
 	}
 	a.diff.loadTimer = time.AfterFunc(diffDebounceDelay, func() {
 		a.diff.loadMu.Lock()
+		defer a.diff.loadMu.Unlock()
 		pending := a.diff.pendingDiff
 		pendingHash := a.diff.pendingHash
 		a.diff.pendingDiff = nil
 		a.diff.pendingHash = ""
 		a.diff.loadTimer = nil
-		a.diff.loadMu.Unlock()
 		if pending == nil {
 			return
 		}
@@ -447,13 +444,13 @@ func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
 
 func (a *Controller) cancelPendingDiffLoad() {
 	a.diff.loadMu.Lock()
+	defer a.diff.loadMu.Unlock()
 	if a.diff.loadTimer != nil {
 		a.diff.loadTimer.Stop()
 		a.diff.loadTimer = nil
 	}
 	a.diff.pendingDiff = nil
 	a.diff.pendingHash = ""
-	a.diff.loadMu.Unlock()
 }
 
 func (a *Controller) reloadCommitsAsync() {
