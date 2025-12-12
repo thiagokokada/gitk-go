@@ -8,7 +8,7 @@ import (
 )
 
 func (s *Service) WorktreeDiff(staged bool) (string, []FileSection, error) {
-	if s.repoPath == "" {
+	if s.repo.path == "" {
 		return "", nil, fmt.Errorf("repository root not set")
 	}
 	args := []string{"diff", "--no-color"}

@@ -11,10 +11,10 @@ import (
 
 func (s *Service) LocalChanges() (LocalChanges, error) {
 	var res LocalChanges
-	if s.repoPath == "" {
+	if s.repo.path == "" {
 		return res, fmt.Errorf("repository root not set")
 	}
-	args := []string{"-C", s.repoPath, "status", "--porcelain=v2"}
+	args := []string{"-C", s.repo.path, "status", "--porcelain=v2"}
 	cmd := exec.Command("git", args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

@@ -11,10 +11,10 @@ import (
 )
 
 func (s *Service) runGitCommand(args []string, allowExit1 bool, context string) (string, error) {
-	if s.repoPath == "" {
+	if s.repo.path == "" {
 		return "", fmt.Errorf("repository root not set")
 	}
-	cmdArgs := append([]string{"-C", s.repoPath}, args...)
+	cmdArgs := append([]string{"-C", s.repo.path}, args...)
 	cmd := exec.Command("git", cmdArgs...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

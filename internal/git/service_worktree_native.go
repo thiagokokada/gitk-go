@@ -25,9 +25,11 @@ type localChange struct {
 }
 
 func (s *Service) WorktreeDiff(staged bool) (string, []FileSection, error) {
-	if s.repo == nil {
+	if s.repo.Repository == nil {
 		return "", nil, fmt.Errorf("repository not initialized")
 	}
+	s.repo.mu.Lock()
+	defer s.repo.mu.Unlock()
 	wt, err := s.repo.Worktree()
 	if err != nil {
 		return "", nil, err
@@ -68,9 +70,9 @@ func (s *Service) WorktreeDiff(staged bool) (string, []FileSection, error) {
 		}
 		var toFile *object.File
 		if staged {
-			toFile, err = fileFromIndex(idx, s.repo, path)
+			toFile, err = fileFromIndex(idx, s.repo.Repository, path)
 		} else {
-			toFile, err = fileFromDisk(s.repoPath, path)
+			toFile, err = fileFromDisk(s.repo.path, path)
 		}
 		if err != nil {
 			return "", nil, err

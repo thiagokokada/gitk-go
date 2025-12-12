@@ -5,6 +5,7 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	gitlib "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -15,8 +16,13 @@ import (
 const DefaultBatch = 1000
 
 type Service struct {
-	repoPath string
-	repo     *gitlib.Repository
+	repo repoState
+}
+
+type repoState struct {
+	*gitlib.Repository
+	path string
+	mu   sync.RWMutex
 }
 
 type Entry struct {
@@ -40,17 +46,19 @@ func Open(repoPath string) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open repository: %w", err)
 	}
-	return &Service{repoPath: abs, repo: repo}, nil
+	return &Service{repo: repoState{path: abs, Repository: repo}}, nil
 }
 
 func (s *Service) RepoPath() string {
-	return s.repoPath
+	return s.repo.path
 }
 
 func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 	if batch <= 0 {
 		batch = DefaultBatch
 	}
+	s.repo.mu.RLock()
+	defer s.repo.mu.RUnlock()
 	ref, err := s.repo.Head()
 	if err != nil {
 		if err == plumbing.ErrReferenceNotFound {
@@ -97,9 +105,11 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 
 func (s *Service) BranchLabels() (map[string][]string, error) {
 	labels := map[string][]string{}
-	if s.repo == nil {
+	if s.repo.Repository == nil {
 		return labels, nil
 	}
+	s.repo.mu.RLock()
+	defer s.repo.mu.RUnlock()
 	refs, err := s.repo.References()
 	if err != nil {
 		return nil, err
@@ -182,6 +192,7 @@ type LocalChanges struct {
 	StagedSections   []FileSection
 }
 
+// populateGraphStrings requires the caller to hold s.repo.mu.
 func (s *Service) populateGraphStrings(entries []*Entry, skip int) error {
 	if len(entries) == 0 {
 		return nil
@@ -414,8 +425,9 @@ func refName(ref *plumbing.Reference) string {
 	return name
 }
 
+// headTree expects the caller to hold s.repo.mu.
 func (s *Service) headTree() (*object.Tree, error) {
-	if s.repo == nil {
+	if s.repo.Repository == nil {
 		return nil, nil
 	}
 	ref, err := s.repo.Head()
