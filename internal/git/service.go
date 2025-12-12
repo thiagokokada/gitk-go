@@ -59,7 +59,7 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 		}
 		return nil, "", false, fmt.Errorf("resolve HEAD: %w", err)
 	}
-	opts := &gitlib.LogOptions{From: ref.Hash(), Order: gitlib.LogOrderDFS}
+	opts := &gitlib.LogOptions{From: ref.Hash(), Order: gitlib.LogOrderCommitterTime}
 	iter, err := s.repo.Log(opts)
 	if err != nil {
 		return nil, "", false, fmt.Errorf("read commits: %w", err)
@@ -244,7 +244,7 @@ func formatSummary(c *object.Commit) string {
 	if len(firstLine) > 80 {
 		firstLine = firstLine[:77] + "..."
 	}
-	timestamp := c.Author.When.Format("2006-01-02 15:04")
+	timestamp := c.Committer.When.Format("2006-01-02 15:04")
 	return fmt.Sprintf("%s  %s  %s", c.Hash.String()[:7], timestamp, firstLine)
 }
 

@@ -12,8 +12,17 @@ import (
 
 func TestCommitListColumns(t *testing.T) {
 	commit := &object.Commit{
-		Hash:    plumbing.NewHash("abcdef1234567890abcdef1234567890abcdef12"),
-		Author:  object.Signature{Name: "Alice", Email: "alice@example.com", When: time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)},
+		Hash: plumbing.NewHash("abcdef1234567890abcdef1234567890abcdef12"),
+		Author: object.Signature{
+			Name:  "Alice",
+			Email: "alice@example.com",
+			When:  time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC),
+		},
+		Committer: object.Signature{
+			Name:  "Alice",
+			Email: "alice@example.com",
+			When:  time.Date(2025, 1, 2, 9, 30, 0, 0, time.UTC),
+		},
 		Message: "Subject line\nSecond line",
 	}
 	entry := &git.Entry{Commit: commit}
@@ -24,7 +33,7 @@ func TestCommitListColumns(t *testing.T) {
 	if author != "Alice <alice@example.com>" {
 		t.Fatalf("unexpected author column: %q", author)
 	}
-	if when != "2025-01-01 10:00" {
+	if when != "2025-01-02 09:30" {
 		t.Fatalf("unexpected date column: %q", when)
 	}
 }
@@ -96,16 +105,26 @@ func TestBuildTreeRows(t *testing.T) {
 	now := time.Date(2025, 2, 1, 12, 0, 0, 0, time.UTC)
 	entry1 := &git.Entry{
 		Commit: &object.Commit{
-			Hash:    plumbing.NewHash("1111111111111111111111111111111111111111"),
-			Author:  object.Signature{Name: "Alice", Email: "alice@example.com", When: now},
+			Hash:   plumbing.NewHash("1111111111111111111111111111111111111111"),
+			Author: object.Signature{Name: "Alice", Email: "alice@example.com", When: now},
+			Committer: object.Signature{
+				Name:  "Alice",
+				Email: "alice@example.com",
+				When:  now,
+			},
 			Message: "first message",
 		},
 		Graph: "* |",
 	}
 	entry2 := &git.Entry{
 		Commit: &object.Commit{
-			Hash:    plumbing.NewHash("2222222222222222222222222222222222222222"),
-			Author:  object.Signature{Name: "Bob", Email: "bob@example.com", When: now.Add(-time.Hour)},
+			Hash:   plumbing.NewHash("2222222222222222222222222222222222222222"),
+			Author: object.Signature{Name: "Bob", Email: "bob@example.com", When: now.Add(-time.Hour)},
+			Committer: object.Signature{
+				Name:  "Bob",
+				Email: "bob@example.com",
+				When:  now.Add(-2 * time.Hour),
+			},
 			Message: "second message line\nmore",
 		},
 		Graph: "|/",
@@ -129,7 +148,7 @@ func TestBuildTreeRows(t *testing.T) {
 	if !strings.Contains(rows[1].Author, "Bob") || !strings.Contains(rows[1].Author, "bob@example.com") {
 		t.Fatalf("unexpected author column: %q", rows[1].Author)
 	}
-	if !strings.Contains(rows[1].Date, "2025-02-01 11:00") {
+	if !strings.Contains(rows[1].Date, "2025-02-01 10:00") {
 		t.Fatalf("unexpected date column: %q", rows[1].Date)
 	}
 }

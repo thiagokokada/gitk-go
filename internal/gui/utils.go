@@ -45,7 +45,7 @@ func commitListColumns(entry *git.Entry) (msg, author, when string) {
 	}
 	msg = fmt.Sprintf("%s  %s", entry.Commit.Hash.String()[:7], firstLine)
 	author = fmt.Sprintf("%s <%s>", entry.Commit.Author.Name, entry.Commit.Author.Email)
-	when = entry.Commit.Author.When.Format("2006-01-02 15:04")
+	when = entry.Commit.Committer.When.Format("2006-01-02 15:04")
 	return
 }
 

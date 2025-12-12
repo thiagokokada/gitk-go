@@ -70,13 +70,30 @@ func TestGraphBuilderLine(t *testing.T) {
 
 func TestFormatSummary(t *testing.T) {
 	commit := &object.Commit{
-		Hash:    plumbing.NewHash("abcdef1234567890abcdef1234567890abcdef12"),
-		Author:  object.Signature{Name: "Bob", Email: "bob@example.com", When: time.Unix(0, 0)},
+		Hash: plumbing.NewHash("abcdef1234567890abcdef1234567890abcdef12"),
+		Author: object.Signature{
+			Name:  "Bob",
+			Email: "bob@example.com",
+			When:  time.Unix(0, 0),
+		},
+		Committer: object.Signature{
+			Name:  "Bob",
+			Email: "bob@example.com",
+			When:  time.Unix(3600, 0),
+		},
 		Message: strings.Repeat("x", 200),
 	}
 	got := formatSummary(commit)
 	if len(got) == 0 || !strings.Contains(got, commit.Hash.String()[:7]) {
 		t.Fatalf("summary missing hash: %s", got)
+	}
+	committerStamp := commit.Committer.When.Format("2006-01-02 15:04")
+	authorStamp := commit.Author.When.Format("2006-01-02 15:04")
+	if !strings.Contains(got, committerStamp) {
+		t.Fatalf("expected committer timestamp %s in summary: %s", committerStamp, got)
+	}
+	if strings.Contains(got, authorStamp) && authorStamp != committerStamp {
+		t.Fatalf("summary should not use author timestamp when committer differs: %s", got)
 	}
 	if strings.Contains(got, strings.Repeat("x", 150)) {
 		t.Fatalf("summary did not truncate long message: %s", got)
