@@ -68,9 +68,10 @@ buildGoModule {
       # linked with the dynamic linker used by Go, but in non-NixOS systems
       # Go will get confused trying to load the libs from Nix with the system
       # dynamic loader (and this doesn't work).
-      # Ideally we would patch purego/tk9.0 to allow overriding this, but for
-      # now forcing the binary to load with Nix's dynnamic linker, even if this
-      # is an unholy hack.
+      # Ideally we would patch purego/tk9.0 to allow overriding this (e.g., by
+      # allowing loading tk9.0 from nixpkgs instead of using the one bundled in
+      # the package), but for now forcing the binary to load with Nix's dynamic
+      # linker, even if this is an unholy hack.
       lib.optionalString stdenv.isLinux ''
         makeWrapper ${stdenv.cc.bintools.dynamicLinker} \
           $out/bin/gitk-go \
