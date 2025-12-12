@@ -31,7 +31,7 @@ Arguments:
 - First positional argument (optional): repository root or `.git` directory (defaults to current directory)
 - `-limit` (default `1000`): number of commits to load per batch
 - `-mode` (default `auto`): choose light, dark, or auto-detected theme
-- `-watch` (default `true`): automatically reload commits when the repository changes
+- `-nowatch`: disable automatic reload when the repository changes (auto-reload is on by default)
 - `-verbose`: emit additional debug logging (fsnotify events, reload scheduling)
 - `-version`: print the build version (plus active build tags when available) and exit. Version info comes from Go's build metadata (`go build -buildvcs` captures git revision automatically).
 
