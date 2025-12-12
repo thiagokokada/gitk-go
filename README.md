@@ -46,6 +46,19 @@ This requires the `git` binary to be available in `$PATH`. If the binary is not
 available the build will still succeed, but the accelerated paths will fail at
 runtime, so only enable the tag when `git` is installed.
 
+#### Garbage-collector experiment
+
+If you are using Go 1.25 or newer, building or running with
+`GOEXPERIMENT=greenteagc` can noticeably reduce UI pauses on very large
+repositories:
+
+```bash
+GOEXPERIMENT=greenteagc go run .
+```
+
+This flag is optional and only affects performance characteristics; functionality
+remains the same.
+
 ### Development
 
 ```bash
