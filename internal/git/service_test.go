@@ -14,16 +14,24 @@ import (
 func TestFormatCommitHeader(t *testing.T) {
 	ts := time.Date(2023, 7, 1, 12, 0, 0, 0, time.UTC)
 	commit := &object.Commit{
-		Hash:    plumbing.NewHash("1234567890abcdef1234567890abcdef12345678"),
-		Author:  object.Signature{Name: "Alice", Email: "alice@example.com", When: ts},
+		Hash:   plumbing.NewHash("1234567890abcdef1234567890abcdef12345678"),
+		Author: object.Signature{Name: "Alice", Email: "alice@example.com", When: ts},
+		Committer: object.Signature{
+			Name:  "Bob",
+			Email: "bob@example.com",
+			When:  ts.Add(2 * time.Hour),
+		},
 		Message: "Subject line\n\nBody line",
 	}
 	got := FormatCommitHeader(commit)
 	if !strings.Contains(got, "commit 1234567890abcdef1234567890abcdef12345678") {
 		t.Fatalf("header missing hash: %s", got)
 	}
-	if !strings.Contains(got, "Author: Alice <alice@example.com>") {
+	if !strings.Contains(got, "Author: Alice <alice@example.com>  2023-07-01 12:00:00 +0000") {
 		t.Fatalf("header missing author: %s", got)
+	}
+	if !strings.Contains(got, "Committer: Bob <bob@example.com>  2023-07-01 14:00:00 +0000") {
+		t.Fatalf("header missing committer info: %s", got)
 	}
 	if !strings.Contains(got, "Subject line") || !strings.Contains(got, "Body line") {
 		t.Fatalf("header missing message lines: %s", got)

@@ -5,7 +5,6 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
-	"time"
 
 	gitlib "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -150,8 +149,13 @@ func (s *Service) BranchLabels() (map[string][]string, error) {
 func FormatCommitHeader(c *object.Commit) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "commit %s\n", c.Hash)
-	fmt.Fprintf(&b, "Author: %s <%s>\n", c.Author.Name, c.Author.Email)
-	fmt.Fprintf(&b, "Date:   %s\n\n", c.Author.When.Format(time.RFC1123))
+	appendSignatureLine(&b, "Author", c.Author)
+	committer := c.Committer
+	if committer.Name == "" && committer.Email == "" && committer.When.IsZero() {
+		committer = c.Author
+	}
+	appendSignatureLine(&b, "Committer", committer)
+	b.WriteString("\n")
 	message := strings.TrimRight(c.Message, "\n")
 	if message == "" {
 		b.WriteString("    (no commit message)\n")
@@ -224,6 +228,14 @@ func (s *Service) populateGraphStrings(entries []*Entry, skip int) error {
 		entry.Graph = graphByHash[entry.Commit.Hash.String()]
 	}
 	return nil
+}
+
+func appendSignatureLine(b *strings.Builder, label string, sig object.Signature) {
+	fmt.Fprintf(b, "%s: %s <%s>", label, sig.Name, sig.Email)
+	if !sig.When.IsZero() {
+		fmt.Fprintf(b, "  %s", sig.When.Format("2006-01-02 15:04:05 -0700"))
+	}
+	b.WriteByte('\n')
 }
 
 func newEntry(c *object.Commit) *Entry {
