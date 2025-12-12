@@ -44,12 +44,35 @@ func (a *Controller) applyFilter(raw string) {
 		return
 	}
 
-	firstID := strconv.Itoa(0)
-	a.tree.widget.Selection("set", firstID)
-	a.tree.widget.Focus(firstID)
-	a.showCommitDetails(0)
+	index := a.visibleSelectionIndex()
+	if index < 0 && len(a.visible) > 0 {
+		index = 0
+	}
+	if index >= 0 {
+		id := strconv.Itoa(index)
+		a.tree.widget.Selection("set", id)
+		a.tree.widget.Focus(id)
+		a.tree.widget.See(id)
+		a.showCommitDetails(index)
+	}
 	a.setStatus(a.statusSummary())
 	a.scheduleAutoLoadCheck()
+}
+
+func (a *Controller) visibleSelectionIndex() int {
+	hash := a.currentSelection()
+	if hash == "" {
+		return -1
+	}
+	for i, entry := range a.visible {
+		if entry == nil || entry.Commit == nil {
+			continue
+		}
+		if entry.Commit.Hash.String() == hash {
+			return i
+		}
+	}
+	return -1
 }
 
 func (a *Controller) scheduleFilterApply(raw string) {
