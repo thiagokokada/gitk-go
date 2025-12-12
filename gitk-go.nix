@@ -12,6 +12,7 @@
   zlib,
   version ? "unknown",
   withGitCli ? true,
+  withSyntaxHighlight ? true,
 }:
 
 buildGoModule {
@@ -63,7 +64,9 @@ buildGoModule {
     ]
   );
 
-  tags = lib.optionals withGitCli [ "gitcli" ];
+  tags =
+    lib.optionals withGitCli [ "gitcli" ]
+    ++ lib.optionals (!withSyntaxHighlight) [ "nosyntaxhighlight" ];
 
   ldflags = [
     "-s"
