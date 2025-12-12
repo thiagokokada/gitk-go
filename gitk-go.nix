@@ -31,9 +31,11 @@ buildGoModule {
 
   vendorHash = "sha256-irXhhMvUmMRo5x0tSFCn/zK+V90qBCGuCKAamRFNoDI=";
 
-  nativeBuildInputs = lib.optionals stdenv.isLinux [
+  nativeBuildInputs = [
     makeWrapper
   ];
+
+  env.GOEXPERIMENT = "greenteagc";
 
   postFixup = (
     # bash
