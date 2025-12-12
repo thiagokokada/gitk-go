@@ -148,6 +148,14 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 		},
 		{
 			category:    "General",
+			display:     "Escape",
+			description: "Leave the filter box",
+			sequences:   []string{"<KeyPress-Escape>"},
+			navigation:  false,
+			handler:     func() { a.blurFilterEntry() },
+		},
+		{
+			category:    "General",
 			display:     "F5",
 			description: "Reload commits",
 			sequences:   []string{"<F5>"},
@@ -374,6 +382,22 @@ func (a *Controller) focusFilterEntry() {
 	}
 	if _, err := evalext.Eval(fmt.Sprintf("%s icursor end", a.filter.entry)); err != nil {
 		log.Printf("cursor filter: %v", err)
+	}
+}
+
+func (a *Controller) blurFilterEntry() {
+	if !a.filterHasFocus() {
+		return
+	}
+	target := App.String()
+	if a.tree.widget != nil {
+		target = a.tree.widget.String()
+	}
+	if target == "" {
+		target = "."
+	}
+	if _, err := evalext.Eval(fmt.Sprintf("focus %s", target)); err != nil {
+		log.Printf("blur filter: %v", err)
 	}
 }
 
