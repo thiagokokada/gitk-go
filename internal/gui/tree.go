@@ -131,6 +131,7 @@ func (a *Controller) treeItemExists(id string) bool {
 }
 
 func (a *Controller) applyFilter(raw string) {
+	a.stopFilterDebounce()
 	a.tree.filterValue = raw
 	a.visible = filterEntries(a.commits, raw)
 	if a.tree.widget == nil {

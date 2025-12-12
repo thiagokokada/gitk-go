@@ -26,7 +26,7 @@ func (a *Controller) buildUI() {
 	Grid(a.tree.filter, Row(1), Column(1), Sticky(WE), Padx("4p"))
 
 	Bind(a.tree.filter, "<KeyRelease>", Command(func() {
-		a.applyFilter(a.tree.filter.Textvariable())
+		a.scheduleFilterApply(a.tree.filter.Textvariable())
 	}))
 
 	clearBtn := controls.TButton(Txt("Clear"), Command(func() {

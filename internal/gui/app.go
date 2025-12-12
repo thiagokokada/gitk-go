@@ -15,12 +15,13 @@ import (
 )
 
 const (
-	autoLoadThreshold  = 0.98
-	moreIndicatorID    = "__more__"
-	loadingIndicatorID = "__loading__"
-	localUnstagedRowID = "__local_unstaged__"
-	localStagedRowID   = "__local_staged__"
-	diffDebounceDelay  = 60 * time.Millisecond
+	autoLoadThreshold   = 0.98
+	moreIndicatorID     = "__more__"
+	loadingIndicatorID  = "__loading__"
+	localUnstagedRowID  = "__local_unstaged__"
+	localStagedRowID    = "__local_staged__"
+	diffDebounceDelay   = 120 * time.Millisecond
+	filterDebounceDelay = 240 * time.Millisecond
 )
 
 const (
@@ -60,6 +61,9 @@ type treeState struct {
 	loadingBatch      bool
 	showLocalUnstaged bool
 	showLocalStaged   bool
+	filterTimer       *time.Timer
+	filterPending     string
+	filterMu          sync.Mutex
 }
 
 type diffState struct {
@@ -690,4 +694,52 @@ func (a *Controller) statusSummary() string {
 		return base
 	}
 	return fmt.Sprintf("Filter %q — %s", filterDesc, base)
+}
+
+func (a *Controller) scheduleFilterApply(raw string) {
+	if raw == "" {
+		a.applyFilter("")
+		return
+	}
+	var newTimer *time.Timer
+	newTimer = time.AfterFunc(filterDebounceDelay, func() {
+		a.flushFilterDebounce(newTimer)
+	})
+	a.tree.filterMu.Lock()
+	defer a.tree.filterMu.Unlock()
+	if timer := a.tree.filterTimer; timer != nil {
+		timer.Stop()
+	}
+	a.tree.filterPending = raw
+	a.tree.filterTimer = newTimer
+}
+
+func (a *Controller) flushFilterDebounce(timer *time.Timer) {
+	var value string
+	var ok bool
+	func() {
+		a.tree.filterMu.Lock()
+		defer a.tree.filterMu.Unlock()
+		if a.tree.filterTimer != timer {
+			return
+		}
+		value = a.tree.filterPending
+		a.tree.filterTimer = nil
+		ok = true
+	}()
+	if !ok {
+		return
+	}
+	PostEvent(func() {
+		a.applyFilter(value)
+	}, false)
+}
+
+func (a *Controller) stopFilterDebounce() {
+	a.tree.filterMu.Lock()
+	defer a.tree.filterMu.Unlock()
+	if timer := a.tree.filterTimer; timer != nil {
+		timer.Stop()
+		a.tree.filterTimer = nil
+	}
 }
