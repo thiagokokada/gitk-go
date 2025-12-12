@@ -43,6 +43,7 @@ type Controller struct {
 
 	tree      treeState
 	diff      diffState
+	filter    filterState
 	shortcuts shortcutState
 	status    *TLabelWidget
 
@@ -53,17 +54,12 @@ type Controller struct {
 type treeState struct {
 	widget            *TTreeviewWidget
 	menu              *MenuWidget
-	filter            *TEntryWidget
 	branchLabels      map[string][]string
 	contextTargetID   string
-	filterValue       string
 	hasMore           bool
 	loadingBatch      bool
 	showLocalUnstaged bool
 	showLocalStaged   bool
-	filterTimer       *time.Timer
-	filterPending     string
-	filterMu          sync.Mutex
 }
 
 type diffState struct {
@@ -71,7 +67,7 @@ type diffState struct {
 	fileList     *ListboxWidget
 	fileSections []git.FileSection
 
-	loadMu      sync.Mutex
+	mu          sync.Mutex
 	loadTimer   *time.Timer
 	pendingDiff *git.Entry
 	pendingHash string
@@ -79,6 +75,15 @@ type diffState struct {
 
 type shortcutState struct {
 	window *ToplevelWidget
+}
+
+type filterState struct {
+	entry *TEntryWidget
+	value string
+
+	mu      sync.Mutex
+	timer   *time.Timer
+	pending string
 }
 
 type selectionState struct {
@@ -424,16 +429,16 @@ func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
 	if entry == nil {
 		return
 	}
-	a.diff.loadMu.Lock()
-	defer a.diff.loadMu.Unlock()
+	a.diff.mu.Lock()
+	defer a.diff.mu.Unlock()
 	a.diff.pendingDiff = entry
 	a.diff.pendingHash = hash
 	if a.diff.loadTimer != nil {
 		a.diff.loadTimer.Stop()
 	}
 	a.diff.loadTimer = time.AfterFunc(diffDebounceDelay, func() {
-		a.diff.loadMu.Lock()
-		defer a.diff.loadMu.Unlock()
+		a.diff.mu.Lock()
+		defer a.diff.mu.Unlock()
 		pending := a.diff.pendingDiff
 		pendingHash := a.diff.pendingHash
 		a.diff.pendingDiff = nil
@@ -447,8 +452,8 @@ func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
 }
 
 func (a *Controller) cancelPendingDiffLoad() {
-	a.diff.loadMu.Lock()
-	defer a.diff.loadMu.Unlock()
+	a.diff.mu.Lock()
+	defer a.diff.mu.Unlock()
 	if a.diff.loadTimer != nil {
 		a.diff.loadTimer.Stop()
 		a.diff.loadTimer = nil
@@ -462,7 +467,7 @@ func (a *Controller) reloadCommitsAsync() {
 		return
 	}
 	a.tree.loadingBatch = true
-	currentFilter := a.tree.filterValue
+	currentFilter := a.filter.value
 	go func(filter string) {
 		entries, head, hasMore, err := a.svc.ScanCommits(0, a.batch)
 		PostEvent(func() {
@@ -492,7 +497,7 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 		return
 	}
 	a.tree.loadingBatch = true
-	currentFilter := a.tree.filterValue
+	currentFilter := a.filter.value
 	skip := len(a.commits)
 	go func(filter string, skipCount int, background bool) {
 		entries, _, hasMore, err := a.svc.ScanCommits(skipCount, a.batch)
@@ -681,7 +686,7 @@ func (a *Controller) statusSummary() string {
 	if head == "" {
 		head = "HEAD"
 	}
-	filterDesc := strings.TrimSpace(a.tree.filterValue)
+	filterDesc := strings.TrimSpace(a.filter.value)
 	path := a.repoPath
 	if path == "" && a.svc != nil {
 		path = a.svc.RepoPath()
@@ -694,52 +699,4 @@ func (a *Controller) statusSummary() string {
 		return base
 	}
 	return fmt.Sprintf("Filter %q — %s", filterDesc, base)
-}
-
-func (a *Controller) scheduleFilterApply(raw string) {
-	if raw == "" {
-		a.applyFilter("")
-		return
-	}
-	var newTimer *time.Timer
-	newTimer = time.AfterFunc(filterDebounceDelay, func() {
-		a.flushFilterDebounce(newTimer)
-	})
-	a.tree.filterMu.Lock()
-	defer a.tree.filterMu.Unlock()
-	if timer := a.tree.filterTimer; timer != nil {
-		timer.Stop()
-	}
-	a.tree.filterPending = raw
-	a.tree.filterTimer = newTimer
-}
-
-func (a *Controller) flushFilterDebounce(timer *time.Timer) {
-	var value string
-	var ok bool
-	func() {
-		a.tree.filterMu.Lock()
-		defer a.tree.filterMu.Unlock()
-		if a.tree.filterTimer != timer {
-			return
-		}
-		value = a.tree.filterPending
-		a.tree.filterTimer = nil
-		ok = true
-	}()
-	if !ok {
-		return
-	}
-	PostEvent(func() {
-		a.applyFilter(value)
-	}, false)
-}
-
-func (a *Controller) stopFilterDebounce() {
-	a.tree.filterMu.Lock()
-	defer a.tree.filterMu.Unlock()
-	if timer := a.tree.filterTimer; timer != nil {
-		timer.Stop()
-		a.tree.filterTimer = nil
-	}
 }

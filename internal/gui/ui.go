@@ -22,15 +22,15 @@ func (a *Controller) buildUI() {
 	Grid(controls.TLabel(Txt(repoLabel), Anchor(W)), Row(0), Column(0), Columnspan(4), Sticky(W))
 
 	Grid(controls.TLabel(Txt("Filter:"), Anchor(E)), Row(1), Column(0), Sticky(E))
-	a.tree.filter = controls.TEntry(Width(40), Textvariable(""))
-	Grid(a.tree.filter, Row(1), Column(1), Sticky(WE), Padx("4p"))
+	a.filter.entry = controls.TEntry(Width(40), Textvariable(""))
+	Grid(a.filter.entry, Row(1), Column(1), Sticky(WE), Padx("4p"))
 
-	Bind(a.tree.filter, "<KeyRelease>", Command(func() {
-		a.scheduleFilterApply(a.tree.filter.Textvariable())
+	Bind(a.filter.entry, "<KeyRelease>", Command(func() {
+		a.scheduleFilterApply(a.filter.entry.Textvariable())
 	}))
 
 	clearBtn := controls.TButton(Txt("Clear"), Command(func() {
-		a.tree.filter.Configure(Textvariable(""))
+		a.filter.entry.Configure(Textvariable(""))
 		a.applyFilter("")
 	}))
 	Grid(clearBtn, Row(1), Column(2), Sticky(E), Padx("4p"))

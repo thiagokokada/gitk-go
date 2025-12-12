@@ -140,7 +140,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			sequences:   []string{"<KeyPress-/>"},
 			navigation:  false,
 			handler: func() {
-				if a.tree.filter == nil || a.filterHasFocus() {
+				if a.filter.entry == nil || a.filterHasFocus() {
 					return
 				}
 				a.focusFilterEntry()
@@ -174,10 +174,10 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 }
 
 func (a *Controller) filterHasFocus() bool {
-	if a.tree.filter == nil {
+	if a.filter.entry == nil {
 		return false
 	}
-	return Focus() == a.tree.filter.String()
+	return Focus() == a.filter.entry.String()
 }
 
 func (a *Controller) showShortcutsDialog() {
@@ -363,16 +363,16 @@ func (a *Controller) scrollDetail(delta int, unit string) {
 }
 
 func (a *Controller) focusFilterEntry() {
-	if a.tree.filter == nil {
+	if a.filter.entry == nil {
 		return
 	}
-	if _, err := evalext.Eval(fmt.Sprintf("focus %s", a.tree.filter)); err != nil {
+	if _, err := evalext.Eval(fmt.Sprintf("focus %s", a.filter.entry)); err != nil {
 		log.Printf("focus filter: %v", err)
 	}
-	if _, err := evalext.Eval(fmt.Sprintf("%s selection range 0 end", a.tree.filter)); err != nil {
+	if _, err := evalext.Eval(fmt.Sprintf("%s selection range 0 end", a.filter.entry)); err != nil {
 		log.Printf("select filter: %v", err)
 	}
-	if _, err := evalext.Eval(fmt.Sprintf("%s icursor end", a.tree.filter)); err != nil {
+	if _, err := evalext.Eval(fmt.Sprintf("%s icursor end", a.filter.entry)); err != nil {
 		log.Printf("cursor filter: %v", err)
 	}
 }

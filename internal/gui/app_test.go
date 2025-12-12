@@ -79,8 +79,10 @@ func TestStatusSummary(t *testing.T) {
 			{},
 		},
 		tree: treeState{
-			hasMore:     true,
-			filterValue: "feature",
+			hasMore: true,
+		},
+		filter: filterState{
+			value: "feature",
 		},
 	}
 	summary := ctrl.statusSummary()
