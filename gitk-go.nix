@@ -7,7 +7,7 @@
   git,
   libjpeg,
   libpng,
-  makeWrapper,
+  makeBinaryWrapper,
   xorg,
   zlib,
   version ? "unknown",
@@ -32,13 +32,12 @@ buildGoModule {
   vendorHash = "sha256-MgrwGEvERpUi8hCVSNlURenzh3vMlF9NyfVbixgfiRo=";
 
   nativeBuildInputs = [
-    makeWrapper
+    makeBinaryWrapper
   ];
 
   env.GOEXPERIMENT = "greenteagc";
 
   postFixup = (
-    # bash
     lib.concatStringsSep " " [
       "wrapProgram $out/bin/gitk-go"
       (lib.optionalString stdenv.isLinux "--set LD_LIBRARY_PATH ${
