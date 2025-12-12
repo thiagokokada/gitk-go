@@ -19,6 +19,7 @@ func run(args []string) error {
 	limit := fs.Int("limit", git.DefaultBatch, "number of commits to load per batch")
 	mode := fs.String("mode", gui.ThemeAuto.String(), "color mode: auto, light, or dark")
 	noWatch := fs.Bool("nowatch", false, "disable automatic reload when repository changes")
+	noSyntax := fs.Bool("nosyntax", false, "disable syntax highlighting in the diff viewer")
 	verbose := fs.Bool("verbose", false, "enable verbose logging")
 	showVersion := fs.Bool("version", false, "print version information and exit")
 	if err := fs.Parse(args); err != nil {
@@ -36,7 +37,7 @@ func run(args []string) error {
 	if len(remaining) > 0 {
 		repoPath = remaining[len(remaining)-1]
 	}
-	return gui.Run(repoPath, *limit, gui.ThemePreferenceFromString(*mode), !*noWatch, *verbose)
+	return gui.Run(repoPath, *limit, gui.ThemePreferenceFromString(*mode), !*noWatch, !*noSyntax, *verbose)
 }
 
 func formatVersion() string {

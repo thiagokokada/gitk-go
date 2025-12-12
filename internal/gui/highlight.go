@@ -1,5 +1,3 @@
-//go:build !nosyntaxhighlight
-
 package gui
 
 import (

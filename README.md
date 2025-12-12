@@ -32,6 +32,7 @@ Arguments:
 - `-limit` (default `1000`): number of commits to load per batch
 - `-mode` (default `auto`): choose light, dark, or auto-detected theme
 - `-nowatch`: disable automatic reload when the repository changes (auto-reload is on by default)
+- `-nosyntax`: disable syntax highlighting in the diff viewer
 - `-verbose`: emit additional debug logging (fsnotify events, reload scheduling)
 - `-version`: print the build version (plus active build tags when available) and exit. Version info comes from Go's build metadata (`go build -buildvcs` captures git revision automatically).
 

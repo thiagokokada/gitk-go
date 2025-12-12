@@ -38,6 +38,7 @@ type Controller struct {
 	themePref           ThemePreference
 	palette             colorPalette
 	autoReloadRequested bool
+	syntaxHighlight     bool
 	verbose             bool
 
 	headRef string
@@ -152,7 +153,7 @@ type localDiffSnapshot struct {
 	err      error
 }
 
-func Run(repoPath string, batch int, pref ThemePreference, autoReload bool, verbose bool) error {
+func Run(repoPath string, batch int, pref ThemePreference, autoReload bool, syntaxHighlight bool, verbose bool) error {
 	if err := InitializeExtension("eval"); err != nil && err != AlreadyInitialized {
 		return fmt.Errorf("init eval extension: %v", err)
 	}
@@ -172,6 +173,7 @@ func Run(repoPath string, batch int, pref ThemePreference, autoReload bool, verb
 		batch:               batch,
 		themePref:           pref,
 		autoReloadRequested: autoReload,
+		syntaxHighlight:     syntaxHighlight,
 		verbose:             verbose,
 	}
 	app.diff.syntaxTags = make(map[string]string)
@@ -589,11 +591,14 @@ func (a *Controller) writeDetailText(content string, highlightDiff bool) {
 	a.diff.detail.Insert("1.0", content)
 	if highlightDiff {
 		a.highlightDiffLines(content)
-		a.applySyntaxHighlight(content)
 	} else {
 		a.diff.detail.TagRemove("diffAdd", "1.0", END)
 		a.diff.detail.TagRemove("diffDel", "1.0", END)
 		a.diff.detail.TagRemove("diffHeader", "1.0", END)
+	}
+	if a.syntaxHighlight && highlightDiff {
+		a.applySyntaxHighlight(content)
+	} else {
 		a.clearSyntaxHighlight()
 	}
 	a.diff.detail.Configure(State("disabled"))
