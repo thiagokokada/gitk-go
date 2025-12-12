@@ -29,7 +29,7 @@ buildGoModule {
     ];
   };
 
-  vendorHash = "sha256-KDae1LnFARj6Pz+Gsup8bQgyc6cp6VQq9uxVwUCTqBY=";
+  vendorHash = "sha256-MgrwGEvERpUi8hCVSNlURenzh3vMlF9NyfVbixgfiRo=";
 
   nativeBuildInputs = [
     makeWrapper
