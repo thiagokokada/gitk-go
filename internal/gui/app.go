@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/thiagokokada/gitk-go/internal/debounce"
@@ -73,11 +74,7 @@ type diffState struct {
 	fileList     *ListboxWidget
 	fileSections []git.FileSection
 	syntaxTags   map[string]string
-
-	mu          sync.Mutex
-	pendingDiff *git.Entry
-	pendingHash string
-	debouncer   *debounce.Debouncer
+	debouncer   atomic.Pointer[debounce.Debouncer]
 }
 
 type shortcutState struct {
@@ -441,38 +438,23 @@ func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
 		return
 	}
 	slog.Debug("scheduleDiffLoad", slog.String("hash", hash))
-	a.diff.mu.Lock()
-	defer a.diff.mu.Unlock()
-	a.diff.pendingDiff = entry
-	a.diff.pendingHash = hash
-	if a.diff.debouncer != nil {
-		a.diff.debouncer.Stop()
-	}
-	a.diff.debouncer = debounce.New(diffDebounceDelay, func() {
-		a.diff.mu.Lock()
-		defer a.diff.mu.Unlock()
-		pending := a.diff.pendingDiff
-		pendingHash := a.diff.pendingHash
-		a.diff.pendingDiff = nil
-		a.diff.pendingHash = ""
-		if pending == nil {
+	debouncer := debounce.New(diffDebounceDelay, func() {
+		if entry == nil {
 			return
 		}
-		go a.populateDiff(pending, pendingHash)
+		go a.populateDiff(entry, hash)
 	})
-	a.diff.debouncer.Trigger()
+	debouncer.Trigger()
+	if current := a.diff.debouncer.Swap(debouncer); current != nil {
+		current.Stop()
+	}
 }
 
 func (a *Controller) cancelPendingDiffLoad() {
-	slog.Debug("cancelPendingDiffLoad", slog.String("hash", a.diff.pendingHash))
-	a.diff.mu.Lock()
-	defer a.diff.mu.Unlock()
-	if a.diff.debouncer != nil {
-		a.diff.debouncer.Stop()
-		a.diff.debouncer = nil
+	slog.Debug("cancelPendingDiffLoad")
+	if current := a.diff.debouncer.Swap(nil); current != nil {
+		current.Stop()
 	}
-	a.diff.pendingDiff = nil
-	a.diff.pendingHash = ""
 }
 
 func (a *Controller) reloadCommitsAsync() {

@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/thiagokokada/gitk-go/internal/debounce"
@@ -18,8 +19,7 @@ type filterState struct {
 	value string
 
 	mu        sync.Mutex
-	debouncer *debounce.Debouncer
-	pending   string
+	debouncer atomic.Pointer[debounce.Debouncer]
 }
 
 func (a *Controller) applyFilter(raw string) {
@@ -98,42 +98,25 @@ func (a *Controller) scheduleFilterApply(raw string) {
 	slog.Debug("scheduleFilterApply", slog.String("value", raw))
 	var debouncer *debounce.Debouncer
 	debouncer = debounce.New(filterDebounceDelay, func() {
-		a.flushFilterDebounce(debouncer)
+		a.flushFilterDebounce(raw, debouncer)
 	})
 	debouncer.Trigger()
-	a.filter.mu.Lock()
-	defer a.filter.mu.Unlock()
-	if current := a.filter.debouncer; current != nil {
+	if current := a.filter.debouncer.Swap(debouncer); current != nil {
 		current.Stop()
 	}
-	a.filter.pending = raw
-	a.filter.debouncer = debouncer
 }
 
-func (a *Controller) flushFilterDebounce(debouncer *debounce.Debouncer) {
-	value, ok := func() (string, bool) {
-		a.filter.mu.Lock()
-		defer a.filter.mu.Unlock()
-		if a.filter.debouncer != debouncer {
-			return "", false
-		}
-		val := a.filter.pending
-		a.filter.debouncer = nil
-		return val, true
-	}()
-	if !ok {
+func (a *Controller) flushFilterDebounce(raw string, debouncer *debounce.Debouncer) {
+	if swapped := a.filter.debouncer.CompareAndSwap(debouncer, nil); !swapped {
 		return
 	}
 	PostEvent(func() {
-		a.applyFilter(value)
+		a.applyFilter(raw)
 	}, false)
 }
 
 func (a *Controller) stopFilterDebounce() {
-	a.filter.mu.Lock()
-	defer a.filter.mu.Unlock()
-	if debouncer := a.filter.debouncer; debouncer != nil {
-		debouncer.Stop()
-		a.filter.debouncer = nil
+	if current := a.filter.debouncer.Swap(nil); current != nil {
+		current.Stop()
 	}
 }
