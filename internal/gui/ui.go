@@ -170,7 +170,7 @@ func (a *Controller) showInitialLoadingRow() {
 func (a *Controller) initTreeContextMenu() {
 	menu := App.Menu(Tearoff(false))
 	item := menu.AddCommand(Command(a.copySelectedCommitReference))
-	a.configureMenuLabel(menu, item, "Copy commit reference")
+	menu.EntryConfigure(item, Lbl("Copy commit reference"))
 	a.tree.menu = menu
 }
 
@@ -229,13 +229,4 @@ func (a *Controller) treeCommitIndex(id string) (int, bool) {
 		return 0, false
 	}
 	return idx, true
-}
-
-func (a *Controller) configureMenuLabel(menu *MenuWidget, item *MenuItem, text string) {
-	if menu == nil || item == nil || text == "" {
-		return
-	}
-	if _, err := evalext.Eval(fmt.Sprintf("%s entryconfigure %s %s", menu, item, Lbl(text))); err != nil {
-		slog.Error("menu label", slog.String("text", text), slog.Any("error", err))
-	}
 }
