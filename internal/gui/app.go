@@ -2,7 +2,6 @@ package gui
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
 	"os"
 	"strconv"
@@ -213,7 +212,7 @@ func (a *Controller) refreshLocalChangesAsync(prefetch bool) {
 			status, err = a.svc.LocalChanges()
 		}
 		if err != nil {
-			log.Printf("local changes: %v", err)
+			slog.Error("local changes", slog.Any("error", err))
 			return
 		}
 		PostEvent(func() {
@@ -472,9 +471,8 @@ func (a *Controller) reloadCommitsAsync() {
 		PostEvent(func() {
 			a.tree.loadingBatch = false
 			if err != nil {
-				msg := fmt.Sprintf("Failed to reload commits: %v", err)
-				log.Print(msg)
-				a.setStatus(msg)
+				slog.Error("failed to reload commits", slog.Any("error", err))
+				a.setStatus(fmt.Sprintf("Failed to reload commits: %v", err))
 				return
 			}
 			a.commits = entries
@@ -487,7 +485,7 @@ func (a *Controller) reloadCommitsAsync() {
 				slog.Bool("has_more", hasMore),
 			)
 			if err := a.loadBranchLabels(); err != nil {
-				log.Printf("failed to refresh branch labels: %v", err)
+				slog.Error("failed to refresh branch labels", slog.Any("error", err))
 			}
 			a.applyFilter(filter)
 			a.refreshLocalChangesAsync(true)
@@ -513,10 +511,9 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 		PostEvent(func() {
 			a.tree.loadingBatch = false
 			if err != nil {
-				msg := fmt.Sprintf("Failed to load more commits: %v", err)
-				log.Print(msg)
+				slog.Error("failed to load more commits", slog.Any("error", err))
 				if !background {
-					a.setStatus(msg)
+					a.setStatus(fmt.Sprintf("Failed to load more commits: %v", err))
 				}
 				return
 			}
@@ -536,7 +533,7 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 				slog.Bool("background", background),
 			)
 			if err := a.loadBranchLabels(); err != nil {
-				log.Printf("failed to refresh branch labels: %v", err)
+				slog.Error("failed to refresh branch labels", slog.Any("error", err))
 			}
 			a.applyFilter(filter)
 			a.refreshLocalChangesAsync(false)
@@ -726,7 +723,7 @@ func (a *Controller) currentSelection() string {
 
 func (a *Controller) setStatus(msg string) {
 	if a.status == nil {
-		log.Print(msg)
+		slog.Info(msg)
 		return
 	}
 	text := msg

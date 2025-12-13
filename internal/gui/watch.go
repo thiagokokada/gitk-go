@@ -3,7 +3,6 @@ package gui
 import (
 	"fmt"
 	"iter"
-	"log"
 	"log/slog"
 	"maps"
 	"os"
@@ -34,7 +33,7 @@ func (a *Controller) initAutoReload(requested bool) {
 	a.watch.mu.Unlock()
 	if requested {
 		if err := a.enableAutoReload(); err != nil {
-			log.Printf("auto reload disabled: %v", err)
+			slog.Error("auto reload disabled", slog.Any("error", err))
 			a.watch.mu.Lock()
 			a.watch.configured = false
 			a.watch.mu.Unlock()
@@ -116,7 +115,7 @@ func (a *Controller) watchLoop(w *fsnotify.Watcher) {
 			if !ok {
 				return
 			}
-			log.Printf("fsnotify error: %v", err)
+			slog.Error("fsnotify error", slog.Any("error", err))
 		}
 	}
 }
@@ -196,7 +195,7 @@ func (a *Controller) onReloadButton() {
 		a.disableAutoReload()
 	} else {
 		if err := a.enableAutoReload(); err != nil {
-			log.Printf("auto reload enable failed: %v", err)
+			slog.Error("auto reload enable failed", slog.Any("error", err))
 		}
 	}
 	a.updateReloadButtonLabel()

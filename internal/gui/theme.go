@@ -1,7 +1,7 @@
 package gui
 
 import (
-	"log"
+	"log/slog"
 	"strings"
 
 	darkmode "github.com/thiagokokada/dark-mode-go"
@@ -72,7 +72,7 @@ func paletteForPreference(pref ThemePreference) colorPalette {
 					return lightPalette
 				}
 			} else {
-				log.Printf("detect dark-mode: %v", err)
+				slog.Error("detect dark-mode", slog.Any("error", err))
 			}
 		}
 		return darkPalette

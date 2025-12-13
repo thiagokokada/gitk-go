@@ -2,7 +2,7 @@ package gui
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -97,7 +97,12 @@ func (a *Controller) buildUI() {
 	diffPane.Add(fileFrame.Window)
 	configurePane := func(window *Window, options string) {
 		if _, err := evalext.Eval(fmt.Sprintf("%s pane %s %s", diffPane, window, options)); err != nil {
-			log.Printf("pane %s %s: %v", window, options, err)
+			slog.Error(
+				"pane",
+				slog.Any("window", window),
+				slog.String("options", options),
+				slog.Any("error", err),
+			)
 		}
 	}
 	configurePane(textFrame.Window, "-weight 5")
@@ -232,6 +237,6 @@ func (a *Controller) configureMenuLabel(menu *MenuWidget, item *MenuItem, text s
 	}
 	safe := escapeTclString(text)
 	if _, err := evalext.Eval(fmt.Sprintf("%s entryconfigure %s -label {%s}", menu, item, safe)); err != nil {
-		log.Printf("menu label (%s): %v", text, err)
+		slog.Error("menu label", slog.String("text", text), slog.Any("error", err))
 	}
 }

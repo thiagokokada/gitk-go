@@ -12,3 +12,4 @@ agents should follow these rules:
 7. Keep GUI assets (icons, images, etc.) inside `internal/gui/assets` and reference them there when using `go:embed`.
 8. Group related controller/state fields into dedicated structs instead of leaving long flat structs.
 9. When working with mutexes, prefer `defer mu.Unlock()` immediately after locking unless there is a strong reason not to.
+10. Prefer `slog/log` instead of `log` for logging.

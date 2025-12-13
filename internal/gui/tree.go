@@ -2,7 +2,6 @@ package gui
 
 import (
 	"fmt"
-	"log"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -125,7 +124,7 @@ func (a *Controller) treeItemExists(id string) bool {
 	}
 	out, err := evalext.Eval(fmt.Sprintf("%s exists %s", a.tree.widget, id))
 	if err != nil {
-		log.Printf("tree exists %s: %v", id, err)
+		slog.Error("tree exists", slog.String("id", id), slog.Any("error", err))
 		return false
 	}
 	return strings.TrimSpace(out) == "1"
@@ -154,7 +153,7 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 	}
 	start, end, err := a.treeYviewRange()
 	if err != nil {
-		log.Printf("tree yview: %v", err)
+		slog.Error("tree yview", slog.Any("error", err))
 		return
 	}
 	if a.filter.value == "" && len(a.visible) >= a.batch && start <= 0 && end >= 1 {

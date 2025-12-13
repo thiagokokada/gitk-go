@@ -2,7 +2,7 @@ package gui
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -349,7 +349,7 @@ func (a *Controller) scrollTreePages(delta int) {
 		return
 	}
 	if _, err := evalext.Eval(fmt.Sprintf("%s yview scroll %d pages", a.tree.widget, delta)); err != nil {
-		log.Printf("tree scroll: %v", err)
+		slog.Error("tree scroll", slog.Any("error", err))
 	}
 }
 
@@ -366,7 +366,7 @@ func (a *Controller) scrollDetail(delta int, unit string) {
 		return
 	}
 	if _, err := evalext.Eval(fmt.Sprintf("%s yview scroll %d %s", a.diff.detail, delta, unit)); err != nil {
-		log.Printf("detail scroll: %v", err)
+		slog.Error("detail scroll", slog.Any("error", err))
 	}
 }
 
@@ -375,13 +375,13 @@ func (a *Controller) focusFilterEntry() {
 		return
 	}
 	if _, err := evalext.Eval(fmt.Sprintf("focus %s", a.filter.entry)); err != nil {
-		log.Printf("focus filter: %v", err)
+		slog.Error("focus filter", slog.Any("error", err))
 	}
 	if _, err := evalext.Eval(fmt.Sprintf("%s selection range 0 end", a.filter.entry)); err != nil {
-		log.Printf("select filter: %v", err)
+		slog.Error("select filter", slog.Any("error", err))
 	}
 	if _, err := evalext.Eval(fmt.Sprintf("%s icursor end", a.filter.entry)); err != nil {
-		log.Printf("cursor filter: %v", err)
+		slog.Error("cursor filter", slog.Any("error", err))
 	}
 }
 
@@ -397,7 +397,7 @@ func (a *Controller) blurFilterEntry() {
 		target = "."
 	}
 	if _, err := evalext.Eval(fmt.Sprintf("focus %s", target)); err != nil {
-		log.Printf("blur filter: %v", err)
+		slog.Error("blur filter", slog.Any("error", err))
 	}
 }
 
