@@ -75,6 +75,10 @@ GOEXPERIMENT=greenteagc go run .
 This flag is optional and only affects performance characteristics; functionality
 remains the same.
 
+### Known issues
+
+- Automatic reload doesn't work well with `core.fsmonitor` option from `git` enabled.
+
 ### Development
 
 ```bash
