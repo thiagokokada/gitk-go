@@ -449,11 +449,11 @@ func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
 	if entry == nil {
 		return
 	}
+	slog.Debug("scheduleDiffLoad", slog.String("hash", hash))
 	a.diff.mu.Lock()
 	defer a.diff.mu.Unlock()
 	a.diff.pendingDiff = entry
 	a.diff.pendingHash = hash
-	slog.Debug("scheduleDiffLoad", slog.String("hash", hash))
 	if a.diff.loadTimer != nil {
 		a.diff.loadTimer.Stop()
 	}
@@ -473,6 +473,7 @@ func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
 }
 
 func (a *Controller) cancelPendingDiffLoad() {
+	slog.Debug("cancelPendingDiffLoad", slog.String("hash", a.diff.pendingHash))
 	a.diff.mu.Lock()
 	defer a.diff.mu.Unlock()
 	if a.diff.loadTimer != nil {
