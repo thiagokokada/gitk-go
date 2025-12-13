@@ -78,6 +78,7 @@ remains the same.
 ### Known issues
 
 - Automatic reload doesn't work well with `core.fsmonitor` option from `git` enabled.
+- Automatic reload doesn't detect untracked files since [fsmonitor doesn't support recursive watcher yet](https://github.com/fsnotify/fsnotify/issues/18)
 
 ### Development
 
