@@ -2,12 +2,10 @@ package gui
 
 import (
 	"fmt"
-	"log/slog"
 	"strconv"
 	"strings"
 
 	. "modernc.org/tk9.0"
-	evalext "modernc.org/tk9.0/extensions/eval"
 )
 
 func (a *Controller) buildUI() {
@@ -96,14 +94,7 @@ func (a *Controller) buildUI() {
 	diffPane.Add(textFrame.Window)
 	diffPane.Add(fileFrame.Window)
 	configurePane := func(window *Window, options string) {
-		if _, err := evalext.Eval(fmt.Sprintf("%s pane %s %s", diffPane, window, options)); err != nil {
-			slog.Error(
-				"pane",
-				slog.Any("window", window),
-				slog.String("options", options),
-				slog.Any("error", err),
-			)
-		}
+		tkEval("%s pane %s %s", diffPane, window, options)
 	}
 	configurePane(textFrame.Window, "-weight 5")
 	configurePane(fileFrame.Window, "-weight 1")

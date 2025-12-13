@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	. "modernc.org/tk9.0"
-	evalext "modernc.org/tk9.0/extensions/eval"
 )
 
 func (a *Controller) insertLocalRows() {
@@ -122,7 +121,7 @@ func (a *Controller) treeItemExists(id string) bool {
 	if a.tree.widget == nil || id == "" {
 		return false
 	}
-	out, err := evalext.Eval(fmt.Sprintf("%s exists %s", a.tree.widget, id))
+	out, err := tkSafeEval("%s exists %s", a.tree.widget, id)
 	if err != nil {
 		slog.Error("tree exists", slog.String("id", id), slog.Any("error", err))
 		return false
@@ -172,7 +171,7 @@ func (a *Controller) treeYviewRange() (float64, float64, error) {
 	if path == "" {
 		return 0, 0, fmt.Errorf("tree widget has empty path")
 	}
-	out, err := evalext.Eval(fmt.Sprintf("%s yview", path))
+	out, err := tkSafeEval("%s yview", path)
 	if err != nil {
 		return 0, 0, err
 	}

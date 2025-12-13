@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 
+	evalext "modernc.org/tk9.0/extensions/eval"
+
 	"github.com/thiagokokada/gitk-go/internal/git"
 )
 
@@ -76,4 +78,21 @@ func filterEntries(entries []*git.Entry, query string) []*git.Entry {
 		}
 	}
 	return filtered
+}
+
+func tkSafeEval(format string, a ...any) (string, error) {
+	var eval = fmt.Sprintf(format, a...)
+	r, err := evalext.Eval(eval)
+	if err != nil {
+		return "", fmt.Errorf("tk eval=%s; err=%w", eval, err)
+	}
+	return r, nil
+}
+
+func tkEval(format string, a ...any) string {
+	r, err := tkSafeEval(format, a...)
+	if err != nil {
+		panic(err)
+	}
+	return r
 }
