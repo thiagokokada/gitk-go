@@ -2,8 +2,10 @@ package gui
 
 import (
 	"fmt"
+	"iter"
 	"log"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,7 +55,8 @@ func (a *Controller) enableAutoReload() error {
 	if err != nil {
 		return fmt.Errorf("fsnotify: %w", err)
 	}
-	for _, path := range watchPaths(a.repoPath) {
+	for path := range watchPaths(a.repoPath) {
+		slog.Debug("adding path to FS watcher", slog.String("path", path))
 		if err := watcher.Add(path); err != nil {
 			watcher.Close()
 			return fmt.Errorf("watch %s: %w", path, err)
@@ -127,26 +130,19 @@ func (a *Controller) scheduleAutoReload() {
 	a.watch.debounce.Trigger()
 }
 
-func watchPaths(root string) []string {
+func watchPaths(root string) iter.Seq[string] {
 	if root == "" {
 		return nil
 	}
-	var paths []string
-	appendUnique := func(p string) {
-		for _, existing := range paths {
-			if existing == p {
-				return
-			}
-		}
-		paths = append(paths, p)
-	}
+	uniquePaths := map[string]struct{}{}
+	appendUnique := func(p string) { uniquePaths[p] = struct{}{} }
 	gitDir := filepath.Join(root, ".git")
 	if info, err := os.Stat(gitDir); err == nil && info.IsDir() {
 		appendUnique(gitDir)
-		return paths
+		return maps.Keys(uniquePaths)
 	}
 	appendUnique(root)
-	return paths
+	return maps.Keys(uniquePaths)
 }
 
 func shouldIgnoreWatchPath(name string) bool {
