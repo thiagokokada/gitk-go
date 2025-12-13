@@ -138,12 +138,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			description: "Focus the filter box",
 			sequences:   []string{"<KeyPress-/>"},
 			navigation:  false,
-			handler: func() {
-				if a.filter.entry == nil || a.filterHasFocus() {
-					return
-				}
-				a.focusFilterEntry()
-			},
+			handler:     a.focusFilterEntry,
 		},
 		{
 			category:    "General",
@@ -151,7 +146,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			description: "Leave the filter box",
 			sequences:   []string{"<KeyPress-Escape>"},
 			navigation:  false,
-			handler:     func() { a.blurFilterEntry() },
+			handler:     a.blurFilterEntry,
 		},
 		{
 			category:    "General",
@@ -159,7 +154,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			description: "Reload commits",
 			sequences:   []string{"<F5>"},
 			navigation:  false,
-			handler:     func() { a.reloadCommitsAsync() },
+			handler:     a.reloadCommitsAsync,
 		},
 		{
 			category:    "General",
@@ -167,7 +162,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			description: "Show shortcut list",
 			sequences:   []string{"<F1>"},
 			navigation:  false,
-			handler:     func() { a.showShortcutsDialog() },
+			handler:     a.showShortcutsDialog,
 		},
 		{
 			category:    "General",
@@ -370,7 +365,7 @@ func (a *Controller) scrollDetail(delta int, unit string) {
 }
 
 func (a *Controller) focusFilterEntry() {
-	if a.filter.entry == nil {
+	if a.filter.entry == nil || a.filterHasFocus() {
 		return
 	}
 	if _, err := tkSafeEval("focus %s", a.filter.entry); err != nil {
