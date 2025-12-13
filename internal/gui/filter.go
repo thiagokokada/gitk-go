@@ -3,10 +3,24 @@ package gui
 import (
 	"log/slog"
 	"strconv"
+	"sync"
 	"time"
+
+	"github.com/thiagokokada/gitk-go/internal/debounce"
 
 	. "modernc.org/tk9.0"
 )
+
+const filterDebounceDelay = 240 * time.Millisecond
+
+type filterState struct {
+	entry *TEntryWidget
+	value string
+
+	mu        sync.Mutex
+	debouncer *debounce.Debouncer
+	pending   string
+}
 
 func (a *Controller) applyFilter(raw string) {
 	a.stopFilterDebounce()
@@ -82,28 +96,29 @@ func (a *Controller) scheduleFilterApply(raw string) {
 		return
 	}
 	slog.Debug("scheduleFilterApply", slog.String("value", raw))
-	var timer *time.Timer
-	timer = time.AfterFunc(filterDebounceDelay, func() {
-		a.flushFilterDebounce(timer)
+	var debouncer *debounce.Debouncer
+	debouncer = debounce.New(filterDebounceDelay, func() {
+		a.flushFilterDebounce(debouncer)
 	})
+	debouncer.Trigger()
 	a.filter.mu.Lock()
 	defer a.filter.mu.Unlock()
-	if current := a.filter.timer; current != nil {
+	if current := a.filter.debouncer; current != nil {
 		current.Stop()
 	}
 	a.filter.pending = raw
-	a.filter.timer = timer
+	a.filter.debouncer = debouncer
 }
 
-func (a *Controller) flushFilterDebounce(timer *time.Timer) {
+func (a *Controller) flushFilterDebounce(debouncer *debounce.Debouncer) {
 	value, ok := func() (string, bool) {
 		a.filter.mu.Lock()
 		defer a.filter.mu.Unlock()
-		if a.filter.timer != timer {
+		if a.filter.debouncer != debouncer {
 			return "", false
 		}
 		val := a.filter.pending
-		a.filter.timer = nil
+		a.filter.debouncer = nil
 		return val, true
 	}()
 	if !ok {
@@ -117,8 +132,8 @@ func (a *Controller) flushFilterDebounce(timer *time.Timer) {
 func (a *Controller) stopFilterDebounce() {
 	a.filter.mu.Lock()
 	defer a.filter.mu.Unlock()
-	if timer := a.filter.timer; timer != nil {
-		timer.Stop()
-		a.filter.timer = nil
+	if debouncer := a.filter.debouncer; debouncer != nil {
+		debouncer.Stop()
+		a.filter.debouncer = nil
 	}
 }
