@@ -97,7 +97,7 @@ func (a *Controller) watchLoop(w *fsnotify.Watcher) {
 			if !ok {
 				return
 			}
-			if !ev.Has(fsnotify.Write) {
+			if ev.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove|fsnotify.Rename) == 0 {
 				continue
 			}
 			if shouldIgnoreWatchPath(ev.Name) {
