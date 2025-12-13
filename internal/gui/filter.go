@@ -45,7 +45,7 @@ func (a *Controller) applyFilter(raw string) {
 		a.tree.widget.Insert("", "end", Id(row.ID), Values(vals))
 	}
 	if a.tree.hasMore && len(a.visible) > 0 {
-		vals := []string{"", "Loading more commits...", "", ""}
+		vals := []string{"", "There are more commits...", "", ""}
 		a.tree.widget.Insert("", "end", Id(moreIndicatorID), Values(vals))
 	}
 
