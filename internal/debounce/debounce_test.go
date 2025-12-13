@@ -1,4 +1,4 @@
-package gui
+package debounce
 
 import (
 	"sync/atomic"
@@ -9,7 +9,7 @@ import (
 func TestDebouncerTriggerOnce(t *testing.T) {
 	var count int32
 	done := make(chan struct{})
-	d := newDebouncer(10*time.Millisecond, func() {
+	d := New(10*time.Millisecond, func() {
 		atomic.AddInt32(&count, 1)
 		close(done)
 	})
@@ -27,7 +27,7 @@ func TestDebouncerTriggerOnce(t *testing.T) {
 
 func TestDebouncerStop(t *testing.T) {
 	var count int32
-	d := newDebouncer(20*time.Millisecond, func() {
+	d := New(20*time.Millisecond, func() {
 		atomic.AddInt32(&count, 1)
 	})
 	d.Trigger()

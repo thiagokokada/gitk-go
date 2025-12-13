@@ -1,22 +1,22 @@
-package gui
+package debounce
 
 import (
 	"sync"
 	"time"
 )
 
-type debouncer struct {
+type Debouncer struct {
 	mu    sync.Mutex
 	delay time.Duration
 	timer *time.Timer
 	fn    func()
 }
 
-func newDebouncer(delay time.Duration, fn func()) *debouncer {
-	return &debouncer{delay: delay, fn: fn}
+func New(delay time.Duration, fn func()) *Debouncer {
+	return &Debouncer{delay: delay, fn: fn}
 }
 
-func (d *debouncer) Trigger() {
+func (d *Debouncer) Trigger() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.timer != nil {
@@ -25,7 +25,7 @@ func (d *debouncer) Trigger() {
 	d.timer = time.AfterFunc(d.delay, d.fn)
 }
 
-func (d *debouncer) Stop() {
+func (d *Debouncer) Stop() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.timer != nil {

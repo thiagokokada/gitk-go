@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/thiagokokada/gitk-go/internal/debounce"
 	. "modernc.org/tk9.0"
 )
 
@@ -23,7 +24,7 @@ type autoReloadState struct {
 	configured bool
 	enabled    bool
 	watcher    *fsnotify.Watcher
-	debounce   *debouncer
+	debounce   *debounce.Debouncer
 	button     *TButtonWidget
 }
 
@@ -63,7 +64,7 @@ func (a *Controller) enableAutoReload() error {
 		}
 	}
 	if a.watch.debounce == nil {
-		a.watch.debounce = newDebouncer(autoReloadDebounceDelay, func() {
+		a.watch.debounce = debounce.New(autoReloadDebounceDelay, func() {
 			PostEvent(func() {
 				a.reloadCommitsAsync()
 			}, false)
