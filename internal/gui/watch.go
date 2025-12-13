@@ -150,11 +150,8 @@ func watchPaths(root string) []string {
 }
 
 func shouldIgnoreWatchPath(name string) bool {
-	if name == "" {
-		return false
-	}
-	base := strings.ToLower(filepath.Base(name))
-	if strings.HasSuffix(base, ".lock") || strings.HasSuffix(base, ".ipc") {
+	ext := strings.ToLower(filepath.Ext(name))
+	if ext == ".lock" || ext == ".ipc" {
 		return true
 	}
 	return false
