@@ -101,7 +101,7 @@ func (a *Controller) highlightCodeLine(lexer chroma.Lexer, style *chroma.Style, 
 
 func styleForPalette(p colorPalette) *chroma.Style {
 	if p.isDark() {
-		if st := styles.Get("dracula"); st != nil {
+		if st := styles.Get("github-dark"); st != nil {
 			return st
 		}
 	} else {

@@ -16,14 +16,7 @@ const (
 )
 
 func (p ThemePreference) String() string {
-	switch p {
-	case ThemeLight:
-		return "light"
-	case ThemeDark:
-		return "dark"
-	default:
-		return "auto"
-	}
+	return []string{"auto", "light", "dark"}[p]
 }
 
 type colorPalette struct {
@@ -75,17 +68,17 @@ func paletteForPreference(pref ThemePreference) colorPalette {
 	default:
 		if detectDarkMode != nil {
 			if dark, err := detectDarkMode(); err == nil {
-				if dark {
-					return darkPalette
+				if !dark {
+					return lightPalette
 				}
 			} else {
 				log.Printf("detect dark-mode: %v", err)
 			}
 		}
-		return lightPalette
+		return darkPalette
 	}
 }
 
 func (p colorPalette) isDark() bool {
-	return strings.Contains(strings.ToLower(p.ThemeName), "dark")
+	return p == darkPalette
 }

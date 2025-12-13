@@ -79,6 +79,7 @@ remains the same.
 
 - Automatic reload doesn't work well with `core.fsmonitor` option from `git` enabled.
 - Automatic reload doesn't detect untracked files since [fsmonitor doesn't support recursive watcher yet](https://github.com/fsnotify/fsnotify/issues/18)
+- Light theme seems to be much slower than dark theme (not noticeable unless you're using a slow device)
 
 ### Development
 
