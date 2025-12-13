@@ -16,12 +16,12 @@ func (a *Controller) insertLocalRows() {
 	}
 	index := 0
 	if a.tree.showLocalUnstaged {
-		vals := tclList("", localUnstagedLabel, "", "")
+		vals := []string{"", localUnstagedLabel, "", ""}
 		a.tree.widget.Insert("", index, Id(localUnstagedRowID), Values(vals), Tags("localUnstaged"))
 		index++
 	}
 	if a.tree.showLocalStaged {
-		vals := tclList("", localStagedLabel, "", "")
+		vals := []string{"", localStagedLabel, "", ""}
 		a.tree.widget.Insert("", index, Id(localStagedRowID), Values(vals), Tags("localStaged"))
 	}
 }
@@ -93,7 +93,7 @@ func (a *Controller) insertSingleLocalRow(staged bool) {
 	if staged && a.tree.showLocalUnstaged {
 		index = 1
 	}
-	vals := tclList("", label, "", "")
+	vals := []string{"", label, "", ""}
 	a.tree.widget.Insert("", index, Id(localRowID(staged)), Values(vals), Tags(tag))
 }
 

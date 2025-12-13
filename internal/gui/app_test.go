@@ -97,14 +97,6 @@ func TestStatusSummary(t *testing.T) {
 	}
 }
 
-func TestTclListAndEscape(t *testing.T) {
-	result := tclList("hello", "a{b}", `path\to`)
-	expected := "\"hello\" \"a{b}\" \"path\\\\to\""
-	if result != expected {
-		t.Fatalf("unexpected tcl list: %q", result)
-	}
-}
-
 func TestBuildTreeRows(t *testing.T) {
 	now := time.Date(2025, 2, 1, 12, 0, 0, 0, time.UTC)
 	entry1 := &git.Entry{

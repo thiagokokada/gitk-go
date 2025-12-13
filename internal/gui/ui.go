@@ -163,7 +163,7 @@ func (a *Controller) showInitialLoadingRow() {
 	if a.treeItemExists(loadingIndicatorID) {
 		return
 	}
-	vals := tclList("", "Loading commits...", "", "")
+	vals := []string{"", "Loading commits...", "", ""}
 	a.tree.widget.Insert("", "end", Id(loadingIndicatorID), Values(vals))
 }
 
@@ -235,8 +235,7 @@ func (a *Controller) configureMenuLabel(menu *MenuWidget, item *MenuItem, text s
 	if menu == nil || item == nil || text == "" {
 		return
 	}
-	safe := escapeTclString(text)
-	if _, err := evalext.Eval(fmt.Sprintf("%s entryconfigure %s -label {%s}", menu, item, safe)); err != nil {
+	if _, err := evalext.Eval(fmt.Sprintf("%s entryconfigure %s %s", menu, item, Lbl(text))); err != nil {
 		slog.Error("menu label", slog.String("text", text), slog.Any("error", err))
 	}
 }

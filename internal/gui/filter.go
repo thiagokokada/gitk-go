@@ -41,11 +41,11 @@ func (a *Controller) applyFilter(raw string) {
 	a.insertLocalRows()
 	rows := buildTreeRows(a.visible, a.tree.branchLabels)
 	for _, row := range rows {
-		vals := tclList(row.Graph, row.Commit, row.Author, row.Date)
+		vals := []string{row.Graph, row.Commit, row.Author, row.Date}
 		a.tree.widget.Insert("", "end", Id(row.ID), Values(vals))
 	}
 	if a.tree.hasMore && len(a.visible) > 0 {
-		vals := tclList("", "Loading more commits...", "", "")
+		vals := []string{"", "Loading more commits...", "", ""}
 		a.tree.widget.Insert("", "end", Id(moreIndicatorID), Values(vals))
 	}
 
