@@ -56,7 +56,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			category:    "Commit list",
 			display:     "p / k",
 			description: "Move up one commit",
-			sequences:   []string{"<KeyPress-p>", "<KeyPress-k>"},
+			sequences:   []string{"<KeyPress-Up>", "<KeyPress-p>", "<KeyPress-k>"},
 			navigation:  true,
 			handler:     func() { a.moveSelection(-1) },
 		},
@@ -64,7 +64,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			category:    "Commit list",
 			display:     "n / j",
 			description: "Move down one commit",
-			sequences:   []string{"<KeyPress-n>", "<KeyPress-j>"},
+			sequences:   []string{"<KeyPress-Down>", "<KeyPress-n>", "<KeyPress-j>"},
 			navigation:  true,
 			handler:     func() { a.moveSelection(1) },
 		},
@@ -240,15 +240,12 @@ func (a *Controller) moveSelection(delta int) {
 			a.selectSpecialRow(localUnstagedRowID)
 			return
 		}
-		idx = 0
 	}
-	if idx < 0 {
-		idx = 0
+	if a.shouldLoadMoreCommits(idx) {
+		a.loadMoreCommitsAsync(false)
 	}
-	if idx >= len(a.visible) {
-		idx = len(a.visible) - 1
-	}
-	a.selectTreeIndex(idx)
+	idx = max(0, idx)
+	a.selectTreeIndex(min(idx, len(a.visible)))
 }
 
 func (a *Controller) selectFirst() {
@@ -413,4 +410,8 @@ func (a *Controller) shortcutsHelpText() string {
 		fmt.Fprintf(&b, "  %s — %s\n", sc.display, sc.description)
 	}
 	return strings.TrimRight(b.String(), "\n")
+}
+
+func (a *Controller) shouldLoadMoreCommits(idx int) bool {
+	return float64(idx)/float64(len(a.visible)) >= autoLoadThreshold
 }
