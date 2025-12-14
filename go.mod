@@ -6,7 +6,7 @@ require (
 	github.com/alecthomas/chroma/v2 v2.20.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-git/go-git/v5 v5.16.4
-	github.com/pmezard/go-difflib v1.0.0
+	github.com/hexops/gotextdiff v1.0.3
 	github.com/thiagokokada/dark-mode-go v0.0.1
 	modernc.org/tk9.0 v1.73.0
 )

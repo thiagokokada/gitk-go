@@ -15,7 +15,9 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	gitindex "github.com/go-git/go-git/v5/plumbing/format/index"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/pmezard/go-difflib/difflib"
+	gotextdiff "github.com/hexops/gotextdiff"
+	"github.com/hexops/gotextdiff/myers"
+	"github.com/hexops/gotextdiff/span"
 )
 
 type localChange struct {
@@ -185,23 +187,16 @@ func renderLocalDiff(header string, diffs []localChange) (string, []FileSection,
 			continue
 		}
 
-		fromLines, err := fileLines(diffItem.from)
+		fromText, err := fileText(diffItem.from)
 		if err != nil {
 			return "", nil, err
 		}
-		toLines, err := fileLines(diffItem.to)
+		toText, err := fileText(diffItem.to)
 		if err != nil {
 			return "", nil, err
 		}
 
-		ud := difflib.UnifiedDiff{
-			A:        fromLines,
-			B:        toLines,
-			FromFile: fmt.Sprintf("a/%s", diffItem.path),
-			ToFile:   fmt.Sprintf("b/%s", diffItem.path),
-			Context:  3,
-		}
-		diffText, err := difflib.GetUnifiedDiffString(ud)
+		diffText, err := buildUnifiedDiff(diffItem.path, fromText, toText)
 		if err != nil {
 			return "", nil, err
 		}
@@ -242,15 +237,31 @@ func binaryChange(ch localChange) (bool, error) {
 	return false, nil
 }
 
-func fileLines(f *object.File) ([]string, error) {
+func fileText(f *object.File) (string, error) {
 	if f == nil {
-		return []string{}, nil
+		return "", nil
 	}
 	content, err := f.Contents()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return difflib.SplitLines(content), nil
+	return content, nil
+}
+
+func buildUnifiedDiff(path, fromText, toText string) (string, error) {
+	edits := myers.ComputeEdits(span.URIFromPath(path), fromText, toText)
+	if len(edits) == 0 {
+		return "", nil
+	}
+	diff := gotextdiff.ToUnified(
+		fmt.Sprintf("a/%s", path),
+		fmt.Sprintf("b/%s", path),
+		fromText,
+		edits,
+	)
+	var sb strings.Builder
+	fmt.Fprint(&sb, diff)
+	return sb.String(), nil
 }
 
 func headTreeFromRepo(repo *gitlib.Repository) (*object.Tree, error) {

@@ -1,6 +1,7 @@
 package git
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -284,64 +285,53 @@ func localDiffHeader(staged bool) string {
 }
 
 func renderPatch(header string, patch interface{ FilePatches() []diff.FilePatch }) (string, []FileSection, error) {
-	if patch == nil {
-		return header, nil, nil
-	}
 	var b strings.Builder
-	lineNo := 0
+	lineOffset := 0
 	if header != "" {
 		if !strings.HasSuffix(header, "\n") {
 			header += "\n"
 		}
 		b.WriteString(header)
-		lineNo = strings.Count(header, "\n")
+		lineOffset = strings.Count(header, "\n")
+	}
+	if patch == nil {
+		if b.Len() == 0 {
+			return "No changes.", nil, nil
+		}
+		return b.String(), nil, nil
 	}
 	filePatches := patch.FilePatches()
 	if len(filePatches) == 0 {
-		if header == "" {
+		if b.Len() == 0 {
 			return "No changes.", nil, nil
 		}
 		b.WriteString("No changes.\n")
 		return b.String(), nil, nil
 	}
-	var sections []FileSection
-	for _, fp := range filePatches {
-		path := filePatchPath(fp)
-		fileHeader := fmt.Sprintf("diff --git a/%s b/%s\n", path, path)
-		headerLine := lineNo + 1
-		b.WriteString(fileHeader)
-		lineNo += strings.Count(fileHeader, "\n")
-		if fp.IsBinary() {
-			b.WriteString("(binary files differ)\n")
-			lineNo++
-		} else {
-			for _, chunk := range fp.Chunks() {
-				if chunk == nil {
-					continue
-				}
-				lines := strings.Split(chunk.Content(), "\n")
-				for i, line := range lines {
-					if i == len(lines)-1 && line == "" {
-						continue
-					}
-					var prefix string
-					switch chunk.Type() {
-					case diff.Add:
-						prefix = "+"
-					case diff.Delete:
-						prefix = "-"
-					default:
-						prefix = " "
-					}
-					b.WriteString(prefix + line + "\n")
-					lineNo++
-				}
-			}
-		}
-		sections = append(sections, FileSection{Path: path, Line: headerLine})
+	body, err := encodeUnifiedPatch(filePatches)
+	if err != nil {
+		return "", nil, err
 	}
+	b.WriteString(body)
+	sections := parseGitDiffSections(body, lineOffset)
 	return b.String(), sections, nil
 }
+
+func encodeUnifiedPatch(filePatches []diff.FilePatch) (string, error) {
+	var buf bytes.Buffer
+	enc := diff.NewUnifiedEncoder(&buf, diff.DefaultContextLines)
+	if err := enc.Encode(filePatchSet{patches: filePatches}); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+type filePatchSet struct {
+	patches []diff.FilePatch
+}
+
+func (f filePatchSet) FilePatches() []diff.FilePatch { return f.patches }
+func (filePatchSet) Message() string                 { return "" }
 
 type graphBuilder struct {
 	columns []plumbing.Hash
