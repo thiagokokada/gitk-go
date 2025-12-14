@@ -15,14 +15,14 @@ import (
 	. "modernc.org/tk9.0"
 )
 
-const autoReloadDebounceDelay = 360 * time.Millisecond
+const autoReloadDebounceDelay = 350 * time.Millisecond
 
 type autoReloadState struct {
 	mu         sync.Mutex
 	configured bool
 	enabled    bool
 	watcher    *fsnotify.Watcher
-	debouncer  *debounce.Debouncer
+	debounce   *debounce.Debouncer
 	button     *TButtonWidget
 }
 
@@ -61,8 +61,8 @@ func (a *Controller) enableAutoReload() error {
 			return fmt.Errorf("watch %s: %w", path, err)
 		}
 	}
-	if a.watch.debouncer == nil {
-		a.watch.debouncer = debounce.New(autoReloadDebounceDelay, func() {
+	if a.watch.debounce == nil {
+		a.watch.debounce = debounce.New(autoReloadDebounceDelay, func() {
 			PostEvent(func() {
 				a.reloadCommitsAsync()
 			}, false)
@@ -77,9 +77,9 @@ func (a *Controller) enableAutoReload() error {
 func (a *Controller) disableAutoReload() {
 	a.watch.mu.Lock()
 	defer a.watch.mu.Unlock()
-	if a.watch.debouncer != nil {
-		a.watch.debouncer.Stop()
-		a.watch.debouncer = nil
+	if a.watch.debounce != nil {
+		a.watch.debounce.Stop()
+		a.watch.debounce = nil
 	}
 	if a.watch.watcher != nil {
 		a.watch.watcher.Close()
@@ -120,11 +120,11 @@ func (a *Controller) watchLoop(w *fsnotify.Watcher) {
 func (a *Controller) scheduleAutoReload() {
 	a.watch.mu.Lock()
 	defer a.watch.mu.Unlock()
-	if !a.watch.enabled || a.watch.debouncer == nil {
+	if !a.watch.enabled || a.watch.debounce == nil {
 		return
 	}
 	slog.Debug("auto reload scheduled")
-	a.watch.debouncer.Trigger()
+	a.watch.debounce.Trigger()
 }
 
 var gitPathsToWatch = []string{
