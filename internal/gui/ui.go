@@ -121,9 +121,21 @@ func (a *Controller) buildUI() {
 	if headerColor == "" {
 		headerColor = lightPalette.DiffHeader
 	}
-	a.diff.detail.TagConfigure("diffAdd", Background(addColor))
-	a.diff.detail.TagConfigure("diffDel", Background(delColor))
-	a.diff.detail.TagConfigure("diffHeader", Background(headerColor))
+	selBg := a.diff.detail.Selectbackground()
+	selFg := a.diff.detail.Selectforeground()
+	tagOpts := func(bg string) []Opt {
+		opts := []Opt{Background(bg)}
+		if selBg != "" {
+			opts = append(opts, Selectbackground(selBg))
+		}
+		if selFg != "" {
+			opts = append(opts, Selectforeground(selFg))
+		}
+		return opts
+	}
+	a.diff.detail.TagConfigure("diffAdd", tagOpts(addColor)...)
+	a.diff.detail.TagConfigure("diffDel", tagOpts(delColor)...)
+	a.diff.detail.TagConfigure("diffHeader", tagOpts(headerColor)...)
 	Grid(a.diff.detail, Row(0), Column(0), Sticky(NEWS))
 	Grid(detailYScroll, Row(0), Column(1), Sticky(NS))
 	Grid(detailXScroll, Row(1), Column(0), Sticky(WE))
