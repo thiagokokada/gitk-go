@@ -21,14 +21,7 @@ func (a *Controller) applyFilterContent(raw string) {
 		return
 	}
 
-	children := a.tree.widget.Children("")
-	if len(children) != 0 {
-		args := make([]any, len(children))
-		for i, child := range children {
-			args[i] = child
-		}
-		a.tree.widget.Delete(args...)
-	}
+	a.clearTreeRows()
 	a.insertLocalRows()
 	rows := buildTreeRows(a.visible, a.tree.branchLabels)
 	for _, row := range rows {

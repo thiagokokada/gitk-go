@@ -129,6 +129,21 @@ func (a *Controller) treeItemExists(id string) bool {
 	return strings.TrimSpace(out) == "1"
 }
 
+func (a *Controller) clearTreeRows() {
+	if a.tree.widget == nil {
+		return
+	}
+	children := a.tree.widget.Children("")
+	if len(children) == 0 {
+		return
+	}
+	args := make([]any, len(children))
+	for i, child := range children {
+		args[i] = child
+	}
+	a.tree.widget.Delete(args...)
+}
+
 func (a *Controller) scheduleAutoLoadCheck() {
 	if a.tree.widget == nil || a.filter.value == "" || !a.tree.hasMore {
 		return

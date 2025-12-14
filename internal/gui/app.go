@@ -51,6 +51,7 @@ type Controller struct {
 	filter    filterState
 	shortcuts shortcutState
 	status    *TLabelWidget
+	repoLabel *TLabelWidget
 
 	selection  selectionState
 	localDiffs localDiffCache

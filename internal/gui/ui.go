@@ -9,6 +9,7 @@ import (
 )
 
 func (a *Controller) buildUI() {
+	a.initMenubar()
 	GridColumnConfigure(App, 0, Weight(1))
 	GridRowConfigure(App, 1, Weight(1))
 
@@ -16,8 +17,9 @@ func (a *Controller) buildUI() {
 	Grid(controls, Row(0), Column(0), Sticky(WE))
 	GridColumnConfigure(controls.Window, 1, Weight(1))
 
-	repoLabel := fmt.Sprintf("Repository: %s", a.repoPath)
-	Grid(controls.TLabel(Txt(repoLabel), Anchor(W)), Row(0), Column(0), Columnspan(4), Sticky(W))
+	a.repoLabel = controls.TLabel(Anchor(W))
+	a.updateRepoLabel()
+	Grid(a.repoLabel, Row(0), Column(0), Columnspan(4), Sticky(W))
 
 	Grid(controls.TLabel(Txt("Filter:"), Anchor(E)), Row(1), Column(0), Sticky(E))
 	a.filter.entry = controls.TEntry(Width(40), Textvariable(""))
@@ -209,6 +211,14 @@ func (a *Controller) copySelectedCommitReference() {
 	ClipboardClear()
 	ClipboardAppend(hash)
 	a.setStatus(fmt.Sprintf("Copied %s to clipboard.", hash))
+}
+
+func (a *Controller) updateRepoLabel() {
+	if a.repoLabel == nil {
+		return
+	}
+	label := fmt.Sprintf("Repository: %s", a.repoPath)
+	a.repoLabel.Configure(Txt(label))
 }
 
 func (a *Controller) treeCommitIndex(id string) (int, bool) {
