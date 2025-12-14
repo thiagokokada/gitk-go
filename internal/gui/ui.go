@@ -2,8 +2,10 @@ package gui
 
 import (
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	. "modernc.org/tk9.0"
 )
@@ -65,24 +67,24 @@ func (a *Controller) buildMainPane() *TPanedwindowWidget {
 	// calculates the first widget to be 25% of the total height of the,
 	// widget, based in the <Configure> event (that triggers whenever the
 	// widget configuration changes)
-	// PostEvent doesn't work here because in X11 this widget seems to not
-	// have finish initialisation when PostEvent runs
-	tkMustEval(`
-		bind . <Map> {
-			# Force all geometry calculations to complete
-			update idletasks
-
-			bind %[1]s <Configure> {
-				set h [winfo height %[1]s]
-				if {$h > 1} {
-					%[1]s sashpos 0 [expr {round($h * 0.25)}]
-					bind %[1]s <Configure> {}
-				}
+	PostEvent(
+		func() {
+			switch runtime.GOOS {
+			case "darwin":
+				<-time.After(10 * time.Millisecond)
+			default:
 			}
-
-			bind . <Map> {}
-		}
-	`, pane)
+			tkMustEval(`
+				bind %[1]s <Configure> {
+					set h [winfo height %[1]s]
+					if {$h > 1} {
+						%[1]s sashpos 0 [expr {round($h * 0.25)}]
+						bind %[1]s <Configure> {}
+					}
+				}
+			`, pane)
+		}, false,
+	)
 
 	return pane
 }
