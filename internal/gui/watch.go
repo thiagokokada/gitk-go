@@ -8,6 +8,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -106,8 +107,10 @@ func (a *Controller) watchLoop(w *fsnotify.Watcher) {
 			if ev.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove|fsnotify.Rename) == 0 {
 				continue
 			}
-			slog.Debug(
-				"fsnotify event",
+			if shouldIgnoreWatchPath(ev.Name) {
+				continue
+			}
+			slog.Debug("fsnotify event",
 				slog.String("op", ev.Op.String()),
 				slog.String("path", ev.Name),
 			)
@@ -144,6 +147,14 @@ func watchPaths(root string) iter.Seq[string] {
 	}
 	appendUnique(root)
 	return maps.Keys(uniquePaths)
+}
+
+func shouldIgnoreWatchPath(name string) bool {
+	ext := strings.ToLower(filepath.Ext(name))
+	if ext == ".lock" || ext == ".ipc" {
+		return true
+	}
+	return false
 }
 
 func (a *Controller) updateReloadButtonLabel() {
