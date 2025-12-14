@@ -62,9 +62,9 @@ func (a *Controller) buildMainPane() *TPanedwindowWidget {
 	a.buildCommitPane(listArea)
 	a.buildDiffPane(diffArea)
 
-	// PostEvent(func() {
-	// 	tkMustEval("%s sashpos 0 %d", pane, 160)
-	// }, false)
+	PostEvent(func() {
+		tkMustEval("%s sashpos 0 %d", pane, 160)
+	}, false)
 	return pane
 }
 
