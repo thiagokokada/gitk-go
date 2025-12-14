@@ -80,7 +80,7 @@ func filterEntries(entries []*git.Entry, query string) []*git.Entry {
 	return filtered
 }
 
-func tkSafeEval(format string, a ...any) (string, error) {
+func tkEval(format string, a ...any) (string, error) {
 	var eval = fmt.Sprintf(format, a...)
 	r, err := evalext.Eval(eval)
 	if err != nil {
@@ -89,8 +89,8 @@ func tkSafeEval(format string, a ...any) (string, error) {
 	return r, nil
 }
 
-func tkEval(format string, a ...any) string {
-	r, err := tkSafeEval(format, a...)
+func tkMustEval(format string, a ...any) string {
+	r, err := tkEval(format, a...)
 	if err != nil {
 		panic(err)
 	}

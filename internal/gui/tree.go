@@ -121,7 +121,7 @@ func (a *Controller) treeItemExists(id string) bool {
 	if a.tree.widget == nil || id == "" {
 		return false
 	}
-	out, err := tkSafeEval("%s exists %s", a.tree.widget, id)
+	out, err := tkEval("%s exists %s", a.tree.widget, id)
 	if err != nil {
 		slog.Error("tree exists", slog.String("id", id), slog.Any("error", err))
 		return false
@@ -187,7 +187,7 @@ func (a *Controller) treeYviewRange() (float64, float64, error) {
 	if path == "" {
 		return 0, 0, fmt.Errorf("tree widget has empty path")
 	}
-	out, err := tkSafeEval("%s yview", path)
+	out, err := tkEval("%s yview", path)
 	if err != nil {
 		return 0, 0, err
 	}

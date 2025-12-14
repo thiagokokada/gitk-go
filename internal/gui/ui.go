@@ -96,7 +96,7 @@ func (a *Controller) buildUI() {
 	diffPane.Add(textFrame.Window)
 	diffPane.Add(fileFrame.Window)
 	configurePane := func(window *Window, options string) {
-		tkEval("%s pane %s %s", diffPane, window, options)
+		tkMustEval("%s pane %s %s", diffPane, window, options)
 	}
 	configurePane(textFrame.Window, "-weight 5")
 	configurePane(fileFrame.Window, "-weight 1")

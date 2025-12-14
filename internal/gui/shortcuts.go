@@ -339,7 +339,7 @@ func (a *Controller) scrollTreePages(delta int) {
 	if a.tree.widget == nil || delta == 0 {
 		return
 	}
-	if _, err := tkSafeEval("%s yview scroll %d pages", a.tree.widget, delta); err != nil {
+	if _, err := tkEval("%s yview scroll %d pages", a.tree.widget, delta); err != nil {
 		slog.Error("tree scroll", slog.Any("error", err))
 	}
 }
@@ -356,7 +356,7 @@ func (a *Controller) scrollDetail(delta int, unit string) {
 	if a.diff.detail == nil || delta == 0 {
 		return
 	}
-	if _, err := tkSafeEval("%s yview scroll %d %s", a.diff.detail, delta, unit); err != nil {
+	if _, err := tkEval("%s yview scroll %d %s", a.diff.detail, delta, unit); err != nil {
 		slog.Error("detail scroll", slog.Any("error", err))
 	}
 }
@@ -365,13 +365,13 @@ func (a *Controller) focusFilterEntry() {
 	if a.filter.entry == nil || a.filterHasFocus() {
 		return
 	}
-	if _, err := tkSafeEval("focus %s", a.filter.entry); err != nil {
+	if _, err := tkEval("focus %s", a.filter.entry); err != nil {
 		slog.Error("focus filter", slog.Any("error", err))
 	}
-	if _, err := tkSafeEval("%s selection range 0 end", a.filter.entry); err != nil {
+	if _, err := tkEval("%s selection range 0 end", a.filter.entry); err != nil {
 		slog.Error("select filter", slog.Any("error", err))
 	}
-	if _, err := tkSafeEval("%s icursor end", a.filter.entry); err != nil {
+	if _, err := tkEval("%s icursor end", a.filter.entry); err != nil {
 		slog.Error("cursor filter", slog.Any("error", err))
 	}
 }
@@ -387,7 +387,7 @@ func (a *Controller) blurFilterEntry() {
 	if target == "" {
 		target = "."
 	}
-	if _, err := tkSafeEval("focus %s", target); err != nil {
+	if _, err := tkEval("focus %s", target); err != nil {
 		slog.Error("blur filter", slog.Any("error", err))
 	}
 }
