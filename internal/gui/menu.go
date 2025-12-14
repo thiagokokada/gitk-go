@@ -20,6 +20,7 @@ func (a *Controller) initMenubar() {
 	menubar.AddCascade(Lbl("File"), Mnu(fileMenu))
 
 	helpMenu := menubar.Menu(Tearoff(false))
+	helpMenu.AddCommand(Lbl("Keyboard Shortcuts"), Command(a.showShortcutsDialog))
 	helpMenu.AddCommand(Lbl("About gitk-go"), Command(a.showAboutDialog))
 	menubar.AddCascade(Lbl("Help"), Mnu(helpMenu))
 
