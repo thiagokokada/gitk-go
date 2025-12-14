@@ -107,7 +107,10 @@ func (a *Controller) buildUI() {
 	detailYScroll := textFrame.TScrollbar(Command(func(e *Event) { e.Yview(a.diff.detail) }))
 	detailXScroll := textFrame.TScrollbar(Orient(HORIZONTAL), Command(func(e *Event) { e.Xview(a.diff.detail) }))
 	a.diff.detail = textFrame.Text(Wrap(NONE), Font(CourierFont(), 11), Exportselection(false), Tabs("1c"))
-	a.diff.detail.Configure(Yscrollcommand(func(e *Event) { e.ScrollSet(detailYScroll) }))
+	a.diff.detail.Configure(Yscrollcommand(func(e *Event) {
+		e.ScrollSet(detailYScroll)
+		a.onDiffScrolled()
+	}))
 	a.diff.detail.Configure(Xscrollcommand(func(e *Event) { e.ScrollSet(detailXScroll) }))
 	addColor := a.palette.DiffAdd
 	if addColor == "" {

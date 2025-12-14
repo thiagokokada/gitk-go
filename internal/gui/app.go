@@ -70,11 +70,13 @@ type treeState struct {
 }
 
 type diffState struct {
-	detail       *TextWidget
-	fileList     *ListboxWidget
-	fileSections []git.FileSection
-	syntaxTags   map[string]string
-	menu         *MenuWidget
+	detail                *TextWidget
+	fileList              *ListboxWidget
+	fileSections          []git.FileSection
+	syntaxTags            map[string]string
+	menu                  *MenuWidget
+	suppressFileSelection bool
+	skipNextSync          bool
 
 	mu          sync.Mutex
 	debouncer   *debounce.Debouncer
@@ -727,9 +729,13 @@ func (a *Controller) setFileSections(sections []git.FileSection) {
 	a.diff.fileList.SelectionClear(0, END)
 	a.diff.fileList.Activate(0)
 	a.diff.fileList.Configure(State("normal"))
+	a.syncFileSelectionToDiff()
 }
 
 func (a *Controller) onFileSelectionChanged() {
+	if a.diff.suppressFileSelection {
+		return
+	}
 	if len(a.diff.fileSections) == 0 || a.diff.fileList == nil {
 		return
 	}
@@ -741,6 +747,7 @@ func (a *Controller) onFileSelectionChanged() {
 	if idx < 0 || idx >= len(a.diff.fileSections) {
 		return
 	}
+	a.diff.skipNextSync = true
 	a.scrollDiffToLine(a.diff.fileSections[idx].Line)
 }
 
@@ -821,4 +828,65 @@ func (a *Controller) statusSummary() string {
 		return base
 	}
 	return fmt.Sprintf("Filter %q — %s", filterDesc, base)
+}
+
+func (a *Controller) syncFileSelectionToDiff() {
+	if a.diff.fileList == nil || len(a.diff.fileSections) == 0 {
+		return
+	}
+	if a.diff.skipNextSync {
+		return
+	}
+	line := func() int {
+		if a.diff.detail == nil {
+			return 0
+		}
+		index := a.diff.detail.Index("@0,0")
+		parts := strings.SplitN(index, ".", 2)
+		if len(parts) == 0 {
+			return 0
+		}
+		line, err := strconv.Atoi(parts[0])
+		if err != nil {
+			return 0
+		}
+		return line
+	}()
+	if line <= 0 {
+		return
+	}
+	target := 0
+	for i, sec := range a.diff.fileSections {
+		if line < sec.Line {
+			break
+		}
+		target = i
+	}
+	a.setFileListSelection(target)
+}
+
+func (a *Controller) setFileListSelection(idx int) {
+	if a.diff.fileList == nil || idx < 0 || idx >= len(a.diff.fileSections) {
+		return
+	}
+	current := a.diff.fileList.Curselection()
+	if len(current) > 0 && current[0] == idx {
+		return
+	}
+	a.diff.suppressFileSelection = true
+	a.diff.fileList.SelectionClear(0, END)
+	a.diff.fileList.SelectionSet(idx)
+	a.diff.fileList.Activate(idx)
+	a.diff.fileList.See(idx)
+	PostEvent(func() {
+		a.diff.suppressFileSelection = false
+	}, false)
+}
+
+func (a *Controller) onDiffScrolled() {
+	if a.diff.skipNextSync {
+		a.diff.skipNextSync = false
+		return
+	}
+	a.syncFileSelectionToDiff()
 }
