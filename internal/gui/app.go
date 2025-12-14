@@ -73,7 +73,7 @@ type diffState struct {
 	fileList     *ListboxWidget
 	fileSections []git.FileSection
 	syntaxTags   map[string]string
-	debouncer   atomic.Pointer[debounce.Debouncer]
+	debouncer    atomic.Pointer[debounce.Debouncer]
 }
 
 type shortcutState struct {
@@ -461,12 +461,11 @@ func (a *Controller) reloadCommitsAsync() {
 		return
 	}
 	a.tree.loadingBatch = true
-	currentFilter := a.filter.value
 	slog.Debug("reloadCommitsAsync start",
 		slog.Int("batch", a.batch),
-		slog.String("filter", currentFilter),
+		slog.String("filter", a.filter.value),
 	)
-	go func(filter string) {
+	go func() {
 		entries, head, hasMore, err := a.svc.ScanCommits(0, a.batch)
 		PostEvent(func() {
 			a.tree.loadingBatch = false
@@ -487,11 +486,11 @@ func (a *Controller) reloadCommitsAsync() {
 			if err := a.loadBranchLabels(); err != nil {
 				slog.Error("failed to refresh branch labels", slog.Any("error", err))
 			}
-			a.applyFilter(filter)
+			a.applyFilter(a.filter.value)
 			a.refreshLocalChangesAsync(true)
 			a.setStatus(a.statusSummary())
 		}, false)
-	}(currentFilter)
+	}()
 }
 
 func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
@@ -499,14 +498,13 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 		return
 	}
 	a.tree.loadingBatch = true
-	currentFilter := a.filter.value
 	skip := len(a.commits)
 	slog.Debug("loadMoreCommitsAsync start",
 		slog.Int("skip", skip),
 		slog.Bool("prefetch", prefetch),
-		slog.String("filter", currentFilter),
+		slog.String("filter", a.filter.value),
 	)
-	go func(filter string, skipCount int, background bool) {
+	go func(skipCount int, background bool) {
 		entries, _, hasMore, err := a.svc.ScanCommits(skipCount, a.batch)
 		PostEvent(func() {
 			a.tree.loadingBatch = false
@@ -535,14 +533,14 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 			if err := a.loadBranchLabels(); err != nil {
 				slog.Error("failed to refresh branch labels", slog.Any("error", err))
 			}
-			a.applyFilter(filter)
+			a.applyFilter(a.filter.value)
 			a.refreshLocalChangesAsync(false)
 			a.setStatus(a.statusSummary())
 			if background && a.tree.hasMore {
 				go a.loadMoreCommitsAsync(true)
 			}
 		}, false)
-	}(currentFilter, skip, prefetch)
+	}(skip, prefetch)
 }
 
 func (a *Controller) clearDetailText(msg string) {
