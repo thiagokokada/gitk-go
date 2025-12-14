@@ -68,12 +68,19 @@ func (a *Controller) buildMainPane() *TPanedwindowWidget {
 	// PostEvent doesn't work here because in X11 this widget seems to not
 	// have finish initialisation when PostEvent runs
 	tkMustEval(`
-		bind %[1]s <Configure> {
-			set h [winfo height %[1]s]
-			if {$h > 1} {
-				%[1]s sashpos 0 [expr {round($h * 0.25)}]
-				bind %[1]s <Configure> {}
+		bind . <Map> {
+			# Force all geometry calculations to complete
+			update idletasks
+
+			bind %[1]s <Configure> {
+				set h [winfo height %[1]s]
+				if {$h > 1} {
+					%[1]s sashpos 0 [expr {round($h * 0.25)}]
+					bind %[1]s <Configure> {}
+				}
 			}
+
+			bind . <Map> {}
 		}
 	`, pane)
 
