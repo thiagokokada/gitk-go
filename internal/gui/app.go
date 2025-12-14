@@ -53,8 +53,9 @@ type Controller struct {
 	status    *TLabelWidget
 	repoLabel *TLabelWidget
 
-	selection  selectionState
 	localDiffs localDiffCache
+	scroll     scrollState
+	selection  selectionState
 	watch      autoReloadState
 }
 
@@ -100,6 +101,11 @@ type filterState struct {
 type selectionState struct {
 	mu   sync.RWMutex
 	hash string
+}
+
+type scrollState struct {
+	start float64
+	total int
 }
 
 func (s *selectionState) Set(hash string) {

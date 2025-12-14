@@ -21,15 +21,7 @@ func (a *Controller) applyFilterContent(raw string) {
 		return
 	}
 
-	// Preserve scroll position after loading more rows
-	var prevStart float64 = -1
-	prevTotal := len(a.tree.widget.Children(""))
-	if prevTotal > 0 {
-		if start, _, err := a.treeYviewRange(); err == nil {
-			prevStart = start
-		}
-	}
-
+	a.storeScrollState()
 	a.clearTreeRows()
 	a.insertLocalRows()
 	rows := buildTreeRows(a.visible, a.tree.branchLabels)
@@ -65,12 +57,24 @@ func (a *Controller) applyFilterContent(raw string) {
 	}
 	a.setStatus(a.statusSummary())
 	a.scheduleAutoLoadCheck()
+	a.restoreScrollState()
+}
 
-	// Restore the scroll position after the commits loads
-	if prevStart >= 0 {
+func (a *Controller) storeScrollState() {
+	a.scroll.total = len(a.tree.widget.Children(""))
+	if a.scroll.total > 0 {
+		if start, _, err := a.treeYviewRange(); err == nil {
+			a.scroll.start = start
+		}
+	}
+}
+
+func (a *Controller) restoreScrollState() {
+	if a.scroll.start >= 0 {
 		newTotal := len(a.tree.widget.Children(""))
+		prevTotal := a.scroll.total
 		if newTotal > 0 && prevTotal > 0 {
-			target := prevStart * float64(prevTotal) / float64(newTotal)
+			target := a.scroll.start * float64(prevTotal) / float64(newTotal)
 			target = max(0.0, min(target, 1.0))
 			tkMustEval("%s yview moveto %f", a.tree.widget, target)
 		}
