@@ -140,6 +140,8 @@ func (a *Controller) buildUI() {
 	Grid(detailYScroll, Row(0), Column(1), Sticky(NS))
 	Grid(detailXScroll, Row(1), Column(0), Sticky(WE))
 	a.diff.detail.Configure(State("disabled"))
+	a.initDiffContextMenu()
+	a.bindDiffContextMenu()
 
 	fileScroll := fileFrame.TScrollbar()
 	a.diff.fileList = fileFrame.Listbox(Exportselection(false), Width(40))
@@ -229,6 +231,31 @@ func (a *Controller) updateRepoLabel() {
 	}
 	label := fmt.Sprintf("Repository: %s", a.repoPath)
 	a.repoLabel.Configure(Txt(label))
+}
+
+func (a *Controller) initDiffContextMenu() {
+	menu := App.Menu(Tearoff(false))
+	menu.AddCommand(Lbl("Copy selection"), Command(func() { a.copyDetailSelection(false) }))
+	menu.AddCommand(Lbl("Copy selection without +/- markers"), Command(func() { a.copyDetailSelection(true) }))
+	a.diff.menu = menu
+}
+
+func (a *Controller) bindDiffContextMenu() {
+	if a.diff.detail == nil || a.diff.menu == nil {
+		return
+	}
+	handler := func(e *Event) {
+		a.showDiffContextMenu(e)
+	}
+	Bind(a.diff.detail, "<Button-2>", Command(handler))
+	Bind(a.diff.detail, "<Button-3>", Command(handler))
+}
+
+func (a *Controller) showDiffContextMenu(e *Event) {
+	if a.diff.menu == nil || a.diff.detail == nil || e == nil {
+		return
+	}
+	Popup(a.diff.menu.Window, e.XRoot, e.YRoot, nil)
 }
 
 func (a *Controller) treeCommitIndex(id string) (int, bool) {

@@ -74,6 +74,7 @@ type diffState struct {
 	fileList     *ListboxWidget
 	fileSections []git.FileSection
 	syntaxTags   map[string]string
+	menu         *MenuWidget
 
 	mu          sync.Mutex
 	debouncer   *debounce.Debouncer
@@ -642,6 +643,37 @@ func (a *Controller) highlightDiffLines(content string) {
 			end = fmt.Sprintf("%d.end", lineNo)
 		}
 		a.diff.detail.TagAdd(tag, start, end)
+	}
+}
+
+func (a *Controller) copyDetailSelection(stripMarkers bool) {
+	if a.diff.detail == nil {
+		return
+	}
+	text, err := tkEval("%s get sel.first sel.last", a.diff.detail)
+	if err != nil || text == "" {
+		return
+	}
+	if stripMarkers {
+		lines := strings.Split(text, "\n")
+		filtered := make([]string, 0, len(lines))
+		for _, line := range lines {
+			if len(line) > 0 && (line[0] == '+' || line[0] == '-') {
+				line = line[1:]
+			}
+			filtered = append(filtered, line)
+		}
+		text = strings.Join(filtered, "\n")
+	}
+	if text == "" {
+		return
+	}
+	ClipboardClear()
+	ClipboardAppend(text)
+	if stripMarkers {
+		a.setStatus("Copied selection without +/- markers.")
+	} else {
+		a.setStatus("Copied selection.")
 	}
 }
 

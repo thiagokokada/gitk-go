@@ -133,6 +133,14 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			handler:     func() { a.scrollDetailLines(18) },
 		},
 		{
+			category:    "Diff view",
+			display:     "Ctrl/Cmd + Shift + C",
+			description: "Copy selection without +/- markers",
+			sequences:   []string{"<Control-Shift-KeyPress-c>", "<Command-Shift-KeyPress-c>"},
+			navigation:  false,
+			handler:     func() { a.copyDetailSelection(true) },
+		},
+		{
 			category:    "General",
 			display:     "/",
 			description: "Focus the filter box",
