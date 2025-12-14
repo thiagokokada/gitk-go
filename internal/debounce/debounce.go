@@ -1,13 +1,14 @@
 package debounce
 
 import (
-	"sync/atomic"
+	"sync"
 	"time"
 )
 
 type Debouncer struct {
+	mu    sync.Mutex
 	delay time.Duration
-	timer atomic.Pointer[time.Timer]
+	timer *time.Timer
 	fn    func()
 }
 
@@ -16,14 +17,19 @@ func New(delay time.Duration, fn func()) *Debouncer {
 }
 
 func (d *Debouncer) Trigger() {
-	timer := time.AfterFunc(d.delay, d.fn)
-	if current := d.timer.Swap(timer); current != nil {
-		current.Stop()
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.timer != nil {
+		d.timer.Stop()
 	}
+	d.timer = time.AfterFunc(d.delay, d.fn)
 }
 
 func (d *Debouncer) Stop() {
-	if current := d.timer.Swap(nil); current != nil {
-		current.Stop()
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.timer != nil {
+		d.timer.Stop()
+		d.timer = nil
 	}
 }
