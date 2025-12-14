@@ -88,3 +88,11 @@ func tkEval(format string, a ...any) (string, error) {
 	}
 	return r, nil
 }
+
+func tkMustEval(format string, a ...any) string {
+	r, err := tkEval(format, a...)
+	if err != nil {
+		panic(err)
+	}
+	return r
+}

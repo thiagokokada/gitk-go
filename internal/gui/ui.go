@@ -44,6 +44,9 @@ func (a *Controller) buildUI() {
 	diffArea := pane.TFrame()
 	pane.Add(listArea.Window)
 	pane.Add(diffArea.Window)
+	PostEvent(func() {
+		tkMustEval("%s sashpos 0 %d", pane, 160)
+	}, false)
 
 	GridRowConfigure(listArea.Window, 0, Weight(1))
 	GridRowConfigure(listArea.Window, 1, Weight(0))
