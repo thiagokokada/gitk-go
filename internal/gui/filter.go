@@ -12,6 +12,10 @@ import (
 func (a *Controller) applyFilter(raw string) {
 	a.stopFilterDebounce()
 	a.filter.value = raw
+	a.applyFilterContent(raw)
+}
+
+func (a *Controller) applyFilterContent(raw string) {
 	a.visible = filterEntries(a.commits, raw)
 	if a.tree.widget == nil {
 		return

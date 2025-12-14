@@ -148,6 +148,7 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 		return
 	}
 	if len(a.visible) == 0 {
+		a.loadMoreCommitsAsync(false)
 		return
 	}
 	start, end, err := a.treeYviewRange()

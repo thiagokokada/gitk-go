@@ -520,7 +520,7 @@ func (a *Controller) reloadCommitsAsync() {
 			if err := a.loadBranchLabels(); err != nil {
 				slog.Error("failed to refresh branch labels", slog.Any("error", err))
 			}
-			a.applyFilter(a.filter.value)
+			a.applyFilterContent(a.filter.value)
 			a.refreshLocalChangesAsync(true)
 			a.setStatus(a.statusSummary())
 		}, false)
@@ -567,7 +567,7 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 			if err := a.loadBranchLabels(); err != nil {
 				slog.Error("failed to refresh branch labels", slog.Any("error", err))
 			}
-			a.applyFilter(a.filter.value)
+			a.applyFilterContent(a.filter.value)
 			a.refreshLocalChangesAsync(false)
 			a.setStatus(a.statusSummary())
 			if background && a.tree.hasMore {
