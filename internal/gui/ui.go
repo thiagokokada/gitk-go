@@ -13,8 +13,21 @@ func (a *Controller) buildUI() {
 	GridColumnConfigure(App, 0, Weight(1))
 	GridRowConfigure(App, 1, Weight(1))
 
-	controls := App.TFrame(Padding("4p"))
+	controls := a.buildControls()
 	Grid(controls, Row(0), Column(0), Sticky(WE))
+
+	mainPane := a.buildMainPane()
+	Grid(mainPane, Row(1), Column(0), Sticky(NEWS), Padx("4p"), Pady("4p"))
+
+	a.status = App.TLabel(Anchor(W), Relief(SUNKEN), Padding("4p"))
+	Grid(a.status, Row(2), Column(0), Sticky(WE))
+
+	a.clearDetailText("Select a commit to view its details.")
+	a.bindShortcuts()
+}
+
+func (a *Controller) buildControls() *TFrameWidget {
+	controls := App.TFrame(Padding("4p"))
 	GridColumnConfigure(controls.Window, 1, Weight(1))
 
 	a.repoLabel = controls.TLabel(Anchor(W))
@@ -36,23 +49,29 @@ func (a *Controller) buildUI() {
 	Grid(clearBtn, Row(1), Column(2), Sticky(E), Padx("4p"))
 	a.watch.button = controls.TButton(Txt("Reload"), Command(a.onReloadButton))
 	Grid(a.watch.button, Row(1), Column(3), Sticky(E))
+	return controls
+}
 
+func (a *Controller) buildMainPane() *TPanedwindowWidget {
 	pane := App.TPanedwindow(Orient(VERTICAL))
-	Grid(pane, Row(1), Column(0), Sticky(NEWS), Padx("4p"), Pady("4p"))
-
 	listArea := pane.TFrame()
 	diffArea := pane.TFrame()
 	pane.Add(listArea.Window)
 	pane.Add(diffArea.Window)
-	PostEvent(func() {
-		tkMustEval("%s sashpos 0 %d", pane, 160)
-	}, false)
 
+	a.buildCommitPane(listArea)
+	a.buildDiffPane(diffArea)
+
+	// PostEvent(func() {
+	// 	tkMustEval("%s sashpos 0 %d", pane, 160)
+	// }, false)
+	return pane
+}
+
+func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 	GridRowConfigure(listArea.Window, 0, Weight(1))
 	GridRowConfigure(listArea.Window, 1, Weight(0))
 	GridColumnConfigure(listArea.Window, 0, Weight(1))
-	GridRowConfigure(diffArea.Window, 0, Weight(1))
-	GridColumnConfigure(diffArea.Window, 0, Weight(1))
 
 	treeScroll := listArea.TScrollbar()
 	a.tree.widget = listArea.TTreeview(
@@ -90,6 +109,11 @@ func (a *Controller) buildUI() {
 	Bind(a.tree.widget, "<<TreeviewSelect>>", Command(a.onTreeSelectionChanged))
 	a.initTreeContextMenu()
 	a.bindTreeContextMenu()
+}
+
+func (a *Controller) buildDiffPane(diffArea *TFrameWidget) {
+	GridRowConfigure(diffArea.Window, 0, Weight(1))
+	GridColumnConfigure(diffArea.Window, 0, Weight(1))
 
 	diffPane := diffArea.TPanedwindow(Orient(HORIZONTAL))
 	Grid(diffPane, Row(0), Column(0), Sticky(NEWS))
@@ -153,12 +177,6 @@ func (a *Controller) buildUI() {
 	Grid(fileScroll, Row(0), Column(1), Sticky(NS))
 	fileScroll.Configure(Command(func(e *Event) { e.Yview(a.diff.fileList) }))
 	Bind(a.diff.fileList, "<<ListboxSelect>>", Command(a.onFileSelectionChanged))
-
-	a.status = App.TLabel(Anchor(W), Relief(SUNKEN), Padding("4p"))
-	Grid(a.status, Row(2), Column(0), Sticky(WE))
-
-	a.clearDetailText("Select a commit to view its details.")
-	a.bindShortcuts()
 }
 
 func (a *Controller) showInitialLoadingRow() {
