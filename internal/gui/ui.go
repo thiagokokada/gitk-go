@@ -62,9 +62,21 @@ func (a *Controller) buildMainPane() *TPanedwindowWidget {
 	a.buildCommitPane(listArea)
 	a.buildDiffPane(diffArea)
 
-	PostEvent(func() {
-		tkMustEval("%s sashpos 0 %d", pane, 160)
-	}, false)
+	// calculates the first widget to be 25% of the total height of the,
+	// widget, based in the <Configure> event (that triggers whenever the
+	// widget configuration changes)
+	// PostEvent doesn't work here because in X11 this widget seems to not
+	// have finish initialisation when PostEvent runs
+	tkMustEval(`
+		bind %[1]s <Configure> {
+			set h [winfo height %[1]s]
+			if {$h > 1} {
+				%[1]s sashpos 0 [expr {round($h * 0.25)}]
+				bind %[1]s <Configure> {}
+			}
+		}
+	`, pane)
+
 	return pane
 }
 
