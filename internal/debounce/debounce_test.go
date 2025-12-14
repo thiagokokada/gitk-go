@@ -37,3 +37,39 @@ func TestDebouncerStop(t *testing.T) {
 		t.Fatalf("expected no invocations after stop, got %d", count)
 	}
 }
+
+func TestEnsureReturnsExisting(t *testing.T) {
+	var called int32
+	handler := func() { atomic.AddInt32(&called, 1) }
+	var d *Debouncer
+	got := Ensure(&d, 5*time.Millisecond, handler)
+	if got == nil || d == nil {
+		t.Fatal("Ensure should initialize debouncer")
+	}
+	if got != d {
+		t.Fatal("Ensure should return the stored debouncer")
+	}
+	got.Trigger()
+	time.Sleep(20 * time.Millisecond)
+	if atomic.LoadInt32(&called) != 1 {
+		t.Fatalf("expected handler to be called once, got %d", called)
+	}
+}
+
+func TestEnsureReusesDebouncer(t *testing.T) {
+	var called int32
+	handler := func() { atomic.AddInt32(&called, 1) }
+	var d *Debouncer
+	first := Ensure(&d, 5*time.Millisecond, handler)
+	second := Ensure(&d, 5*time.Millisecond, func() {
+		atomic.AddInt32(&called, 10)
+	})
+	if first != second {
+		t.Fatal("Ensure should not allocate a new debouncer when already set")
+	}
+	first.Trigger()
+	time.Sleep(20 * time.Millisecond)
+	if atomic.LoadInt32(&called) != 1 {
+		t.Fatalf("new handler should not replace existing debouncer")
+	}
+}

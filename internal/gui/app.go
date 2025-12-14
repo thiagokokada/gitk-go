@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/thiagokokada/gitk-go/internal/debounce"
 	"github.com/thiagokokada/gitk-go/internal/git"
 
 	. "modernc.org/tk9.0"
@@ -74,7 +75,7 @@ type diffState struct {
 	syntaxTags   map[string]string
 
 	mu          sync.Mutex
-	loadTimer   *time.Timer
+	debouncer   *debounce.Debouncer
 	pendingDiff *git.Entry
 	pendingHash string
 }
@@ -87,9 +88,9 @@ type filterState struct {
 	entry *TEntryWidget
 	value string
 
-	mu      sync.Mutex
-	timer   *time.Timer
-	pending string
+	mu        sync.Mutex
+	debouncer *debounce.Debouncer
+	pending   string
 }
 
 type selectionState struct {
@@ -449,36 +450,42 @@ func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
 		return
 	}
 	slog.Debug("scheduleDiffLoad", slog.String("hash", hash))
-	a.diff.mu.Lock()
-	defer a.diff.mu.Unlock()
-	a.diff.pendingDiff = entry
-	a.diff.pendingHash = hash
-	if a.diff.loadTimer != nil {
-		a.diff.loadTimer.Stop()
-	}
-	a.diff.loadTimer = time.AfterFunc(diffDebounceDelay, func() {
+	deb := func() *debounce.Debouncer {
+		a.diff.mu.Lock()
+		defer a.diff.mu.Unlock()
+		a.diff.pendingDiff = entry
+		a.diff.pendingHash = hash
+		return debounce.Ensure(&a.diff.debouncer, diffDebounceDelay, func() {
+			a.flushDiffDebounce()
+		})
+	}()
+	deb.Trigger()
+}
+
+func (a *Controller) flushDiffDebounce() {
+	entry, hash := func() (*git.Entry, string) {
 		a.diff.mu.Lock()
 		defer a.diff.mu.Unlock()
 		pending := a.diff.pendingDiff
 		pendingHash := a.diff.pendingHash
 		a.diff.pendingDiff = nil
 		a.diff.pendingHash = ""
-		a.diff.loadTimer = nil
-		if pending == nil {
-			return
-		}
-		go a.populateDiff(pending, pendingHash)
-	})
+		return pending, pendingHash
+	}()
+	if entry == nil {
+		return
+	}
+	go a.populateDiff(entry, hash)
 }
 
 func (a *Controller) cancelPendingDiffLoad() {
 	slog.Debug("cancelPendingDiffLoad", slog.String("hash", a.diff.pendingHash))
 	a.diff.mu.Lock()
 	defer a.diff.mu.Unlock()
-	if a.diff.loadTimer != nil {
-		a.diff.loadTimer.Stop()
-		a.diff.loadTimer = nil
+	if a.diff.debouncer != nil {
+		a.diff.debouncer.Stop()
 	}
+	a.diff.debouncer = nil
 	a.diff.pendingDiff = nil
 	a.diff.pendingHash = ""
 }

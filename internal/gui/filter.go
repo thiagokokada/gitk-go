@@ -3,7 +3,8 @@ package gui
 import (
 	"log/slog"
 	"strconv"
-	"time"
+
+	"github.com/thiagokokada/gitk-go/internal/debounce"
 
 	. "modernc.org/tk9.0"
 )
@@ -82,31 +83,26 @@ func (a *Controller) scheduleFilterApply(raw string) {
 		return
 	}
 	slog.Debug("scheduleFilterApply", slog.String("value", raw))
-	var timer *time.Timer
-	timer = time.AfterFunc(filterDebounceDelay, func() {
-		a.flushFilterDebounce(timer)
-	})
-	a.filter.mu.Lock()
-	defer a.filter.mu.Unlock()
-	if current := a.filter.timer; current != nil {
-		current.Stop()
-	}
-	a.filter.pending = raw
-	a.filter.timer = timer
-}
-
-func (a *Controller) flushFilterDebounce(timer *time.Timer) {
-	value, ok := func() (string, bool) {
+	debouncer := func() *debounce.Debouncer {
 		a.filter.mu.Lock()
 		defer a.filter.mu.Unlock()
-		if a.filter.timer != timer {
-			return "", false
-		}
-		val := a.filter.pending
-		a.filter.timer = nil
-		return val, true
+		a.filter.pending = raw
+		return debounce.Ensure(&a.filter.debouncer, filterDebounceDelay, func() {
+			a.flushFilterDebounce()
+		})
 	}()
-	if !ok {
+	debouncer.Trigger()
+}
+
+func (a *Controller) flushFilterDebounce() {
+	value := func() string {
+		a.filter.mu.Lock()
+		defer a.filter.mu.Unlock()
+		val := a.filter.pending
+		a.filter.pending = ""
+		return val
+	}()
+	if value == "" {
 		return
 	}
 	PostEvent(func() {
@@ -117,8 +113,9 @@ func (a *Controller) flushFilterDebounce(timer *time.Timer) {
 func (a *Controller) stopFilterDebounce() {
 	a.filter.mu.Lock()
 	defer a.filter.mu.Unlock()
-	if timer := a.filter.timer; timer != nil {
-		timer.Stop()
-		a.filter.timer = nil
+	if deb := a.filter.debouncer; deb != nil {
+		deb.Stop()
 	}
+	a.filter.debouncer = nil
+	a.filter.pending = ""
 }
