@@ -13,7 +13,7 @@ func (a *Controller) buildUI() {
 	GridColumnConfigure(App, 0, Weight(1))
 	GridRowConfigure(App, 1, Weight(1))
 
-	controls := App.TFrame(Padding("8p"))
+	controls := App.TFrame(Padding("4p"))
 	Grid(controls, Row(0), Column(0), Sticky(WE))
 	GridColumnConfigure(controls.Window, 1, Weight(1))
 
@@ -93,13 +93,8 @@ func (a *Controller) buildUI() {
 
 	textFrame := diffPane.TFrame()
 	fileFrame := diffPane.TFrame()
-	diffPane.Add(textFrame.Window)
-	diffPane.Add(fileFrame.Window)
-	configurePane := func(window *Window, options string) {
-		tkMustEval("%s pane %s %s", diffPane, window, options)
-	}
-	configurePane(textFrame.Window, "-weight 5")
-	configurePane(fileFrame.Window, "-weight 1")
+	diffPane.Add(textFrame.Window, Weight(5))
+	diffPane.Add(fileFrame.Window, Weight(1))
 
 	GridRowConfigure(fileFrame.Window, 0, Weight(1))
 	GridColumnConfigure(fileFrame.Window, 0, Weight(1))
