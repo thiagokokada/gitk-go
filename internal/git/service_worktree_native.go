@@ -5,6 +5,7 @@ package git
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -134,7 +135,12 @@ func fileFromDisk(root, path string) (*object.File, error) {
 		}
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			slog.Error("file close", slog.Any("error", err))
+		}
+	}()
 	data, err := io.ReadAll(file)
 	if err != nil {
 		return nil, err

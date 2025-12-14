@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"errors"
 	"fmt"
 	"iter"
 	"log/slog"
@@ -57,7 +58,7 @@ func (a *Controller) enableAutoReload() error {
 	for path := range watchPaths(a.repoPath) {
 		slog.Debug("adding path to FS watcher", slog.String("path", path))
 		if err := watcher.Add(path); err != nil {
-			watcher.Close()
+			err := errors.Join(err, watcher.Close())
 			return fmt.Errorf("watch %s: %w", path, err)
 		}
 	}
@@ -82,7 +83,10 @@ func (a *Controller) disableAutoReload() {
 		a.watch.debounce = nil
 	}
 	if a.watch.watcher != nil {
-		a.watch.watcher.Close()
+		err := a.watch.watcher.Close()
+		if err != nil {
+			slog.Error("watcher close", slog.Any("error", err))
+		}
 		a.watch.watcher = nil
 	}
 	a.watch.enabled = false

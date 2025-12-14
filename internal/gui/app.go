@@ -184,7 +184,14 @@ func (a *Controller) run() error {
 	defer a.shutdown()
 	a.palette = paletteForPreference(a.themePref)
 	if a.palette.ThemeName != "" {
-		ActivateTheme(a.palette.ThemeName)
+		err := ActivateTheme(a.palette.ThemeName)
+		if err != nil {
+			slog.Error(
+				"activate theme",
+				slog.String("theme", a.palette.ThemeName),
+				slog.Any("error", err),
+			)
+		}
 	}
 	level := slog.LevelInfo
 	if a.verbose {
@@ -708,9 +715,6 @@ func (a *Controller) scrollDiffToLine(line int) {
 	if a.diff.detail == nil || line <= 0 {
 		return
 	}
-	defer func() {
-		recover()
-	}()
 	totalLines := a.textLineCount()
 	if totalLines <= 1 {
 		a.diff.detail.Yviewmoveto(0)

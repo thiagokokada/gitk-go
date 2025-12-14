@@ -121,18 +121,6 @@ func colorFromEntry(entry chroma.StyleEntry) string {
 	return ""
 }
 
-func advancePosition(line, col int, text string) (int, int) {
-	for _, r := range text {
-		if r == '\n' {
-			line++
-			col = 0
-			continue
-		}
-		col++
-	}
-	return line, col
-}
-
 func diffPathFromLine(line string) (string, bool) {
 	const prefix = "diff --git "
 	if !strings.HasPrefix(line, prefix) {

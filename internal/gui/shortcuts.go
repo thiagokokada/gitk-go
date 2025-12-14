@@ -189,7 +189,7 @@ func (a *Controller) showShortcutsDialog() {
 	}
 	dialog := App.Toplevel()
 	a.shortcuts.window = dialog
-	dialog.Window.WmTitle("Keyboard Shortcuts")
+	dialog.WmTitle("Keyboard Shortcuts")
 	WmTransient(dialog.Window, App)
 	WmAttributes(dialog.Window, "-topmost", 1)
 
@@ -214,7 +214,7 @@ func (a *Controller) showShortcutsDialog() {
 			a.shortcuts.window = nil
 		}
 	}))
-	dialog.Window.Center()
+	dialog.Center()
 }
 
 func (a *Controller) moveSelection(delta int) {

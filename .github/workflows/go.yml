@@ -35,3 +35,8 @@ jobs:
 
     - name: Vet (gitcli)
       run: go vet -tags gitcli -v ./...
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v9
+      with:
+        version: v2.6.2
