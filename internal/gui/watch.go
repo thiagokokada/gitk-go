@@ -131,28 +131,18 @@ func (a *Controller) scheduleAutoReload() {
 	a.watch.debounce.Trigger()
 }
 
-var gitPathsToWatch = []string{
-	".git/index",
-	".git/HEAD",
-	".git/refs/heads",
-	".git/packed-refs",
-}
-
 func watchPaths(root string) iter.Seq[string] {
 	if root == "" {
 		return nil
 	}
 	uniquePaths := map[string]struct{}{}
 	appendUnique := func(p string) { uniquePaths[p] = struct{}{} }
-	for _, gitPath := range gitPathsToWatch {
-		relPath := filepath.Join(root, gitPath)
-		if _, err := os.Stat(relPath); err == nil {
-			appendUnique(relPath)
-		}
+	gitDir := filepath.Join(root, ".git")
+	if info, err := os.Stat(gitDir); err == nil && info.IsDir() {
+		appendUnique(gitDir)
+		return maps.Keys(uniquePaths)
 	}
-	if len(uniquePaths) == 0 {
-		appendUnique(root)
-	}
+	appendUnique(root)
 	return maps.Keys(uniquePaths)
 }
 
