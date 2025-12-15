@@ -77,13 +77,10 @@ func (a *Controller) switchRepository(path string) {
 	a.headRef = ""
 	a.commits = nil
 	a.visible = nil
-	a.tree.branchLabels = nil
-	a.tree.hasMore = false
-	a.tree.contextTargetID = ""
-	a.tree.loadingBatch = false
+	a.tree = treeState{}
 	a.localDiffs = localDiffCache{}
-	a.filter.value = ""
-	a.setSelectedHash("")
+	a.filter = filterState{}
+	a.selection = selectionState{}
 	a.stopFilterDebounce()
 	if a.ui.filterEntry != nil {
 		a.ui.filterEntry.Configure(Textvariable(""))
