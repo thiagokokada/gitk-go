@@ -121,70 +121,6 @@ func colorFromEntry(entry chroma.StyleEntry) string {
 	return ""
 }
 
-func diffPathFromLine(line string) (string, bool) {
-	const prefix = "diff --git "
-	if !strings.HasPrefix(line, prefix) {
-		return "", false
-	}
-	segment := strings.TrimSpace(line[len(prefix):])
-	tokens := diffLineTokens(segment)
-	if len(tokens) < 2 {
-		return "", true
-	}
-	return normalizeDiffPath(tokens[1]), true
-}
-
-func diffLineTokens(s string) []string {
-	var tokens []string
-	for {
-		s = strings.TrimLeft(s, " \t")
-		if s == "" {
-			break
-		}
-		if s[0] == '"' {
-			var buf strings.Builder
-			escaped := false
-			i := 1
-			for i < len(s) {
-				ch := s[i]
-				if escaped {
-					buf.WriteByte(ch)
-					escaped = false
-					i++
-					continue
-				}
-				if ch == '\\' {
-					escaped = true
-					i++
-					continue
-				}
-				if ch == '"' {
-					i++
-					break
-				}
-				buf.WriteByte(ch)
-				i++
-			}
-			tokens = append(tokens, buf.String())
-			s = s[i:]
-			continue
-		}
-		j := 0
-		for j < len(s) && s[j] != ' ' && s[j] != '\t' {
-			j++
-		}
-		tokens = append(tokens, s[:j])
-		s = s[j:]
-	}
-	return tokens
-}
-
-func normalizeDiffPath(token string) string {
-	token = strings.TrimPrefix(token, "a/")
-	token = strings.TrimPrefix(token, "b/")
-	return token
-}
-
 func lexerForPath(path string) chroma.Lexer {
 	if path == "" {
 		return nil
@@ -194,22 +130,4 @@ func lexerForPath(path string) chroma.Lexer {
 		lexer = lexers.Fallback
 	}
 	return chroma.Coalesce(lexer)
-}
-
-func diffLineCode(line string) (string, int, bool) {
-	if line == "" {
-		return "", 0, false
-	}
-	switch line[0] {
-	case '+', '-', ' ':
-		if strings.HasPrefix(line, "+++") || strings.HasPrefix(line, "---") {
-			return "", 0, false
-		}
-		if strings.HasPrefix(line, "\\ ") {
-			return "", 0, false
-		}
-		return line[1:], 1, true
-	default:
-		return "", 0, false
-	}
 }

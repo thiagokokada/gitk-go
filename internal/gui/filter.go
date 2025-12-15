@@ -70,15 +70,15 @@ func (a *Controller) storeScrollState() {
 }
 
 func (a *Controller) restoreScrollState() {
-	if a.scroll.start >= 0 {
-		newTotal := len(a.ui.treeView.Children(""))
-		prevTotal := a.scroll.total
-		if newTotal > 0 && prevTotal > 0 {
-			target := a.scroll.start * float64(prevTotal) / float64(newTotal)
-			target = max(0.0, min(target, 1.0))
-			tkMustEval("%s yview moveto %f", a.ui.treeView, target)
-		}
+	if a.ui.treeView == nil {
+		return
 	}
+	newTotal := len(a.ui.treeView.Children(""))
+	target, ok := a.scroll.restoreTarget(newTotal)
+	if !ok {
+		return
+	}
+	tkMustEval("%s yview moveto %f", a.ui.treeView, target)
 }
 
 func (a *Controller) visibleSelectionIndex() int {
@@ -138,4 +138,13 @@ func (a *Controller) stopFilterDebounce() {
 	}
 	a.filter.debouncer = nil
 	a.filter.pending = ""
+}
+
+func (s scrollState) restoreTarget(newTotal int) (float64, bool) {
+	if s.start < 0 || s.total <= 0 || newTotal <= 0 {
+		return 0, false
+	}
+	target := s.start * float64(s.total) / float64(newTotal)
+	target = max(0.0, min(target, 1.0))
+	return target, true
 }

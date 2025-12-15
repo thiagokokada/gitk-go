@@ -200,39 +200,3 @@ func TestVisibleSelectionIndex(t *testing.T) {
 		t.Fatalf("expected -1 for missing hash, got %d", idx)
 	}
 }
-
-func TestPrepareDiffDisplayInsertsSpacing(t *testing.T) {
-	diff := strings.Join([]string{
-		"diff --git a/file1 b/file1",
-		"@@ -1,0 +1,2 @@",
-		"+foo",
-		"diff --git a/file2 b/file2",
-		"@@ -3,0 +3,2 @@",
-		"+bar",
-	}, "\n")
-	sections := []git.FileSection{
-		{Path: "file1", Line: 1},
-		{Path: "file2", Line: 4},
-	}
-	gotDiff, gotSections := prepareDiffDisplay(diff, sections)
-	lines := strings.Split(gotDiff, "\n")
-	if len(lines) < 7 {
-		t.Fatalf("unexpected diff line count: %d", len(lines))
-	}
-	if lines[3] != "" {
-		t.Fatalf("expected blank spacer line between diffs, got %q", lines[3])
-	}
-	if gotSections[0].Line != 1 {
-		t.Fatalf("expected first section to stay at line 1, got %d", gotSections[0].Line)
-	}
-	if gotSections[1].Line != 4 {
-		t.Fatalf("expected second section to shift to line 4, got %d", gotSections[1].Line)
-	}
-}
-
-func TestPrepareDiffDisplayNoContent(t *testing.T) {
-	gotDiff, gotSections := prepareDiffDisplay("", nil)
-	if gotDiff != "" || gotSections != nil {
-		t.Fatalf("expected passthrough for empty diff, got %q %#v", gotDiff, gotSections)
-	}
-}

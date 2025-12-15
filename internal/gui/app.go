@@ -119,33 +119,19 @@ func (a *Controller) refreshLocalChangesAsync(prefetch bool) {
 }
 
 func (a *Controller) applyLocalChangeStatus(status git.LocalChanges, repoReady bool, prefetch bool) {
-	if !repoReady {
-		a.setLocalRowVisibility(false, false)
-		a.setLocalRowVisibility(true, false)
-		a.resetLocalDiffState(false)
-		a.resetLocalDiffState(true)
-		return
-	}
-	prevUnstaged := a.tree.showLocalUnstaged
-	prevStaged := a.tree.showLocalStaged
-	a.setLocalRowVisibility(false, status.HasWorktree)
-	a.setLocalRowVisibility(true, status.HasStaged)
-	if !status.HasWorktree {
+	actions := a.tree.localChangePlan(repoReady, prefetch, status)
+	a.setLocalRowVisibility(false, actions.showUnstaged)
+	a.setLocalRowVisibility(true, actions.showStaged)
+	if actions.resetUnstaged {
 		a.resetLocalDiffState(false)
 	}
-	if !status.HasStaged {
+	if actions.resetStaged {
 		a.resetLocalDiffState(true)
 	}
-	shouldLoadUnstaged := prefetch && status.HasWorktree
-	shouldLoadStaged := prefetch && status.HasStaged
-	if !prefetch {
-		shouldLoadUnstaged = status.HasWorktree && !prevUnstaged
-		shouldLoadStaged = status.HasStaged && !prevStaged
-	}
-	if shouldLoadUnstaged {
+	if actions.loadUnstaged {
 		a.ensureLocalDiffLoading(false, true)
 	}
-	if shouldLoadStaged {
+	if actions.loadStaged {
 		a.ensureLocalDiffLoading(true, true)
 	}
 }
@@ -217,35 +203,17 @@ func (a *Controller) snapshotLocalDiff(staged bool) localDiffSnapshot {
 	}
 	state.Lock()
 	defer state.Unlock()
-	snap := localDiffSnapshot{
-		ready:   state.ready,
-		loading: state.loading,
-		diff:    state.diff,
-		err:     state.err,
-	}
-	if len(state.sections) > 0 {
-		snap.sections = append([]git.FileSection(nil), state.sections...)
-	}
-	return snap
+	return state.snapshotLocked()
 }
 
 func (a *Controller) ensureLocalDiffLoading(staged bool, force bool) {
 	state := a.localDiffState(staged, true)
 	state.Lock()
-	defer state.Unlock()
-	if state.loading {
+	gen, started := state.startLoadingLocked(force)
+	state.Unlock()
+	if !started {
 		return
 	}
-	if state.ready && !force {
-		return
-	}
-	state.loading = true
-	state.ready = false
-	state.diff = ""
-	state.sections = nil
-	state.err = nil
-	state.generation++
-	gen := state.generation
 	go a.computeLocalDiff(staged, gen)
 }
 
@@ -281,12 +249,7 @@ func (a *Controller) resetLocalDiffState(staged bool) {
 	}
 	state.Lock()
 	defer state.Unlock()
-	state.loading = false
-	state.ready = false
-	state.diff = ""
-	state.sections = nil
-	state.err = nil
-	state.generation++
+	state.resetLocked()
 }
 
 func (a *Controller) localDiffState(staged bool, create bool) *localDiffState {
@@ -503,15 +466,8 @@ func (a *Controller) highlightDiffLines(content string) {
 		if len(line) == 0 {
 			continue
 		}
-		tag := ""
-		switch {
-		case strings.HasPrefix(line, "diff --git"):
-			tag = "diffHeader"
-		case strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++"):
-			tag = "diffAdd"
-		case strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---"):
-			tag = "diffDel"
-		default:
+		tag := diffLineTag(line)
+		if tag == "" {
 			continue
 		}
 		lineNo := i + 1
@@ -553,38 +509,6 @@ func (a *Controller) copyDetailSelection(stripMarkers bool) {
 	} else {
 		a.setStatus("Copied selection.")
 	}
-}
-
-func prepareDiffDisplay(content string, sections []git.FileSection) (string, []git.FileSection) {
-	if content == "" {
-		return content, sections
-	}
-	lines := strings.Split(content, "\n")
-	var b strings.Builder
-	newSections := make([]git.FileSection, len(sections))
-	copy(newSections, sections)
-	extraLines := 0
-	nextSection := 0
-	for i, line := range lines {
-		lineNo := i + 1
-		for nextSection < len(newSections) && newSections[nextSection].Line == lineNo {
-			newSections[nextSection].Line = lineNo + extraLines
-			nextSection++
-		}
-		if strings.HasPrefix(line, "diff --git ") && b.Len() > 0 {
-			b.WriteString("\n")
-			extraLines++
-		}
-		b.WriteString(line)
-		if i < len(lines)-1 {
-			b.WriteString("\n")
-		}
-	}
-	for nextSection < len(newSections) {
-		newSections[nextSection].Line += extraLines
-		nextSection++
-	}
-	return b.String(), newSections
 }
 
 func (a *Controller) setFileSections(sections []git.FileSection) {

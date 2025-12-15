@@ -162,19 +162,12 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 	if a.ui.treeView == nil || a.tree.loadingBatch || !a.tree.hasMore {
 		return
 	}
-	if len(a.visible) == 0 {
-		a.loadMoreCommitsAsync(false)
-		return
-	}
 	start, end, err := a.treeYviewRange()
 	if err != nil {
 		slog.Error("tree yview", slog.Any("error", err))
 		return
 	}
-	if a.filter.value == "" && len(a.visible) >= a.batch && start <= 0 && end >= 1 {
-		return
-	}
-	if end >= autoLoadThreshold {
+	if a.tree.shouldLoadMoreOnScroll(a.filter.value, len(a.visible), a.batch, start, end) {
 		a.loadMoreCommitsAsync(false)
 	}
 }
@@ -204,4 +197,17 @@ func (a *Controller) treeYviewRange() (float64, float64, error) {
 		return 0, 0, err
 	}
 	return start, end, nil
+}
+
+func (t treeState) shouldLoadMoreOnScroll(filterValue string, visibleLen int, batch int, yStart float64, yEnd float64) bool {
+	if t.loadingBatch || !t.hasMore {
+		return false
+	}
+	if visibleLen == 0 {
+		return true
+	}
+	if filterValue == "" && visibleLen >= batch && yStart <= 0 && yEnd >= 1 {
+		return false
+	}
+	return yEnd >= autoLoadThreshold
 }

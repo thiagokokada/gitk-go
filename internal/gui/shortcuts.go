@@ -210,7 +210,7 @@ func (a *Controller) showShortcutsDialog() {
 	Grid(header, Row(0), Column(0), Sticky(W), Pady("0 8p"))
 
 	text := frame.Text(Width(62), Height(18), Wrap(WORD), Exportselection(false))
-	text.Insert("1.0", a.shortcutsHelpText())
+	text.Insert("1.0", formatShortcutsHelpText(a.shortcutBindings()))
 	text.Configure(State("disabled"))
 	Grid(text, Row(1), Column(0), Sticky(NEWS))
 
@@ -400,10 +400,10 @@ func (a *Controller) blurFilterEntry() {
 	}
 }
 
-func (a *Controller) shortcutsHelpText() string {
+func formatShortcutsHelpText(bindings []shortcutBinding) string {
 	var b strings.Builder
 	currentCategory := ""
-	for _, sc := range a.shortcutBindings() {
+	for _, sc := range bindings {
 		if sc.category == "" || sc.display == "" || sc.description == "" {
 			continue
 		}
