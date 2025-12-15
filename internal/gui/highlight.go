@@ -12,7 +12,7 @@ import (
 )
 
 func (a *Controller) applySyntaxHighlight(content string) {
-	if a.diff.detail == nil || content == "" {
+	if a.ui.diffDetail == nil || content == "" {
 		return
 	}
 	a.clearSyntaxHighlight()
@@ -46,16 +46,16 @@ func (a *Controller) applySyntaxHighlight(content string) {
 }
 
 func (a *Controller) clearSyntaxHighlight() {
-	if a.diff.detail == nil {
+	if a.ui.diffDetail == nil {
 		return
 	}
 	for _, tag := range a.diff.syntaxTags {
-		a.diff.detail.TagRemove(tag, "1.0", END)
+		a.ui.diffDetail.TagRemove(tag, "1.0", END)
 	}
 }
 
 func (a *Controller) syntaxTagForColor(color string) string {
-	if color == "" || a.diff.detail == nil {
+	if color == "" || a.ui.diffDetail == nil {
 		return ""
 	}
 	if a.diff.syntaxTags == nil {
@@ -65,13 +65,13 @@ func (a *Controller) syntaxTagForColor(color string) string {
 		return tag
 	}
 	tag := fmt.Sprintf("syntax_%d", len(a.diff.syntaxTags))
-	a.diff.detail.TagConfigure(tag, Foreground(color))
+	a.ui.diffDetail.TagConfigure(tag, Foreground(color))
 	a.diff.syntaxTags[color] = tag
 	return tag
 }
 
 func (a *Controller) highlightCodeLine(lexer chroma.Lexer, style *chroma.Style, code string, lineNo, offset int) {
-	if a.diff.detail == nil || lexer == nil || style == nil || code == "" {
+	if a.ui.diffDetail == nil || lexer == nil || style == nil || code == "" {
 		return
 	}
 	iterator, err := lexer.Tokenise(nil, code)
@@ -92,7 +92,7 @@ func (a *Controller) highlightCodeLine(lexer chroma.Lexer, style *chroma.Style, 
 			if tag != "" {
 				start := fmt.Sprintf("%d.%d", lineNo, col)
 				end := fmt.Sprintf("%d.%d", lineNo, col+length)
-				a.diff.detail.TagAdd(tag, start, end)
+				a.ui.diffDetail.TagAdd(tag, start, end)
 			}
 		}
 		col += length

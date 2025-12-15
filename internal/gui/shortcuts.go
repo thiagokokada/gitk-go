@@ -10,7 +10,7 @@ import (
 )
 
 func (a *Controller) bindShortcuts() {
-	if a.tree.widget == nil {
+	if a.ui.treeView == nil {
 		return
 	}
 	bindNav := func(sequence string, handler func()) {
@@ -184,19 +184,19 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 }
 
 func (a *Controller) filterHasFocus() bool {
-	if a.filter.entry == nil {
+	if a.ui.filterEntry == nil {
 		return false
 	}
-	return Focus() == a.filter.entry.String()
+	return Focus() == a.ui.filterEntry.String()
 }
 
 func (a *Controller) showShortcutsDialog() {
-	if a.shortcuts.window != nil {
-		Destroy(a.shortcuts.window.Window)
-		a.shortcuts.window = nil
+	if a.ui.shortcutsWindow != nil {
+		Destroy(a.ui.shortcutsWindow.Window)
+		a.ui.shortcutsWindow = nil
 	}
 	dialog := App.Toplevel()
-	a.shortcuts.window = dialog
+	a.ui.shortcutsWindow = dialog
 	dialog.WmTitle("Keyboard Shortcuts")
 	WmTransient(dialog.Window, App)
 	WmAttributes(dialog.Window, "-topmost", 1)
@@ -218,18 +218,18 @@ func (a *Controller) showShortcutsDialog() {
 	Grid(closeBtn, Row(2), Column(0), Sticky(E), Pady("8p 0"))
 
 	Bind(dialog.Window, "<Destroy>", Command(func() {
-		if a.shortcuts.window == dialog {
-			a.shortcuts.window = nil
+		if a.ui.shortcutsWindow == dialog {
+			a.ui.shortcutsWindow = nil
 		}
 	}))
 	dialog.Center()
 }
 
 func (a *Controller) moveSelection(delta int) {
-	if a.tree.widget == nil {
+	if a.ui.treeView == nil {
 		return
 	}
-	sel := a.tree.widget.Selection("")
+	sel := a.ui.treeView.Selection("")
 	if len(sel) > 0 {
 		if a.handleSpecialRowNav(sel[0], delta) {
 			return
@@ -271,12 +271,12 @@ func (a *Controller) selectLast() {
 }
 
 func (a *Controller) selectSpecialRow(id string) {
-	if a.tree.widget == nil {
+	if a.ui.treeView == nil {
 		return
 	}
-	a.tree.widget.Selection("set", id)
-	a.tree.widget.Focus(id)
-	a.tree.widget.See(id)
+	a.ui.treeView.Selection("set", id)
+	a.ui.treeView.Focus(id)
+	a.ui.treeView.See(id)
 	switch id {
 	case localUnstagedRowID:
 		a.showLocalChanges(false)
@@ -286,10 +286,10 @@ func (a *Controller) selectSpecialRow(id string) {
 }
 
 func (a *Controller) currentSelectionIndex() int {
-	if a.tree.widget == nil {
+	if a.ui.treeView == nil {
 		return 0
 	}
-	sel := a.tree.widget.Selection("")
+	sel := a.ui.treeView.Selection("")
 	if len(sel) == 0 || sel[0] == moreIndicatorID {
 		return 0
 	}
@@ -300,13 +300,13 @@ func (a *Controller) currentSelectionIndex() int {
 }
 
 func (a *Controller) selectTreeIndex(idx int) {
-	if a.tree.widget == nil || idx < 0 || idx >= len(a.visible) {
+	if a.ui.treeView == nil || idx < 0 || idx >= len(a.visible) {
 		return
 	}
 	id := strconv.Itoa(idx)
-	a.tree.widget.Selection("set", id)
-	a.tree.widget.Focus(id)
-	a.tree.widget.See(id)
+	a.ui.treeView.Selection("set", id)
+	a.ui.treeView.Focus(id)
+	a.ui.treeView.See(id)
 	a.showCommitDetails(idx)
 }
 
@@ -344,10 +344,10 @@ func (a *Controller) handleSpecialRowNav(id string, delta int) bool {
 }
 
 func (a *Controller) scrollTreePages(delta int) {
-	if a.tree.widget == nil || delta == 0 {
+	if a.ui.treeView == nil || delta == 0 {
 		return
 	}
-	if _, err := tkEval("%s yview scroll %d pages", a.tree.widget, delta); err != nil {
+	if _, err := tkEval("%s yview scroll %d pages", a.ui.treeView, delta); err != nil {
 		slog.Error("tree scroll", slog.Any("error", err))
 	}
 }
@@ -361,25 +361,25 @@ func (a *Controller) scrollDetailLines(delta int) {
 }
 
 func (a *Controller) scrollDetail(delta int, unit string) {
-	if a.diff.detail == nil || delta == 0 {
+	if a.ui.diffDetail == nil || delta == 0 {
 		return
 	}
-	if _, err := tkEval("%s yview scroll %d %s", a.diff.detail, delta, unit); err != nil {
+	if _, err := tkEval("%s yview scroll %d %s", a.ui.diffDetail, delta, unit); err != nil {
 		slog.Error("detail scroll", slog.Any("error", err))
 	}
 }
 
 func (a *Controller) focusFilterEntry() {
-	if a.filter.entry == nil || a.filterHasFocus() {
+	if a.ui.filterEntry == nil || a.filterHasFocus() {
 		return
 	}
-	if _, err := tkEval("focus %s", a.filter.entry); err != nil {
+	if _, err := tkEval("focus %s", a.ui.filterEntry); err != nil {
 		slog.Error("focus filter", slog.Any("error", err))
 	}
-	if _, err := tkEval("%s selection range 0 end", a.filter.entry); err != nil {
+	if _, err := tkEval("%s selection range 0 end", a.ui.filterEntry); err != nil {
 		slog.Error("select filter", slog.Any("error", err))
 	}
-	if _, err := tkEval("%s icursor end", a.filter.entry); err != nil {
+	if _, err := tkEval("%s icursor end", a.ui.filterEntry); err != nil {
 		slog.Error("cursor filter", slog.Any("error", err))
 	}
 }
@@ -389,8 +389,8 @@ func (a *Controller) blurFilterEntry() {
 		return
 	}
 	target := App.String()
-	if a.tree.widget != nil {
-		target = a.tree.widget.String()
+	if a.ui.treeView != nil {
+		target = a.ui.treeView.String()
 	}
 	if target == "" {
 		target = "."

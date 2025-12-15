@@ -85,11 +85,11 @@ func (a *Controller) switchRepository(path string) {
 	a.filter.value = ""
 	a.setSelectedHash("")
 	a.stopFilterDebounce()
-	if a.filter.entry != nil {
-		a.filter.entry.Configure(Textvariable(""))
+	if a.ui.filterEntry != nil {
+		a.ui.filterEntry.Configure(Textvariable(""))
 	}
-	if a.diff.fileList != nil {
-		a.diff.fileList.Delete(0, END)
+	if a.ui.diffFileList != nil {
+		a.ui.diffFileList.Delete(0, END)
 	}
 
 	a.setLocalRowVisibility(false, false)

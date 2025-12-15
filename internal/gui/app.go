@@ -6,8 +6,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/thiagokokada/gitk-go/internal/debounce"
@@ -31,125 +29,6 @@ const (
 	localUnstagedLabel = "Local uncommitted changes, not checked in to index"
 	localStagedLabel   = "Local changes checked into index but not committed"
 )
-
-type Controller struct {
-	svc                 *git.Service
-	repoPath            string
-	batch               int
-	themePref           ThemePreference
-	palette             colorPalette
-	autoReloadRequested bool
-	syntaxHighlight     bool
-	verbose             bool
-
-	headRef string
-
-	commits []*git.Entry
-	visible []*git.Entry
-
-	tree      treeState
-	diff      diffState
-	filter    filterState
-	shortcuts shortcutState
-	status    *TLabelWidget
-	repoLabel *TLabelWidget
-
-	localDiffs localDiffCache
-	scroll     scrollState
-	selection  selectionState
-	watch      autoReloadState
-}
-
-type treeState struct {
-	widget            *TTreeviewWidget
-	menu              *MenuWidget
-	branchLabels      map[string][]string
-	contextTargetID   string
-	hasMore           bool
-	loadingBatch      bool
-	showLocalUnstaged bool
-	showLocalStaged   bool
-}
-
-type diffState struct {
-	detail                *TextWidget
-	fileList              *ListboxWidget
-	fileSections          []git.FileSection
-	syntaxTags            map[string]string
-	menu                  *MenuWidget
-	suppressFileSelection bool
-	skipNextSync          bool
-
-	mu          sync.Mutex
-	debouncer   *debounce.Debouncer
-	pendingDiff *git.Entry
-	pendingHash string
-}
-
-type shortcutState struct {
-	window *ToplevelWidget
-}
-
-type filterState struct {
-	entry *TEntryWidget
-	value string
-
-	mu        sync.Mutex
-	debouncer *debounce.Debouncer
-	pending   string
-}
-
-type selectionState struct {
-	hash atomic.Pointer[string]
-}
-
-type scrollState struct {
-	start float64
-	total int
-}
-
-type localDiffCache struct {
-	mu    sync.Mutex
-	items map[bool]*localDiffState
-}
-
-func (c *localDiffCache) state(staged bool, create bool) *localDiffState {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.items == nil {
-		if !create {
-			return nil
-		}
-		c.items = make(map[bool]*localDiffState)
-	}
-	if st, ok := c.items[staged]; ok {
-		return st
-	}
-	if !create {
-		return nil
-	}
-	st := &localDiffState{}
-	c.items[staged] = st
-	return st
-}
-
-type localDiffState struct {
-	sync.Mutex
-	ready      bool
-	loading    bool
-	diff       string
-	sections   []git.FileSection
-	err        error
-	generation int
-}
-
-type localDiffSnapshot struct {
-	ready    bool
-	loading  bool
-	diff     string
-	sections []git.FileSection
-	err      error
-}
 
 func Run(repoPath string, batch int, pref ThemePreference, autoReload bool, syntaxHighlight bool, verbose bool) error {
 	if err := InitializeExtension("eval"); err != nil && err != AlreadyInitialized {
@@ -424,10 +303,10 @@ func (a *Controller) onLocalDiffLoaded(staged bool) {
 		}
 	}
 	targetID := localRowID(staged)
-	if a.tree.widget == nil {
+	if a.ui.treeView == nil {
 		return
 	}
-	sel := a.tree.widget.Selection("")
+	sel := a.ui.treeView.Selection("")
 	if len(sel) == 0 || sel[0] != targetID {
 		return
 	}
@@ -583,7 +462,7 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 }
 
 func (a *Controller) clearDetailText(msg string) {
-	if a.diff.detail == nil {
+	if a.ui.diffDetail == nil {
 		return
 	}
 	a.writeDetailText(msg, false)
@@ -591,31 +470,34 @@ func (a *Controller) clearDetailText(msg string) {
 }
 
 func (a *Controller) writeDetailText(content string, highlightDiff bool) {
-	if a.diff.detail == nil {
+	if a.ui.diffDetail == nil {
 		return
 	}
-	a.diff.detail.Configure(State(NORMAL))
-	a.diff.detail.Delete("1.0", END)
-	a.diff.detail.Insert("1.0", content)
+	a.ui.diffDetail.Configure(State(NORMAL))
+	a.ui.diffDetail.Delete("1.0", END)
+	a.ui.diffDetail.Insert("1.0", content)
 	if highlightDiff {
 		a.highlightDiffLines(content)
 	} else {
-		a.diff.detail.TagRemove("diffAdd", "1.0", END)
-		a.diff.detail.TagRemove("diffDel", "1.0", END)
-		a.diff.detail.TagRemove("diffHeader", "1.0", END)
+		a.ui.diffDetail.TagRemove("diffAdd", "1.0", END)
+		a.ui.diffDetail.TagRemove("diffDel", "1.0", END)
+		a.ui.diffDetail.TagRemove("diffHeader", "1.0", END)
 	}
 	if a.syntaxHighlight && highlightDiff {
 		a.applySyntaxHighlight(content)
 	} else {
 		a.clearSyntaxHighlight()
 	}
-	a.diff.detail.Configure(State("disabled"))
+	a.ui.diffDetail.Configure(State("disabled"))
 }
 
 func (a *Controller) highlightDiffLines(content string) {
-	a.diff.detail.TagRemove("diffAdd", "1.0", END)
-	a.diff.detail.TagRemove("diffDel", "1.0", END)
-	a.diff.detail.TagRemove("diffHeader", "1.0", END)
+	if a.ui.diffDetail == nil {
+		return
+	}
+	a.ui.diffDetail.TagRemove("diffAdd", "1.0", END)
+	a.ui.diffDetail.TagRemove("diffDel", "1.0", END)
+	a.ui.diffDetail.TagRemove("diffHeader", "1.0", END)
 	lines := strings.Split(content, "\n")
 	for i, line := range lines {
 		if len(line) == 0 {
@@ -638,15 +520,15 @@ func (a *Controller) highlightDiffLines(content string) {
 		if lineNo == len(lines) {
 			end = fmt.Sprintf("%d.end", lineNo)
 		}
-		a.diff.detail.TagAdd(tag, start, end)
+		a.ui.diffDetail.TagAdd(tag, start, end)
 	}
 }
 
 func (a *Controller) copyDetailSelection(stripMarkers bool) {
-	if a.diff.detail == nil {
+	if a.ui.diffDetail == nil {
 		return
 	}
-	text, err := tkEval("%s get sel.first sel.last", a.diff.detail)
+	text, err := tkEval("%s get sel.first sel.last", a.ui.diffDetail)
 	if err != nil || text == "" {
 		return
 	}
@@ -711,22 +593,22 @@ func (a *Controller) setFileSections(sections []git.FileSection) {
 	augmented = append(augmented, git.FileSection{Path: "Commit", Line: 1})
 	augmented = append(augmented, sections...)
 	a.diff.fileSections = augmented
-	if a.diff.fileList == nil {
+	if a.ui.diffFileList == nil {
 		return
 	}
-	a.diff.fileList.Configure(State("normal"))
-	a.diff.fileList.Delete(0, END)
+	a.ui.diffFileList.Configure(State("normal"))
+	a.ui.diffFileList.Delete(0, END)
 	if len(augmented) == 0 {
-		a.diff.fileList.Insert(END, "(no files)")
-		a.diff.fileList.Configure(State("disabled"))
+		a.ui.diffFileList.Insert(END, "(no files)")
+		a.ui.diffFileList.Configure(State("disabled"))
 		return
 	}
 	for _, sec := range augmented {
-		a.diff.fileList.Insert(END, sec.Path)
+		a.ui.diffFileList.Insert(END, sec.Path)
 	}
-	a.diff.fileList.SelectionClear(0, END)
-	a.diff.fileList.Activate(0)
-	a.diff.fileList.Configure(State("normal"))
+	a.ui.diffFileList.SelectionClear(0, END)
+	a.ui.diffFileList.Activate(0)
+	a.ui.diffFileList.Configure(State("normal"))
 	a.syncFileSelectionToDiff()
 }
 
@@ -734,10 +616,10 @@ func (a *Controller) onFileSelectionChanged() {
 	if a.diff.suppressFileSelection {
 		return
 	}
-	if len(a.diff.fileSections) == 0 || a.diff.fileList == nil {
+	if len(a.diff.fileSections) == 0 || a.ui.diffFileList == nil {
 		return
 	}
-	selection := a.diff.fileList.Curselection()
+	selection := a.ui.diffFileList.Curselection()
 	if len(selection) == 0 {
 		return
 	}
@@ -750,12 +632,12 @@ func (a *Controller) onFileSelectionChanged() {
 }
 
 func (a *Controller) scrollDiffToLine(line int) {
-	if a.diff.detail == nil || line <= 0 {
+	if a.ui.diffDetail == nil || line <= 0 {
 		return
 	}
 	totalLines := a.textLineCount()
 	if totalLines <= 1 {
-		a.diff.detail.Yviewmoveto(0)
+		a.ui.diffDetail.Yviewmoveto(0)
 		return
 	}
 	fraction := float64(line-1) / float64(totalLines-1)
@@ -765,14 +647,14 @@ func (a *Controller) scrollDiffToLine(line int) {
 	if fraction > 1 {
 		fraction = 1
 	}
-	a.diff.detail.Yviewmoveto(fraction)
+	a.ui.diffDetail.Yviewmoveto(fraction)
 }
 
 func (a *Controller) textLineCount() int {
-	if a.diff.detail == nil {
+	if a.ui.diffDetail == nil {
 		return 0
 	}
-	index := a.diff.detail.Index(END)
+	index := a.ui.diffDetail.Index(END)
 	parts := strings.SplitN(index, ".", 2)
 	if len(parts) == 0 {
 		return 0
@@ -801,13 +683,13 @@ func (a *Controller) currentSelection() string {
 }
 
 func (a *Controller) setStatus(msg string) {
-	if a.status == nil {
+	if a.ui.status == nil {
 		slog.Info(msg)
 		return
 	}
 	text := msg
 	PostEvent(func() {
-		a.status.Configure(Txt(text))
+		a.ui.status.Configure(Txt(text))
 	}, false)
 }
 
@@ -834,17 +716,17 @@ func (a *Controller) statusSummary() string {
 }
 
 func (a *Controller) syncFileSelectionToDiff() {
-	if a.diff.fileList == nil || len(a.diff.fileSections) == 0 {
+	if a.ui.diffFileList == nil || len(a.diff.fileSections) == 0 {
 		return
 	}
 	if a.diff.skipNextSync {
 		return
 	}
 	line := func() int {
-		if a.diff.detail == nil {
+		if a.ui.diffDetail == nil {
 			return 0
 		}
-		index := a.diff.detail.Index("@0,0")
+		index := a.ui.diffDetail.Index("@0,0")
 		parts := strings.SplitN(index, ".", 2)
 		if len(parts) == 0 {
 			return 0
@@ -858,29 +740,22 @@ func (a *Controller) syncFileSelectionToDiff() {
 	if line <= 0 {
 		return
 	}
-	target := 0
-	for i, sec := range a.diff.fileSections {
-		if line < sec.Line {
-			break
-		}
-		target = i
-	}
-	a.setFileListSelection(target)
+	a.setFileListSelection(fileSectionIndexForLine(a.diff.fileSections, line))
 }
 
 func (a *Controller) setFileListSelection(idx int) {
-	if a.diff.fileList == nil || idx < 0 || idx >= len(a.diff.fileSections) {
+	if a.ui.diffFileList == nil || idx < 0 || idx >= len(a.diff.fileSections) {
 		return
 	}
-	current := a.diff.fileList.Curselection()
+	current := a.ui.diffFileList.Curselection()
 	if len(current) > 0 && current[0] == idx {
 		return
 	}
 	a.diff.suppressFileSelection = true
-	a.diff.fileList.SelectionClear(0, END)
-	a.diff.fileList.SelectionSet(idx)
-	a.diff.fileList.Activate(idx)
-	a.diff.fileList.See(idx)
+	a.ui.diffFileList.SelectionClear(0, END)
+	a.ui.diffFileList.SelectionSet(idx)
+	a.ui.diffFileList.Activate(idx)
+	a.ui.diffFileList.See(idx)
 	PostEvent(func() {
 		a.diff.suppressFileSelection = false
 	}, false)

@@ -17,7 +17,7 @@ func (a *Controller) applyFilter(raw string) {
 
 func (a *Controller) applyFilterContent(raw string) {
 	a.visible = filterEntries(a.commits, raw)
-	if a.tree.widget == nil {
+	if a.ui.treeView == nil {
 		return
 	}
 
@@ -27,11 +27,11 @@ func (a *Controller) applyFilterContent(raw string) {
 	rows := buildTreeRows(a.visible, a.tree.branchLabels)
 	for _, row := range rows {
 		vals := []string{row.Graph, row.Commit, row.Author, row.Date}
-		a.tree.widget.Insert("", "end", Id(row.ID), Values(vals))
+		a.ui.treeView.Insert("", "end", Id(row.ID), Values(vals))
 	}
 	if a.tree.hasMore && len(a.visible) > 0 {
 		vals := []string{"", "There are more commits...", "", ""}
-		a.tree.widget.Insert("", "end", Id(moreIndicatorID), Values(vals))
+		a.ui.treeView.Insert("", "end", Id(moreIndicatorID), Values(vals))
 	}
 
 	if len(a.visible) == 0 {
@@ -50,9 +50,9 @@ func (a *Controller) applyFilterContent(raw string) {
 	}
 	if index >= 0 {
 		id := strconv.Itoa(index)
-		a.tree.widget.Selection("set", id)
-		a.tree.widget.Focus(id)
-		a.tree.widget.See(id)
+		a.ui.treeView.Selection("set", id)
+		a.ui.treeView.Focus(id)
+		a.ui.treeView.See(id)
 		a.showCommitDetails(index)
 	}
 	a.setStatus(a.statusSummary())
@@ -61,7 +61,7 @@ func (a *Controller) applyFilterContent(raw string) {
 }
 
 func (a *Controller) storeScrollState() {
-	a.scroll.total = len(a.tree.widget.Children(""))
+	a.scroll.total = len(a.ui.treeView.Children(""))
 	if a.scroll.total > 0 {
 		if start, _, err := a.treeYviewRange(); err == nil {
 			a.scroll.start = start
@@ -71,12 +71,12 @@ func (a *Controller) storeScrollState() {
 
 func (a *Controller) restoreScrollState() {
 	if a.scroll.start >= 0 {
-		newTotal := len(a.tree.widget.Children(""))
+		newTotal := len(a.ui.treeView.Children(""))
 		prevTotal := a.scroll.total
 		if newTotal > 0 && prevTotal > 0 {
 			target := a.scroll.start * float64(prevTotal) / float64(newTotal)
 			target = max(0.0, min(target, 1.0))
-			tkMustEval("%s yview moveto %f", a.tree.widget, target)
+			tkMustEval("%s yview moveto %f", a.ui.treeView, target)
 		}
 	}
 }

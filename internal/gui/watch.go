@@ -25,7 +25,6 @@ type autoReloadState struct {
 	enabled    bool
 	watcher    *fsnotify.Watcher
 	debounce   *debounce.Debouncer
-	button     *TButtonWidget
 }
 
 func (a *Controller) initAutoReload(requested bool) {
@@ -158,7 +157,7 @@ func shouldIgnoreWatchPath(name string) bool {
 }
 
 func (a *Controller) updateReloadButtonLabel() {
-	if a.watch.button == nil {
+	if a.ui.reloadButton == nil {
 		return
 	}
 	label := "Reload"
@@ -173,7 +172,7 @@ func (a *Controller) updateReloadButtonLabel() {
 		}
 		label = fmt.Sprintf("Reload (Auto %s)", state)
 	}
-	a.watch.button.Configure(Txt(label))
+	a.ui.reloadButton.Configure(Txt(label))
 }
 
 func (a *Controller) onReloadButton() {
