@@ -718,18 +718,22 @@ func prepareDiffDisplay(content string, sections []git.FileSection) (string, []g
 }
 
 func (a *Controller) setFileSections(sections []git.FileSection) {
-	a.diff.fileSections = sections
+	// Keep a virtual "Commit" row so users can jump back to the header quickly.
+	augmented := make([]git.FileSection, 0, len(sections)+1)
+	augmented = append(augmented, git.FileSection{Path: "Commit", Line: 1})
+	augmented = append(augmented, sections...)
+	a.diff.fileSections = augmented
 	if a.diff.fileList == nil {
 		return
 	}
 	a.diff.fileList.Configure(State("normal"))
 	a.diff.fileList.Delete(0, END)
-	if len(sections) == 0 {
+	if len(augmented) == 0 {
 		a.diff.fileList.Insert(END, "(no files)")
 		a.diff.fileList.Configure(State("disabled"))
 		return
 	}
-	for _, sec := range sections {
+	for _, sec := range augmented {
 		a.diff.fileList.Insert(END, sec.Path)
 	}
 	a.diff.fileList.SelectionClear(0, END)
