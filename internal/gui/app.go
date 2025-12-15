@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/thiagokokada/gitk-go/internal/debounce"
@@ -99,8 +100,7 @@ type filterState struct {
 }
 
 type selectionState struct {
-	mu   sync.RWMutex
-	hash string
+	hash atomic.Pointer[string]
 }
 
 type scrollState struct {
@@ -109,15 +109,16 @@ type scrollState struct {
 }
 
 func (s *selectionState) Set(hash string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.hash = hash
+	h := hash
+	s.hash.Store(&h)
 }
 
 func (s *selectionState) Get() string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.hash
+	ptr := s.hash.Load()
+	if ptr == nil {
+		return ""
+	}
+	return *ptr
 }
 
 type localDiffCache struct {
