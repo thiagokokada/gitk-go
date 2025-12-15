@@ -81,9 +81,9 @@ func (a *Controller) switchRepository(path string) {
 	a.tree.hasMore = false
 	a.tree.contextTargetID = ""
 	a.tree.loadingBatch = false
-	a.selection.Set("")
 	a.localDiffs = localDiffCache{}
 	a.filter.value = ""
+	a.setSelectedHash("")
 	a.stopFilterDebounce()
 	if a.filter.entry != nil {
 		a.filter.entry.Configure(Textvariable(""))

@@ -108,19 +108,6 @@ type scrollState struct {
 	total int
 }
 
-func (s *selectionState) Set(hash string) {
-	h := hash
-	s.hash.Store(&h)
-}
-
-func (s *selectionState) Get() string {
-	ptr := s.hash.Load()
-	if ptr == nil {
-		return ""
-	}
-	return *ptr
-}
-
 type localDiffCache struct {
 	mu    sync.Mutex
 	items map[bool]*localDiffState
@@ -801,11 +788,16 @@ func (a *Controller) textLineCount() int {
 }
 
 func (a *Controller) setSelectedHash(hash string) {
-	a.selection.Set(hash)
+	h := hash
+	a.selection.hash.Store(&h)
 }
 
 func (a *Controller) currentSelection() string {
-	return a.selection.Get()
+	ptr := a.selection.hash.Load()
+	if ptr == nil {
+		return ""
+	}
+	return *ptr
 }
 
 func (a *Controller) setStatus(msg string) {
