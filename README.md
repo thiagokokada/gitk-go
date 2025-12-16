@@ -34,19 +34,7 @@ Arguments:
 - `-nowatch`: disable automatic reload when the repository changes (auto-reload is on by default)
 - `-nosyntax`: disable syntax highlighting in the diff viewer
 - `-verbose`: emit additional debug logging (fsnotify events, reload scheduling)
-- `-version`: print the build version (plus active build tags when available) and exit. Version info comes from Go's build metadata (`go build -buildvcs` captures git revision automatically).
-
-#### Build tags
-
-`gitk-go` exposes a couple of build tags to tweak behavior when compiling:
-
-- `gitcli`: Opt-in to using the system `git` binary for local-change detection and
-  diff generation. This is recommended on very large repositories when `git` is
-  available in `PATH`.
-- `nosyntaxhighlight`: Disable syntax highlighting inside the diff viewer and fall
-  back to the plain diff colors.
-
-You can combine tags as needed, for example `go build -tags "gitcli,nosyntaxhighlight"`.
+- `-version`: print the build version (plus active build tags when available) and exit
 
 #### git CLI acceleration
 
@@ -72,8 +60,7 @@ repositories:
 GOEXPERIMENT=greenteagc go run .
 ```
 
-This flag is optional and only affects performance characteristics; functionality
-remains the same.
+This flag is optional and only affects performance for a few operations (e.g., diffs); functionality remains the same.
 
 ### Known issues
 
@@ -89,11 +76,5 @@ go test -tags gitcli ./...
 go build ./...
 go build -tags gitcli ./...
 ```
-
-Key packages:
-
-- `cmd`: CLI parsing and entry point
-- `internal/git`: repository access, commit scanning, graph building
-- `internal/gui`: Tk UI and controller logic
 
 See `AGENTS.md` for guidelines followed by the automation helping maintain this project.
