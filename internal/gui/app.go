@@ -30,13 +30,16 @@ const (
 	localStagedLabel   = "Local changes checked into index but not committed"
 )
 
-func Run(repoPath string, batch int, pref ThemePreference, autoReload bool, syntaxHighlight bool, verbose bool) error {
+func Run(repoPath string, batch int, graphMaxColumns int, pref ThemePreference, autoReload bool, syntaxHighlight bool, verbose bool) error {
 	if err := InitializeExtension("eval"); err != nil && err != AlreadyInitialized {
 		return fmt.Errorf("init eval extension: %v", err)
 	}
 	svc, err := git.Open(repoPath)
 	if err != nil {
 		return err
+	}
+	if graphMaxColumns != 0 {
+		svc.SetGraphMaxColumns(graphMaxColumns)
 	}
 	if batch <= 0 {
 		batch = git.DefaultBatch

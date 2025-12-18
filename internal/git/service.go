@@ -18,12 +18,16 @@ import (
 
 const DefaultBatch = 1000
 
+const DefaultGraphMaxColumns = 200
+
 type Service struct {
 	// mu serializes access to repo operations that share iterators/state (scan session).
 	mu sync.Mutex
 
 	repo repoState
 	scan *scanSession
+
+	graphMaxColumns int
 }
 
 type repoState struct {
@@ -52,11 +56,27 @@ func Open(repoPath string) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open repository: %w", err)
 	}
-	return &Service{repo: repoState{path: abs, Repository: repo}}, nil
+	return &Service{
+		repo:            repoState{path: abs, Repository: repo},
+		graphMaxColumns: DefaultGraphMaxColumns,
+	}, nil
 }
 
 func (s *Service) RepoPath() string {
 	return s.repo.path
+}
+
+func (s *Service) SetGraphMaxColumns(maxColumns int) {
+	if maxColumns <= 0 {
+		maxColumns = DefaultGraphMaxColumns
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.graphMaxColumns = maxColumns
+	if s.scan != nil && s.scan.graphBuilder != nil {
+		s.scan.graphBuilder.maxColumns = maxColumns
+		s.scan.graphBuilder.trim()
+	}
 }
 
 func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
@@ -125,9 +145,11 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 	iterDur := time.Since(startIter)
 
 	startGraph := time.Now()
-	if err := s.populateGraphStrings(entries, skip); err != nil {
+	graphTarget := skip + len(entries)
+	if err := s.scan.ensureGraphProcessed(graphTarget); err != nil {
 		return nil, "", false, err
 	}
+	s.scan.assignGraphStrings(entries)
 	graphDur := time.Since(startGraph)
 
 	startMore := time.Now()
@@ -144,6 +166,11 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 		slog.Int("session_returned", s.scan.returned),
 		slog.Bool("has_more", hasMore),
 		slog.String("head", s.scan.headName),
+		slog.Int("graph_target", graphTarget),
+		slog.Int("graph_processed", s.scan.graphProcessed),
+		slog.Int("graph_cache_len", len(s.scan.graphCache)),
+		slog.Int("graph_cols", len(s.scan.graphBuilder.columns)),
+		slog.Int("graph_cols_max", s.scan.graphColsMax),
 		slog.Duration("dur_total", totalDur),
 		slog.Duration("dur_head", headDur),
 		slog.Duration("dur_session", sessionDur),
@@ -164,6 +191,13 @@ type scanSession struct {
 	buffered  *object.Commit
 	exhausted bool
 	returned  int
+
+	graphIter      object.CommitIter
+	graphBuilder   *graphBuilder
+	graphCache     map[plumbing.Hash]string
+	graphProcessed int
+	graphColsMax   int
+	graphEOF       bool
 }
 
 func (s *Service) ensureScanSessionLocked(ref *plumbing.Reference) error {
@@ -182,10 +216,19 @@ func (s *Service) resetScanLocked(ref *plumbing.Reference) error {
 	if err != nil {
 		return fmt.Errorf("read commits: %w", err)
 	}
+	graphIter, err := s.repo.Log(&gitlib.LogOptions{From: ref.Hash(), Order: gitlib.LogOrderDFS})
+	if err != nil {
+		displayIter.Close()
+		return fmt.Errorf("read commits for graph: %w", err)
+	}
 	s.scan = &scanSession{
 		head:        ref.Hash(),
 		headName:    refName(ref),
 		displayIter: displayIter,
+		graphIter:   graphIter,
+
+		graphBuilder: newGraphBuilder(s.graphMaxColumns),
+		graphCache:   make(map[plumbing.Hash]string, DefaultBatch),
 	}
 	slog.Debug("ScanCommits session initialized", slog.String("head", s.scan.headName))
 	return nil
@@ -198,9 +241,14 @@ func (s *scanSession) close() {
 	if s.displayIter != nil {
 		s.displayIter.Close()
 	}
+	if s.graphIter != nil {
+		s.graphIter.Close()
+	}
 	s.displayIter = nil
+	s.graphIter = nil
 	s.buffered = nil
 	s.exhausted = true
+	s.graphEOF = true
 }
 
 func (s *scanSession) hasMore() (bool, error) {
@@ -252,6 +300,41 @@ func (s *scanSession) discard(count int) error {
 		}
 	}
 	return nil
+}
+
+func (s *scanSession) ensureGraphProcessed(target int) error {
+	if target <= 0 || s.graphEOF || s.graphIter == nil || s.graphBuilder == nil {
+		return nil
+	}
+	for s.graphProcessed < target && !s.graphEOF {
+		commit, err := s.graphIter.Next()
+		if err != nil {
+			if err == io.EOF {
+				s.graphEOF = true
+				break
+			}
+			return fmt.Errorf("iterate commits for graph: %w", err)
+		}
+		line := s.graphBuilder.Line(commit)
+		s.graphProcessed++
+		s.graphCache[commit.Hash] = line
+		if cols := len(s.graphBuilder.columns); cols > s.graphColsMax {
+			s.graphColsMax = cols
+		}
+	}
+	return nil
+}
+
+func (s *scanSession) assignGraphStrings(entries []*Entry) {
+	if len(entries) == 0 || len(s.graphCache) == 0 {
+		return
+	}
+	for _, entry := range entries {
+		if entry == nil || entry.Commit == nil {
+			continue
+		}
+		entry.Graph = s.graphCache[entry.Commit.Hash]
+	}
 }
 
 func (s *Service) BranchLabels() (map[string][]string, error) {
@@ -339,63 +422,6 @@ type LocalChanges struct {
 
 	UnstagedSections []FileSection
 	StagedSections   []FileSection
-}
-
-// populateGraphStrings expects the caller to serialize with Service.mu.
-func (s *Service) populateGraphStrings(entries []*Entry, skip int) error {
-	if len(entries) == 0 {
-		return nil
-	}
-	start := time.Now()
-	total := skip + len(entries)
-	if total <= 0 {
-		return nil
-	}
-	ref, err := s.repo.Head()
-	if err != nil {
-		if err == plumbing.ErrReferenceNotFound {
-			return nil
-		}
-		return fmt.Errorf("resolve HEAD: %w", err)
-	}
-	iter, err := s.repo.Log(&gitlib.LogOptions{From: ref.Hash(), Order: gitlib.LogOrderDFS})
-	if err != nil {
-		return fmt.Errorf("read commits for graph: %w", err)
-	}
-	defer iter.Close()
-
-	builder := newGraphBuilder()
-	graphByHash := make(map[string]string, len(entries))
-	processed := 0
-	for processed < total {
-		commit, err := iter.Next()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return fmt.Errorf("iterate commits for graph: %w", err)
-		}
-		line := builder.Line(commit)
-		processed++
-		if processed <= skip {
-			continue
-		}
-		graphByHash[commit.Hash.String()] = line
-		if len(graphByHash) == len(entries) {
-			break
-		}
-	}
-	for _, entry := range entries {
-		entry.Graph = graphByHash[entry.Commit.Hash.String()]
-	}
-	slog.Debug("populateGraphStrings done",
-		slog.Int("skip", skip),
-		slog.Int("entries", len(entries)),
-		slog.Int("processed", processed),
-		slog.Int("found", len(graphByHash)),
-		slog.Duration("dur", time.Since(start)),
-	)
-	return nil
 }
 
 func appendSignatureLine(b *strings.Builder, label string, sig object.Signature) {
@@ -496,11 +522,24 @@ func (f filePatchSet) FilePatches() []diff.FilePatch { return f.patches }
 func (filePatchSet) Message() string                 { return "" }
 
 type graphBuilder struct {
-	columns []plumbing.Hash
+	columns    []plumbing.Hash
+	maxColumns int
 }
 
-func newGraphBuilder() *graphBuilder {
-	return &graphBuilder{}
+func newGraphBuilder(maxColumns int) *graphBuilder {
+	if maxColumns <= 0 {
+		maxColumns = DefaultGraphMaxColumns
+	}
+	return &graphBuilder{maxColumns: maxColumns}
+}
+
+func (g *graphBuilder) trim() {
+	if g == nil || g.maxColumns <= 0 {
+		return
+	}
+	if len(g.columns) > g.maxColumns {
+		g.columns = g.columns[:g.maxColumns]
+	}
 }
 
 func (g *graphBuilder) Line(c *object.Commit) string {
@@ -512,6 +551,7 @@ func (g *graphBuilder) Line(c *object.Commit) string {
 		g.columns = append([]plumbing.Hash{c.Hash}, g.columns...)
 		idx = 0
 	}
+	g.trim()
 	var b strings.Builder
 	for i := range g.columns {
 		if i == idx {
@@ -537,6 +577,9 @@ func (g *graphBuilder) columnIndex(hash plumbing.Hash) int {
 }
 
 func (g *graphBuilder) advance(idx int, parents []plumbing.Hash) {
+	if g == nil {
+		return
+	}
 	if len(parents) == 0 {
 		g.columns = append(g.columns[:idx], g.columns[idx+1:]...)
 		return
@@ -552,6 +595,7 @@ func (g *graphBuilder) advance(idx int, parents []plumbing.Hash) {
 		}
 		g.columns = append(g.columns[:pos], append([]plumbing.Hash{parent}, g.columns[pos:]...)...)
 	}
+	g.trim()
 }
 
 func (g *graphBuilder) removeColumn(hash plumbing.Hash) {

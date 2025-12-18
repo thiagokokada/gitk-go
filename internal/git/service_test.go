@@ -65,7 +65,7 @@ func TestGraphBuilderLine(t *testing.T) {
 	merge := plumbing.NewHash("cccccccccccccccccccccccccccccccccccccccc")
 	other := plumbing.NewHash("dddddddddddddddddddddddddddddddddddddddd")
 
-	builder := newGraphBuilder()
+	builder := newGraphBuilder(DefaultGraphMaxColumns)
 	lineHead := builder.Line(&object.Commit{Hash: head, ParentHashes: []plumbing.Hash{parent, merge}})
 	if lineHead != "*" && lineHead != "* |" {
 		t.Fatalf("unexpected graph for merge head: %q", lineHead)
@@ -77,6 +77,27 @@ func TestGraphBuilderLine(t *testing.T) {
 	lineMerge := builder.Line(&object.Commit{Hash: merge})
 	if lineMerge != "| *" {
 		t.Fatalf("unexpected graph for secondary branch: %q", lineMerge)
+	}
+}
+
+func TestGraphBuilderCapsColumns(t *testing.T) {
+	builder := newGraphBuilder(DefaultGraphMaxColumns)
+	builder.maxColumns = 50
+
+	parentBase := plumbing.NewHash("9999999999999999999999999999999999999999")
+	for i := range 250 {
+		hash := plumbing.NewHash(fmt.Sprintf("%040x", i+1))
+		parent := plumbing.NewHash(fmt.Sprintf("%040x", i+1000))
+		if parent == parentBase {
+			parent = plumbing.NewHash(fmt.Sprintf("%040x", i+2000))
+		}
+		line := builder.Line(&object.Commit{Hash: hash, ParentHashes: []plumbing.Hash{parent}})
+		if len(builder.columns) > builder.maxColumns {
+			t.Fatalf("columns grew beyond cap: len=%d cap=%d", len(builder.columns), builder.maxColumns)
+		}
+		if fields := len(strings.Fields(line)); fields > builder.maxColumns {
+			t.Fatalf("line fields grew beyond cap: fields=%d cap=%d line=%q", fields, builder.maxColumns, line)
+		}
 	}
 }
 
@@ -428,5 +449,29 @@ func TestScanCommitsSkipMismatchResetsSession(t *testing.T) {
 	}
 	if entries2[0].Commit.Hash.String() != hashes[0] || entries2[1].Commit.Hash.String() != hashes[1] {
 		t.Fatalf("unexpected hashes after reset: %s %s", entries2[0].Commit.Hash, entries2[1].Commit.Hash)
+	}
+}
+
+func TestSetGraphMaxColumnsAppliesToSession(t *testing.T) {
+	dir, _ := createTestRepo(t, 3)
+	svc, err := Open(dir)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	svc.SetGraphMaxColumns(50)
+	if _, _, _, err := svc.ScanCommits(0, 1); err != nil {
+		t.Fatalf("ScanCommits: %v", err)
+	}
+	if svc.scan == nil || svc.scan.graphBuilder == nil {
+		t.Fatalf("expected scan graph builder to be initialized")
+	}
+	if got := svc.scan.graphBuilder.maxColumns; got != 50 {
+		t.Fatalf("expected maxColumns=50, got %d", got)
+	}
+
+	svc.SetGraphMaxColumns(0)
+	if got := svc.scan.graphBuilder.maxColumns; got != DefaultGraphMaxColumns {
+		t.Fatalf("expected default maxColumns=%d, got %d", DefaultGraphMaxColumns, got)
 	}
 }
