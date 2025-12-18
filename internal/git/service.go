@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	gitlib "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -63,9 +64,11 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 		batch = DefaultBatch
 	}
 	slog.Debug("ScanCommits start", slog.Int("skip", skip), slog.Int("batch", batch))
+	startTotal := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	startHead := time.Now()
 	ref, err := s.repo.Head()
 	if err != nil {
 		if err == plumbing.ErrReferenceNotFound {
@@ -77,14 +80,19 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 		}
 		return nil, "", false, fmt.Errorf("resolve HEAD: %w", err)
 	}
+	headDur := time.Since(startHead)
+
+	startSession := time.Now()
 	if err := s.ensureScanSessionLocked(ref); err != nil {
 		return nil, "", false, err
 	}
+	sessionDur := time.Since(startSession)
 	if skip < 0 {
 		skip = 0
 	}
 	// If the caller requests a different position than the current session, reset and advance to skip.
 	if skip != s.scan.returned {
+		startReset := time.Now()
 		slog.Debug("ScanCommits reset session",
 			slog.Int("requested_skip", skip),
 			slog.Int("session_returned", s.scan.returned),
@@ -99,8 +107,10 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 			}
 			return nil, "", false, fmt.Errorf("iterate commits: %w", err)
 		}
+		slog.Debug("ScanCommits reset session done", slog.Duration("dur", time.Since(startReset)))
 	}
 
+	startIter := time.Now()
 	entries := make([]*Entry, 0, batch)
 	for len(entries) < batch {
 		commit, err := s.scan.next()
@@ -112,18 +122,34 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 		}
 		entries = append(entries, newEntry(commit))
 	}
+	iterDur := time.Since(startIter)
+
+	startGraph := time.Now()
 	if err := s.populateGraphStrings(entries, skip); err != nil {
 		return nil, "", false, err
 	}
+	graphDur := time.Since(startGraph)
+
+	startMore := time.Now()
 	hasMore, err := s.scan.hasMore()
 	if err != nil {
 		return nil, "", false, err
 	}
+	hasMoreDur := time.Since(startMore)
+	totalDur := time.Since(startTotal)
+
+	// dur_* fields represent the wall time spent in each ScanCommits stage.
 	slog.Debug("ScanCommits done",
 		slog.Int("returned", len(entries)),
 		slog.Int("session_returned", s.scan.returned),
 		slog.Bool("has_more", hasMore),
 		slog.String("head", s.scan.headName),
+		slog.Duration("dur_total", totalDur),
+		slog.Duration("dur_head", headDur),
+		slog.Duration("dur_session", sessionDur),
+		slog.Duration("dur_iter", iterDur),
+		slog.Duration("dur_graph", graphDur),
+		slog.Duration("dur_has_more", hasMoreDur),
 	)
 	return entries, s.scan.headName, hasMore, nil
 }
@@ -320,6 +346,7 @@ func (s *Service) populateGraphStrings(entries []*Entry, skip int) error {
 	if len(entries) == 0 {
 		return nil
 	}
+	start := time.Now()
 	total := skip + len(entries)
 	if total <= 0 {
 		return nil
@@ -361,6 +388,13 @@ func (s *Service) populateGraphStrings(entries []*Entry, skip int) error {
 	for _, entry := range entries {
 		entry.Graph = graphByHash[entry.Commit.Hash.String()]
 	}
+	slog.Debug("populateGraphStrings done",
+		slog.Int("skip", skip),
+		slog.Int("entries", len(entries)),
+		slog.Int("processed", processed),
+		slog.Int("found", len(graphByHash)),
+		slog.Duration("dur", time.Since(start)),
+	)
 	return nil
 }
 
