@@ -3,6 +3,7 @@ package gui
 import (
 	"log/slog"
 	"strconv"
+	"strings"
 
 	"github.com/thiagokokada/gitk-go/internal/debounce"
 
@@ -68,7 +69,7 @@ func (a *Controller) applyFilterContent(raw string) {
 }
 
 func (a *Controller) storeScrollState() {
-	a.scroll.total = len(a.ui.treeView.Children(""))
+	a.scroll.total = a.treeChildCount()
 	if a.scroll.total > 0 {
 		if start, _, err := a.treeYviewRange(); err == nil {
 			a.scroll.start = start
@@ -80,12 +81,31 @@ func (a *Controller) restoreScrollState() {
 	if a.ui.treeView == nil {
 		return
 	}
-	newTotal := len(a.ui.treeView.Children(""))
+	newTotal := a.treeChildCount()
 	target, ok := a.scroll.restoreTarget(newTotal)
 	if !ok {
 		return
 	}
 	tkMustEval("%s yview moveto %f", a.ui.treeView, target)
+}
+
+func (a *Controller) treeChildCount() int {
+	if a.ui.treeView == nil {
+		return 0
+	}
+	path := a.ui.treeView.String()
+	if path == "" {
+		return 0
+	}
+	out, err := tkEval("llength [%s children {}]", path)
+	if err != nil {
+		return 0
+	}
+	count, err := strconv.Atoi(strings.TrimSpace(out))
+	if err != nil {
+		return 0
+	}
+	return count
 }
 
 func (a *Controller) visibleSelectionIndex() int {
