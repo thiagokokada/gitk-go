@@ -20,15 +20,6 @@ type diffState struct {
 	pendingHash string
 }
 
-type treeState struct {
-	branchLabels      map[string][]string
-	contextTargetID   string
-	hasMore           bool
-	loadingBatch      bool
-	showLocalUnstaged bool
-	showLocalStaged   bool
-}
-
 type filterState struct {
 	value string
 

@@ -9,6 +9,7 @@ type appWidgets struct {
 	repoLabel       *TLabelWidget
 	filterEntry     *TEntryWidget
 	reloadButton    *TButtonWidget
+	graphCanvas     *CanvasWidget
 	treeView        *TTreeviewWidget
 	treeContextMenu *MenuWidget
 	diffDetail      *TextWidget

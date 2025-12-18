@@ -56,14 +56,18 @@ func formatGraphValue(entry *git.Entry, labels []string) string {
 	if graph == "" {
 		graph = "*"
 	}
-	if len(labels) != 0 {
-		label := fmt.Sprintf("[%s]", strings.Join(labels, ", "))
-		if graph != "" {
-			graph += " "
-		}
-		graph += label
+	if graphCanvasEnabled {
+		return graph
 	}
+	graph += formatLabelSuffix(labels)
 	return graph
+}
+
+func formatLabelSuffix(labels []string) string {
+	if len(labels) == 0 {
+		return ""
+	}
+	return fmt.Sprintf(" [%s]", strings.Join(labels, ", "))
 }
 
 func filterEntries(entries []*git.Entry, query string) []*git.Entry {

@@ -41,7 +41,10 @@ func TestCommitListColumns(t *testing.T) {
 func TestFormatGraphValue(t *testing.T) {
 	entry := &git.Entry{Graph: "* |"}
 	graph := formatGraphValue(entry, []string{"HEAD -> main", "feature"})
-	expected := "* | [HEAD -> main, feature]"
+	expected := "* |"
+	if !graphCanvasEnabled {
+		expected = "* | [HEAD -> main, feature]"
+	}
 	if graph != expected {
 		t.Fatalf("unexpected graph string: %q", graph)
 	}
@@ -135,7 +138,11 @@ func TestBuildTreeRows(t *testing.T) {
 	if rows[0].ID != "0" || rows[1].ID != "1" {
 		t.Fatalf("unexpected row ids: %#v", rows)
 	}
-	if rows[0].Graph != "* | [HEAD -> main]" {
+	if graphCanvasEnabled {
+		if rows[0].Graph != "* |" {
+			t.Fatalf("unexpected graph: %q", rows[0].Graph)
+		}
+	} else if rows[0].Graph != "* | [HEAD -> main]" {
 		t.Fatalf("unexpected graph: %q", rows[0].Graph)
 	}
 	if !strings.Contains(rows[0].Commit, "first message") {

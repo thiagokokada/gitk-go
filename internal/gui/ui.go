@@ -93,8 +93,15 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 	GridRowConfigure(listArea.Window, 0, Weight(1))
 	GridRowConfigure(listArea.Window, 1, Weight(0))
 	GridColumnConfigure(listArea.Window, 0, Weight(1))
+	GridColumnConfigure(listArea.Window, 1, Weight(0))
 
 	treeScroll := listArea.TScrollbar()
+	if graphCanvasEnabled {
+		// Avoid setting Background(""): Tk treats it as an invalid color name.
+		a.ui.graphCanvas = listArea.Canvas(Width(120), Highlightthickness(0), Borderwidth(0))
+	} else {
+		a.ui.graphCanvas = nil
+	}
 	a.ui.treeView = listArea.TTreeview(
 		Show("headings"),
 		Columns("graph commit author date"),
@@ -103,9 +110,14 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 		Yscrollcommand(func(e *Event) {
 			e.ScrollSet(treeScroll)
 			a.maybeLoadMoreOnScroll()
+			a.scheduleGraphCanvasRedraw()
 		}),
 	)
-	a.ui.treeView.Column("graph", Anchor(W), Width(120))
+	if graphCanvasEnabled {
+		a.ui.treeView.Column("graph", Anchor(W), Width(260), Stretch(false))
+	} else {
+		a.ui.treeView.Column("graph", Anchor(W), Width(120), Stretch(false))
+	}
 	a.ui.treeView.Column("commit", Anchor(W), Width(380))
 	a.ui.treeView.Column("author", Anchor(W), Width(280))
 	a.ui.treeView.Column("date", Anchor(W), Width(180))
@@ -125,9 +137,19 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 	a.ui.treeView.TagConfigure("localStaged", Background(stagedColor))
 	Grid(a.ui.treeView, Row(0), Column(0), Sticky(NEWS))
 	Grid(treeScroll, Row(0), Column(1), Sticky(NS))
-	treeScroll.Configure(Command(func(e *Event) { e.Yview(a.ui.treeView) }))
+	treeScroll.Configure(Command(func(e *Event) {
+		e.Yview(a.ui.treeView)
+		a.scheduleGraphCanvasRedraw()
+	}))
 
 	Bind(a.ui.treeView, "<<TreeviewSelect>>", Command(a.onTreeSelectionChanged))
+	if graphCanvasEnabled {
+		Bind(a.ui.treeView, "<Configure>", Command(a.scheduleGraphCanvasRedraw))
+		// Column resizing uses click+drag on the header separator; it doesn't reliably
+		// trigger <Configure>, so watch for B1 drag/release too.
+		Bind(a.ui.treeView, "<B1-Motion>", Command(a.scheduleGraphCanvasRedraw))
+		Bind(a.ui.treeView, "<ButtonRelease-1>", Command(a.scheduleGraphCanvasRedraw))
+	}
 	a.initTreeContextMenu()
 	a.bindTreeContextMenu()
 }
@@ -212,6 +234,7 @@ func (a *Controller) showInitialLoadingRow() {
 	}
 	vals := []string{"", "Loading commits...", "", ""}
 	a.ui.treeView.Insert("", "end", Id(loadingIndicatorID), Values(vals))
+	a.scheduleGraphCanvasRedraw()
 }
 
 func (a *Controller) initTreeContextMenu() {

@@ -216,7 +216,9 @@ func (s *Service) resetScanLocked(ref *plumbing.Reference) error {
 	if err != nil {
 		return fmt.Errorf("read commits: %w", err)
 	}
-	graphIter, err := s.repo.Log(&gitlib.LogOptions{From: ref.Hash(), Order: gitlib.LogOrderDFS})
+	// Graph generation must follow the same order as the commit list so we can
+	// attach graph strings to the corresponding visible rows by position.
+	graphIter, err := s.repo.Log(&gitlib.LogOptions{From: ref.Hash(), Order: gitlib.LogOrderCommitterTime})
 	if err != nil {
 		displayIter.Close()
 		return fmt.Errorf("read commits for graph: %w", err)
@@ -363,15 +365,23 @@ func (s *Service) BranchLabels() (map[string][]string, error) {
 		name := ref.Name()
 		isBranch := name.IsBranch()
 		isRemote := name.IsRemote()
-		if !isBranch && !isRemote {
+		isTag := name.IsTag()
+		if !isBranch && !isRemote && !isTag {
 			return nil
 		}
 		short := name.Short()
 		if isRemote && strings.HasSuffix(short, "/HEAD") {
 			return nil
 		}
-		hash := ref.Hash().String()
-		labels[hash] = append(labels[hash], short)
+		hash := ref.Hash()
+		label := short
+		if isTag {
+			label = fmt.Sprintf("tag: %s", short)
+			if peeled, ok := s.peelTagCommitHash(hash); ok {
+				hash = peeled
+			}
+		}
+		labels[hash.String()] = append(labels[hash.String()], label)
 		return nil
 	})
 	if err != nil {
@@ -386,6 +396,32 @@ func (s *Service) BranchLabels() (map[string][]string, error) {
 		labels[key] = append([]string{label}, labels[key]...)
 	}
 	return labels, nil
+}
+
+func (s *Service) peelTagCommitHash(hash plumbing.Hash) (plumbing.Hash, bool) {
+	if s == nil || s.repo.Repository == nil || hash == plumbing.ZeroHash {
+		return plumbing.ZeroHash, false
+	}
+	// Lightweight tags point directly at a commit; annotated tags point at a tag object.
+	if _, err := s.repo.CommitObject(hash); err == nil {
+		return hash, true
+	}
+	cur := hash
+	for range 8 {
+		tag, err := s.repo.TagObject(cur)
+		if err != nil {
+			return plumbing.ZeroHash, false
+		}
+		switch tag.TargetType {
+		case plumbing.CommitObject:
+			return tag.Target, true
+		case plumbing.TagObject:
+			cur = tag.Target
+		default:
+			return plumbing.ZeroHash, false
+		}
+	}
+	return plumbing.ZeroHash, false
 }
 
 func FormatCommitHeader(c *object.Commit) string {

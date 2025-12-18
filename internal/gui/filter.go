@@ -34,7 +34,12 @@ func (a *Controller) applyFilterContent(raw string) {
 	a.insertLocalRows()
 	rows := buildTreeRows(a.visible, a.tree.branchLabels)
 	for _, row := range rows {
-		vals := []string{row.Graph, row.Commit, row.Author, row.Date}
+		graph := row.Graph
+		if graphCanvasEnabled {
+			// Keep the graph column data-less; the canvas overlay renders the graph.
+			graph = ""
+		}
+		vals := []string{graph, row.Commit, row.Author, row.Date}
 		a.ui.treeView.Insert("", "end", Id(row.ID), Values(vals))
 	}
 	if a.tree.hasMore && len(a.visible) > 0 {
@@ -66,6 +71,7 @@ func (a *Controller) applyFilterContent(raw string) {
 	a.setStatus(a.statusSummary())
 	a.scheduleAutoLoadCheck()
 	a.restoreScrollState()
+	a.scheduleGraphCanvasRedraw()
 }
 
 func (a *Controller) storeScrollState() {

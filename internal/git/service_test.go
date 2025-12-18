@@ -149,7 +149,7 @@ func TestFilePatchPath(t *testing.T) {
 	}
 }
 
-func TestBranchLabels_HeadPrependedAndRemoteHeadFiltered(t *testing.T) {
+func TestBranchLabels_HeadPrependedAndRemoteHeadFilteredAndTagIncluded(t *testing.T) {
 	dir, hashes := createTestRepo(t, 1)
 	svc, err := Open(dir)
 	if err != nil {
@@ -195,8 +195,8 @@ func TestBranchLabels_HeadPrependedAndRemoteHeadFiltered(t *testing.T) {
 	if containsString(got, "origin/HEAD") {
 		t.Fatalf("did not expect remote HEAD label %q in %+v", "origin/HEAD", got)
 	}
-	if containsString(got, "v1") {
-		t.Fatalf("did not expect tag label %q in %+v", "v1", got)
+	if !containsString(got, "tag: v1") {
+		t.Fatalf("expected tag label %q in %+v", "tag: v1", got)
 	}
 }
 
