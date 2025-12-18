@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os/exec"
 )
 
@@ -25,7 +26,16 @@ func (s *Service) LocalChanges() (LocalChanges, error) {
 		}
 		return res, fmt.Errorf("git status: %w", err)
 	}
-	scanner := bufio.NewScanner(&stdout)
+	res, err := parseStatusPorcelainV2(&stdout)
+	if err != nil {
+		return res, fmt.Errorf("parse git status: %w", err)
+	}
+	return res, nil
+}
+
+func parseStatusPorcelainV2(r io.Reader) (LocalChanges, error) {
+	var res LocalChanges
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if len(line) < 2 {
@@ -51,8 +61,5 @@ func (s *Service) LocalChanges() (LocalChanges, error) {
 			break
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		return res, fmt.Errorf("parse git status: %w", err)
-	}
-	return res, nil
+	return res, scanner.Err()
 }

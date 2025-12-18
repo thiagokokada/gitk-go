@@ -128,6 +128,171 @@ func TestFilePatchPath(t *testing.T) {
 	}
 }
 
+func TestBranchLabels_HeadPrependedAndRemoteHeadFiltered(t *testing.T) {
+	dir, hashes := createTestRepo(t, 1)
+	svc, err := Open(dir)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	headHash := plumbing.NewHash(hashes[0])
+
+	mainRef := plumbing.NewHashReference(plumbing.NewBranchReferenceName("main"), headHash)
+	if err := svc.repo.Storer.SetReference(mainRef); err != nil {
+		t.Fatalf("SetReference(main): %v", err)
+	}
+	if err := svc.repo.Storer.SetReference(plumbing.NewSymbolicReference(plumbing.HEAD, mainRef.Name())); err != nil {
+		t.Fatalf("SetReference(HEAD): %v", err)
+	}
+	if err := svc.repo.Storer.SetReference(plumbing.NewHashReference(plumbing.NewRemoteReferenceName("origin", "main"), headHash)); err != nil {
+		t.Fatalf("SetReference(origin/main): %v", err)
+	}
+	if err := svc.repo.Storer.SetReference(plumbing.NewHashReference(plumbing.NewRemoteReferenceName("origin", "HEAD"), headHash)); err != nil {
+		t.Fatalf("SetReference(origin/HEAD): %v", err)
+	}
+	if err := svc.repo.Storer.SetReference(plumbing.NewHashReference(plumbing.NewTagReferenceName("v1"), headHash)); err != nil {
+		t.Fatalf("SetReference(tag): %v", err)
+	}
+
+	labels, err := svc.BranchLabels()
+	if err != nil {
+		t.Fatalf("BranchLabels: %v", err)
+	}
+	key := headHash.String()
+	got := labels[key]
+	if len(got) == 0 {
+		t.Fatalf("expected labels for %s, got none: %+v", key, labels)
+	}
+	if got[0] != "HEAD -> main" {
+		t.Fatalf("expected HEAD label to be first, got %q", got[0])
+	}
+	if !containsString(got, "main") {
+		t.Fatalf("expected local branch label %q in %+v", "main", got)
+	}
+	if !containsString(got, "origin/main") {
+		t.Fatalf("expected remote branch label %q in %+v", "origin/main", got)
+	}
+	if containsString(got, "origin/HEAD") {
+		t.Fatalf("did not expect remote HEAD label %q in %+v", "origin/HEAD", got)
+	}
+	if containsString(got, "v1") {
+		t.Fatalf("did not expect tag label %q in %+v", "v1", got)
+	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, v := range values {
+		if v == want {
+			return true
+		}
+	}
+	return false
+}
+
+func TestRenderPatch_NilPatch(t *testing.T) {
+	text, sections, err := renderPatch("", nil)
+	if err != nil {
+		t.Fatalf("renderPatch() error = %v", err)
+	}
+	if text != "No changes." {
+		t.Fatalf("expected %q, got %q", "No changes.", text)
+	}
+	if sections != nil {
+		t.Fatalf("expected nil sections, got %+v", sections)
+	}
+
+	text, sections, err = renderPatch("Header", nil)
+	if err != nil {
+		t.Fatalf("renderPatch() error = %v", err)
+	}
+	if text != "Header\n" {
+		t.Fatalf("expected %q, got %q", "Header\n", text)
+	}
+	if sections != nil {
+		t.Fatalf("expected nil sections, got %+v", sections)
+	}
+}
+
+func TestRenderPatch_EmptyFilePatches(t *testing.T) {
+	text, sections, err := renderPatch("Header", emptyFilePatches{})
+	if err != nil {
+		t.Fatalf("renderPatch() error = %v", err)
+	}
+	if text != "Header\nNo changes.\n" {
+		t.Fatalf("expected %q, got %q", "Header\nNo changes.\n", text)
+	}
+	if sections != nil {
+		t.Fatalf("expected nil sections, got %+v", sections)
+	}
+}
+
+func TestRenderPatch_SectionsMatchOutput(t *testing.T) {
+	dir, hashes := createTestRepo(t, 2)
+	repo, err := gitlib.PlainOpen(dir)
+	if err != nil {
+		t.Fatalf("PlainOpen: %v", err)
+	}
+	newest, err := repo.CommitObject(plumbing.NewHash(hashes[0]))
+	if err != nil {
+		t.Fatalf("CommitObject(newest): %v", err)
+	}
+	parent, err := repo.CommitObject(plumbing.NewHash(hashes[1]))
+	if err != nil {
+		t.Fatalf("CommitObject(parent): %v", err)
+	}
+	currentTree, err := newest.Tree()
+	if err != nil {
+		t.Fatalf("Tree(current): %v", err)
+	}
+	parentTree, err := parent.Tree()
+	if err != nil {
+		t.Fatalf("Tree(parent): %v", err)
+	}
+	changes, err := object.DiffTree(parentTree, currentTree)
+	if err != nil {
+		t.Fatalf("DiffTree: %v", err)
+	}
+	patch, err := changes.Patch()
+	if err != nil {
+		t.Fatalf("Patch: %v", err)
+	}
+
+	text, sections, err := renderPatch("Header", patch)
+	if err != nil {
+		t.Fatalf("renderPatch() error = %v", err)
+	}
+	if len(sections) == 0 {
+		t.Fatalf("expected sections, got none")
+	}
+
+	lineByPath := map[string]int{}
+	for i, line := range strings.Split(text, "\n") {
+		if !strings.HasPrefix(line, "diff --git ") {
+			continue
+		}
+		path := parseGitDiffPath(line)
+		if path == "" {
+			continue
+		}
+		lineByPath[path] = i + 1
+	}
+	if len(lineByPath) == 0 {
+		t.Fatalf("expected diff headers in output, got: %q", text)
+	}
+	for _, sec := range sections {
+		wantLine, ok := lineByPath[sec.Path]
+		if !ok {
+			t.Fatalf("missing diff header for section path %q in output: %+v", sec.Path, lineByPath)
+		}
+		if sec.Line != wantLine {
+			t.Fatalf("section line mismatch for %q: got %d want %d", sec.Path, sec.Line, wantLine)
+		}
+	}
+}
+
+type emptyFilePatches struct{}
+
+func (emptyFilePatches) FilePatches() []diff.FilePatch { return nil }
+
 type testFile struct {
 	path string
 }
