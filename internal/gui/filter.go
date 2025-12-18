@@ -10,9 +10,16 @@ import (
 )
 
 func (a *Controller) applyFilter(raw string) {
-	a.stopFilterDebounce()
+	if a.ui.filterEntry != nil && a.ui.filterEntry.Textvariable() != raw {
+		return
+	}
 	a.filter.value = raw
 	a.applyFilterContent(raw)
+}
+
+func (a *Controller) applyFilterImmediate(raw string) {
+	a.stopFilterDebounce()
+	a.applyFilter(raw)
 }
 
 func (a *Controller) applyFilterContent(raw string) {
@@ -99,7 +106,7 @@ func (a *Controller) visibleSelectionIndex() int {
 
 func (a *Controller) scheduleFilterApply(raw string) {
 	if raw == "" {
-		a.applyFilter("")
+		a.applyFilterImmediate("")
 		return
 	}
 	slog.Debug("scheduleFilterApply", slog.String("value", raw))

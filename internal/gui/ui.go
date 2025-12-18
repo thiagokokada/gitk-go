@@ -46,7 +46,7 @@ func (a *Controller) buildControls() *TFrameWidget {
 
 	clearBtn := controls.TButton(Txt("Clear"), Command(func() {
 		a.ui.filterEntry.Configure(Textvariable(""))
-		a.applyFilter("")
+		a.applyFilterImmediate("")
 	}))
 	Grid(clearBtn, Row(1), Column(2), Sticky(E), Padx("4p"))
 	a.ui.reloadButton = controls.TButton(Txt("Reload"), Command(a.onReloadButton))

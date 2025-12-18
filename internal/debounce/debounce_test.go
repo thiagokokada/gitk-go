@@ -6,6 +6,68 @@ import (
 	"time"
 )
 
+func TestDebouncerIgnoresStaleTimerCallback(t *testing.T) {
+	origAfterFunc := afterFunc
+	t.Cleanup(func() { afterFunc = origAfterFunc })
+
+	var callbacks []func()
+	afterFunc = func(_ time.Duration, f func()) *time.Timer {
+		callbacks = append(callbacks, f)
+		timer := time.NewTimer(time.Hour)
+		timer.Stop()
+		return timer
+	}
+
+	var called atomic.Int32
+	d := New(time.Second, func() {
+		called.Add(1)
+	})
+
+	d.Trigger()
+	d.Trigger()
+
+	if len(callbacks) != 2 {
+		t.Fatalf("expected 2 scheduled callbacks, got %d", len(callbacks))
+	}
+
+	callbacks[0]()
+	callbacks[1]()
+
+	if got := called.Load(); got != 1 {
+		t.Fatalf("expected only latest callback to run, got %d calls", got)
+	}
+}
+
+func TestDebouncerStopIgnoresPendingTimerCallback(t *testing.T) {
+	origAfterFunc := afterFunc
+	t.Cleanup(func() { afterFunc = origAfterFunc })
+
+	var callback func()
+	afterFunc = func(_ time.Duration, f func()) *time.Timer {
+		callback = f
+		timer := time.NewTimer(time.Hour)
+		timer.Stop()
+		return timer
+	}
+
+	var called atomic.Int32
+	d := New(time.Second, func() {
+		called.Add(1)
+	})
+
+	d.Trigger()
+	d.Stop()
+
+	if callback == nil {
+		t.Fatalf("expected a scheduled callback")
+	}
+	callback()
+
+	if got := called.Load(); got != 0 {
+		t.Fatalf("expected callback to be ignored after stop, got %d calls", got)
+	}
+}
+
 func TestDebouncerTriggerOnce(t *testing.T) {
 	var count int32
 	done := make(chan struct{})

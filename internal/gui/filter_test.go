@@ -1,6 +1,11 @@
 package gui
 
-import "testing"
+import (
+	"testing"
+	"time"
+
+	"github.com/thiagokokada/gitk-go/internal/debounce"
+)
 
 func TestScrollRestoreTarget(t *testing.T) {
 	tests := []struct {
@@ -34,5 +39,39 @@ func TestScrollRestoreTarget(t *testing.T) {
 				t.Fatalf("want %f, got %f", tc.want, got)
 			}
 		})
+	}
+}
+
+func TestApplyFilterDoesNotStopDebounce(t *testing.T) {
+	a := &Controller{}
+	a.filter.debouncer = debounce.New(time.Hour, func() {})
+	a.filter.pending = "stale"
+
+	a.applyFilter("foo")
+
+	if a.filter.debouncer == nil {
+		t.Fatalf("expected debouncer to remain set")
+	}
+	if got := a.filter.value; got != "foo" {
+		t.Fatalf("expected filter value %q, got %q", "foo", got)
+	}
+}
+
+func TestScheduleFilterApplyEmptyStopsDebounce(t *testing.T) {
+	a := &Controller{}
+	a.filter.debouncer = debounce.New(time.Hour, func() {})
+	a.filter.pending = "foo"
+	a.filter.value = "foo"
+
+	a.scheduleFilterApply("")
+
+	if a.filter.debouncer != nil {
+		t.Fatalf("expected debouncer to be stopped")
+	}
+	if a.filter.pending != "" {
+		t.Fatalf("expected pending filter to be cleared")
+	}
+	if got := a.filter.value; got != "" {
+		t.Fatalf("expected filter value cleared, got %q", got)
 	}
 }

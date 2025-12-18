@@ -1,5 +1,7 @@
 .cache
 .modcache
+.gocache
+.gotmp
 
 dist/
 *.swp
