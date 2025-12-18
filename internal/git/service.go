@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log/slog"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	gitlib "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -16,7 +18,11 @@ import (
 const DefaultBatch = 1000
 
 type Service struct {
+	// mu serializes access to repo operations that share iterators/state (scan session).
+	mu sync.Mutex
+
 	repo repoState
+	scan *scanSession
 }
 
 type repoState struct {
@@ -56,48 +62,170 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 	if batch <= 0 {
 		batch = DefaultBatch
 	}
+	slog.Debug("ScanCommits start", slog.Int("skip", skip), slog.Int("batch", batch))
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	ref, err := s.repo.Head()
 	if err != nil {
 		if err == plumbing.ErrReferenceNotFound {
+			if s.scan != nil {
+				s.scan.close()
+				s.scan = nil
+			}
 			return nil, "", false, nil
 		}
 		return nil, "", false, fmt.Errorf("resolve HEAD: %w", err)
 	}
-	opts := &gitlib.LogOptions{From: ref.Hash(), Order: gitlib.LogOrderCommitterTime}
-	iter, err := s.repo.Log(opts)
-	if err != nil {
-		return nil, "", false, fmt.Errorf("read commits: %w", err)
+	if err := s.ensureScanSessionLocked(ref); err != nil {
+		return nil, "", false, err
 	}
-	defer iter.Close()
-	for range skip {
-		if _, err := iter.Next(); err != nil {
+	if skip < 0 {
+		skip = 0
+	}
+	// If the caller requests a different position than the current session, reset and advance to skip.
+	if skip != s.scan.returned {
+		slog.Debug("ScanCommits reset session",
+			slog.Int("requested_skip", skip),
+			slog.Int("session_returned", s.scan.returned),
+			slog.String("head", s.scan.headName),
+		)
+		if err := s.resetScanLocked(ref); err != nil {
+			return nil, "", false, err
+		}
+		if err := s.scan.discard(skip); err != nil {
 			if err == io.EOF {
-				return nil, refName(ref), false, nil
+				return nil, s.scan.headName, false, nil
 			}
 			return nil, "", false, fmt.Errorf("iterate commits: %w", err)
 		}
 	}
-	var entries []*Entry
+
+	entries := make([]*Entry, 0, batch)
 	for len(entries) < batch {
-		commit, err := iter.Next()
-		if err == io.EOF {
-			return entries, refName(ref), false, nil
-		}
+		commit, err := s.scan.next()
 		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			return nil, "", false, fmt.Errorf("iterate commits: %w", err)
 		}
 		entries = append(entries, newEntry(commit))
 	}
-	hasMore := false
-	if _, err := iter.Next(); err == nil {
-		hasMore = true
-	} else if err != io.EOF {
-		return nil, "", false, fmt.Errorf("iterate commits: %w", err)
-	}
 	if err := s.populateGraphStrings(entries, skip); err != nil {
 		return nil, "", false, err
 	}
-	return entries, refName(ref), hasMore, nil
+	hasMore, err := s.scan.hasMore()
+	if err != nil {
+		return nil, "", false, err
+	}
+	slog.Debug("ScanCommits done",
+		slog.Int("returned", len(entries)),
+		slog.Int("session_returned", s.scan.returned),
+		slog.Bool("has_more", hasMore),
+		slog.String("head", s.scan.headName),
+	)
+	return entries, s.scan.headName, hasMore, nil
+}
+
+type scanSession struct {
+	head     plumbing.Hash
+	headName string
+
+	displayIter object.CommitIter
+
+	// buffered holds the next commit returned by hasMore() so ScanCommits can keep consuming in-order.
+	buffered  *object.Commit
+	exhausted bool
+	returned  int
+}
+
+func (s *Service) ensureScanSessionLocked(ref *plumbing.Reference) error {
+	if s.scan != nil && s.scan.head == ref.Hash() {
+		return nil
+	}
+	return s.resetScanLocked(ref)
+}
+
+func (s *Service) resetScanLocked(ref *plumbing.Reference) error {
+	if s.scan != nil {
+		s.scan.close()
+		s.scan = nil
+	}
+	displayIter, err := s.repo.Log(&gitlib.LogOptions{From: ref.Hash(), Order: gitlib.LogOrderCommitterTime})
+	if err != nil {
+		return fmt.Errorf("read commits: %w", err)
+	}
+	s.scan = &scanSession{
+		head:        ref.Hash(),
+		headName:    refName(ref),
+		displayIter: displayIter,
+	}
+	slog.Debug("ScanCommits session initialized", slog.String("head", s.scan.headName))
+	return nil
+}
+
+func (s *scanSession) close() {
+	if s == nil {
+		return
+	}
+	if s.displayIter != nil {
+		s.displayIter.Close()
+	}
+	s.displayIter = nil
+	s.buffered = nil
+	s.exhausted = true
+}
+
+func (s *scanSession) hasMore() (bool, error) {
+	if s.exhausted {
+		return false, nil
+	}
+	if s.buffered != nil {
+		return true, nil
+	}
+	// Read-ahead a single commit into buffered so hasMore doesn't consume an extra commit.
+	commit, err := s.displayIter.Next()
+	if err != nil {
+		if err == io.EOF {
+			s.exhausted = true
+			return false, nil
+		}
+		return false, fmt.Errorf("iterate commits: %w", err)
+	}
+	s.buffered = commit
+	return true, nil
+}
+
+func (s *scanSession) next() (*object.Commit, error) {
+	if s.exhausted {
+		return nil, io.EOF
+	}
+	if s.buffered != nil {
+		commit := s.buffered
+		s.buffered = nil
+		s.returned++
+		return commit, nil
+	}
+	commit, err := s.displayIter.Next()
+	if err != nil {
+		if err == io.EOF {
+			s.exhausted = true
+		}
+		return nil, err
+	}
+	s.returned++
+	return commit, nil
+}
+
+func (s *scanSession) discard(count int) error {
+	// Consume and drop commits to align the session position with the requested skip.
+	for range count {
+		if _, err := s.next(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) BranchLabels() (map[string][]string, error) {
@@ -187,7 +315,7 @@ type LocalChanges struct {
 	StagedSections   []FileSection
 }
 
-// populateGraphStrings requires the caller to hold s.repo.mu.
+// populateGraphStrings expects the caller to serialize with Service.mu.
 func (s *Service) populateGraphStrings(entries []*Entry, skip int) error {
 	if len(entries) == 0 {
 		return nil

@@ -1,10 +1,14 @@
 package git
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	gitlib "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/filemode"
 	diff "github.com/go-git/go-git/v5/plumbing/format/diff"
@@ -142,3 +146,122 @@ func (p testPatch) IsBinary() bool                { return false }
 func (p testPatch) Chunks() []diff.Chunk          { return nil }
 func (p testPatch) Message() string               { return "" }
 func (p testPatch) IsRename() bool                { return false }
+
+func createTestRepo(t *testing.T, commitCount int) (path string, hashesNewestFirst []string) {
+	t.Helper()
+	if commitCount <= 0 {
+		t.Fatalf("commitCount must be positive")
+	}
+	dir := t.TempDir()
+	repo, err := gitlib.PlainInit(dir, false)
+	if err != nil {
+		t.Fatalf("PlainInit: %v", err)
+	}
+	wt, err := repo.Worktree()
+	if err != nil {
+		t.Fatalf("Worktree: %v", err)
+	}
+	fileName := "file.txt"
+	absFile := filepath.Join(dir, fileName)
+	var created []string
+	for i := range commitCount {
+		content := []byte(fmt.Sprintf("commit %d\n", i))
+		if err := os.WriteFile(absFile, content, 0o644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
+		if _, err := wt.Add(fileName); err != nil {
+			t.Fatalf("Add: %v", err)
+		}
+		when := time.Unix(int64(i+1), 0).UTC()
+		hash, err := wt.Commit(fmt.Sprintf("commit %d", i), &gitlib.CommitOptions{
+			Author:    &object.Signature{Name: "Alice", Email: "alice@example.com", When: when},
+			Committer: &object.Signature{Name: "Alice", Email: "alice@example.com", When: when},
+		})
+		if err != nil {
+			t.Fatalf("Commit: %v", err)
+		}
+		created = append(created, hash.String())
+	}
+	for i := len(created) - 1; i >= 0; i-- {
+		hashesNewestFirst = append(hashesNewestFirst, created[i])
+	}
+	return dir, hashesNewestFirst
+}
+
+func TestScanCommitsPaginationDoesNotSkipExtraCommit(t *testing.T) {
+	dir, hashes := createTestRepo(t, 5)
+	svc, err := Open(dir)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+
+	entries1, _, more, err := svc.ScanCommits(0, 2)
+	if err != nil {
+		t.Fatalf("ScanCommits(0): %v", err)
+	}
+	if len(entries1) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries1))
+	}
+	if !more {
+		t.Fatalf("expected more commits after first batch")
+	}
+	if entries1[0].Commit.Hash.String() != hashes[0] || entries1[1].Commit.Hash.String() != hashes[1] {
+		t.Fatalf("unexpected first batch hashes: %s %s", entries1[0].Commit.Hash, entries1[1].Commit.Hash)
+	}
+	if entries1[0].Graph == "" || entries1[1].Graph == "" {
+		t.Fatalf("expected graph strings to be populated")
+	}
+
+	entries2, _, more, err := svc.ScanCommits(2, 2)
+	if err != nil {
+		t.Fatalf("ScanCommits(2): %v", err)
+	}
+	if len(entries2) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries2))
+	}
+	if !more {
+		t.Fatalf("expected more commits after second batch")
+	}
+	if entries2[0].Commit.Hash.String() != hashes[2] || entries2[1].Commit.Hash.String() != hashes[3] {
+		t.Fatalf("unexpected second batch hashes: %s %s", entries2[0].Commit.Hash, entries2[1].Commit.Hash)
+	}
+
+	entries3, _, more, err := svc.ScanCommits(4, 2)
+	if err != nil {
+		t.Fatalf("ScanCommits(4): %v", err)
+	}
+	if len(entries3) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries3))
+	}
+	if more {
+		t.Fatalf("expected no more commits after last batch")
+	}
+	if entries3[0].Commit.Hash.String() != hashes[4] {
+		t.Fatalf("unexpected last batch hash: %s", entries3[0].Commit.Hash)
+	}
+}
+
+func TestScanCommitsSkipMismatchResetsSession(t *testing.T) {
+	dir, hashes := createTestRepo(t, 3)
+	svc, err := Open(dir)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	entries1, _, _, err := svc.ScanCommits(0, 2)
+	if err != nil {
+		t.Fatalf("ScanCommits(0): %v", err)
+	}
+	if len(entries1) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries1))
+	}
+	entries2, _, _, err := svc.ScanCommits(0, 2)
+	if err != nil {
+		t.Fatalf("ScanCommits(0) second time: %v", err)
+	}
+	if len(entries2) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(entries2))
+	}
+	if entries2[0].Commit.Hash.String() != hashes[0] || entries2[1].Commit.Hash.String() != hashes[1] {
+		t.Fatalf("unexpected hashes after reset: %s %s", entries2[0].Commit.Hash, entries2[1].Commit.Hash)
+	}
+}
