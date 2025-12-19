@@ -18,7 +18,7 @@ type treeRow struct {
 	Date   string
 }
 
-func buildTreeRows(entries []*git.Entry, labels map[string][]string) []treeRow {
+func buildTreeRows(entries []*git.Entry, labels map[string][]string, graphCanvas bool) []treeRow {
 	if len(entries) == 0 {
 		return nil
 	}
@@ -28,7 +28,7 @@ func buildTreeRows(entries []*git.Entry, labels map[string][]string) []treeRow {
 			continue
 		}
 		msg, author, when := commitListColumns(entry)
-		graph := formatGraphValue(entry, labels[entry.Commit.Hash.String()])
+		graph := formatGraphValue(entry, labels[entry.Commit.Hash.String()], graphCanvas)
 		rows = append(rows, treeRow{
 			ID:     strconv.Itoa(i),
 			Graph:  graph,
@@ -51,12 +51,12 @@ func commitListColumns(entry *git.Entry) (msg, author, when string) {
 	return
 }
 
-func formatGraphValue(entry *git.Entry, labels []string) string {
+func formatGraphValue(entry *git.Entry, labels []string, graphCanvas bool) string {
 	graph := strings.TrimRight(entry.Graph, " ")
 	if graph == "" {
 		graph = "*"
 	}
-	if graphCanvasEnabled {
+	if graphCanvas {
 		return graph
 	}
 	graph += formatLabelSuffix(labels)

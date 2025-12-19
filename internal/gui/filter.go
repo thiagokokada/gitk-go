@@ -32,10 +32,10 @@ func (a *Controller) applyFilterContent(raw string) {
 	a.storeScrollState()
 	a.clearTreeRows()
 	a.insertLocalRows()
-	rows := buildTreeRows(a.visible, a.tree.branchLabels)
+	rows := buildTreeRows(a.visible, a.tree.branchLabels, a.graphCanvas)
 	for _, row := range rows {
 		graph := row.Graph
-		if graphCanvasEnabled {
+		if a.graphCanvas {
 			// Keep the graph column data-less; the canvas overlay renders the graph.
 			graph = ""
 		}

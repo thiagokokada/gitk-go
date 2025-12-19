@@ -8,6 +8,7 @@ type Controller struct {
 	svc                 *git.Service
 	repoPath            string
 	batch               int
+	graphCanvas         bool
 	themePref           ThemePreference
 	palette             colorPalette
 	autoReloadRequested bool

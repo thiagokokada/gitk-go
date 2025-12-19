@@ -1,5 +1,3 @@
-//go:build graphcanvas
-
 package gui
 
 import (
@@ -25,6 +23,9 @@ const (
 )
 
 func (a *Controller) scheduleGraphCanvasRedraw() {
+	if !a.graphCanvas {
+		return
+	}
 	if a.ui.graphCanvas == nil || a.ui.treeView == nil {
 		return
 	}
@@ -39,6 +40,9 @@ func (a *Controller) scheduleGraphCanvasRedraw() {
 }
 
 func (a *Controller) redrawGraphCanvas() {
+	if !a.graphCanvas {
+		return
+	}
 	if a.ui.graphCanvas == nil || a.ui.treeView == nil {
 		return
 	}

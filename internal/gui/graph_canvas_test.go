@@ -1,5 +1,3 @@
-//go:build graphcanvas
-
 package gui
 
 import "testing"

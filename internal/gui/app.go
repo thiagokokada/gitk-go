@@ -30,7 +30,7 @@ const (
 	localStagedLabel   = "Local changes checked into index but not committed"
 )
 
-func Run(repoPath string, batch int, graphMaxColumns int, pref ThemePreference, autoReload bool, syntaxHighlight bool, verbose bool) error {
+func Run(repoPath string, batch int, graphMaxColumns int, graphCanvas bool, pref ThemePreference, autoReload bool, syntaxHighlight bool, verbose bool) error {
 	if err := InitializeExtension("eval"); err != nil && err != AlreadyInitialized {
 		return fmt.Errorf("init eval extension: %v", err)
 	}
@@ -51,6 +51,7 @@ func Run(repoPath string, batch int, graphMaxColumns int, pref ThemePreference, 
 		svc:                 svc,
 		repoPath:            svc.RepoPath(),
 		batch:               batch,
+		graphCanvas:         graphCanvas,
 		themePref:           pref,
 		autoReloadRequested: autoReload,
 		syntaxHighlight:     syntaxHighlight,

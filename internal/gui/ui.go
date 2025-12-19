@@ -96,7 +96,7 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 	GridColumnConfigure(listArea.Window, 1, Weight(0))
 
 	treeScroll := listArea.TScrollbar()
-	if graphCanvasEnabled {
+	if a.graphCanvas {
 		// Avoid setting Background(""): Tk treats it as an invalid color name.
 		a.ui.graphCanvas = listArea.Canvas(Width(120), Highlightthickness(0), Borderwidth(0))
 	} else {
@@ -113,7 +113,7 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 			a.scheduleGraphCanvasRedraw()
 		}),
 	)
-	if graphCanvasEnabled {
+	if a.graphCanvas {
 		a.ui.treeView.Column("graph", Anchor(W), Width(260), Stretch(false))
 	} else {
 		a.ui.treeView.Column("graph", Anchor(W), Width(120), Stretch(false))
@@ -143,7 +143,7 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 	}))
 
 	Bind(a.ui.treeView, "<<TreeviewSelect>>", Command(a.onTreeSelectionChanged))
-	if graphCanvasEnabled {
+	if a.graphCanvas {
 		Bind(a.ui.treeView, "<Configure>", Command(a.scheduleGraphCanvasRedraw))
 		// Column resizing uses click+drag on the header separator; it doesn't reliably
 		// trigger <Configure>, so watch for B1 drag/release too.
