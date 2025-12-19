@@ -303,7 +303,7 @@ func drawGraphRow(canvas *CanvasWidget, dark bool, raw string, labels []string, 
 			Width(0),
 		)
 	}
-	yMid := yTop + height/2
+	yMid := graphRowMidY(yTop, height)
 	radius := min(graphCanvasLaneSpacing/2, max(2, height/3))
 
 	colors := graphCanvasLaneColors(dark)
@@ -442,6 +442,13 @@ func containsPrefix(values []string, prefix string) bool {
 		}
 	}
 	return false
+}
+
+func graphRowMidY(yTop int, height int) int {
+	if height <= 0 {
+		return yTop
+	}
+	return yTop + (height-1)/2
 }
 
 func maxGraphCanvasCols(canvasWidth int) int {
