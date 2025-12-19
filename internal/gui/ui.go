@@ -8,6 +8,8 @@ import (
 	"time"
 
 	. "modernc.org/tk9.0"
+
+	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 )
 
 func (a *Controller) buildUI() {
@@ -74,7 +76,7 @@ func (a *Controller) buildMainPane() *TPanedwindowWidget {
 				<-time.After(10 * time.Millisecond)
 			default:
 			}
-			tkMustEval(`
+			tkutil.MustEval(`
 				bind %[1]s <Configure> {
 					set h [winfo height %[1]s]
 					if {$h > 1} {

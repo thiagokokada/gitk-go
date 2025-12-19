@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	. "modernc.org/tk9.0"
+
+	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 )
 
 func (a *Controller) insertLocalRows() {
@@ -122,7 +124,7 @@ func (a *Controller) treeItemExists(id string) bool {
 	if a.ui.treeView == nil || id == "" {
 		return false
 	}
-	out, err := tkEval("%s exists %s", a.ui.treeView, id)
+	out, err := tkutil.Eval("%s exists %s", a.ui.treeView, id)
 	if err != nil {
 		slog.Error("tree exists", slog.String("id", id), slog.Any("error", err))
 		return false
@@ -181,7 +183,7 @@ func (a *Controller) treeYviewRange() (float64, float64, error) {
 	if path == "" {
 		return 0, 0, fmt.Errorf("tree widget has empty path")
 	}
-	out, err := tkEval("%s yview", path)
+	out, err := tkutil.Eval("%s yview", path)
 	if err != nil {
 		return 0, 0, err
 	}

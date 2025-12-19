@@ -1,4 +1,4 @@
-package gui
+package widgets
 
 import "strings"
 

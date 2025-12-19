@@ -6,6 +6,7 @@ import (
 
 	"github.com/thiagokokada/gitk-go/internal/debounce"
 	"github.com/thiagokokada/gitk-go/internal/git"
+	"github.com/thiagokokada/gitk-go/internal/gui/widgets"
 )
 
 type diffState struct {
@@ -28,17 +29,7 @@ type treeState struct {
 	showLocalUnstaged bool
 	showLocalStaged   bool
 
-	graphRedrawPending bool
-	graphOverlay       graphOverlayState
-}
-
-type graphOverlayState struct {
-	ready bool
-	width int
-	x     int
-	y     int
-	h     int
-	bg    string
+	graphCanvas widgets.GraphCanvas
 }
 
 type filterState struct {

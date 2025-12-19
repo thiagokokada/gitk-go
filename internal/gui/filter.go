@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/thiagokokada/gitk-go/internal/debounce"
+	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 
 	. "modernc.org/tk9.0"
 )
@@ -92,7 +93,7 @@ func (a *Controller) restoreScrollState() {
 	if !ok {
 		return
 	}
-	tkMustEval("%s yview moveto %f", a.ui.treeView, target)
+	tkutil.MustEval("%s yview moveto %f", a.ui.treeView, target)
 }
 
 func (a *Controller) treeChildCount() int {
@@ -103,7 +104,7 @@ func (a *Controller) treeChildCount() int {
 	if path == "" {
 		return 0
 	}
-	out, err := tkEval("llength [%s children {}]", path)
+	out, err := tkutil.Eval("llength [%s children {}]", path)
 	if err != nil {
 		return 0
 	}

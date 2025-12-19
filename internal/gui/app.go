@@ -10,6 +10,7 @@ import (
 
 	"github.com/thiagokokada/gitk-go/internal/debounce"
 	"github.com/thiagokokada/gitk-go/internal/git"
+	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 
 	. "modernc.org/tk9.0"
 	_ "modernc.org/tk9.0/themes/azure"
@@ -488,7 +489,7 @@ func (a *Controller) copyDetailSelection(stripMarkers bool) {
 	if a.ui.diffDetail == nil {
 		return
 	}
-	text, err := tkEval("%s get sel.first sel.last", a.ui.diffDetail)
+	text, err := tkutil.Eval("%s get sel.first sel.last", a.ui.diffDetail)
 	if err != nil || text == "" {
 		return
 	}
