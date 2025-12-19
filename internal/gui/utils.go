@@ -97,7 +97,7 @@ func tkEval(format string, a ...any) (string, error) {
 func tkEvalOrEmpty(format string, a ...any) string {
 	out, err := tkEval(format, a...)
 	if err != nil {
-		slog.Error(err.Error())
+		slog.Debug("tk eval or empty", slog.Any("error", err))
 		return ""
 	}
 	return out
