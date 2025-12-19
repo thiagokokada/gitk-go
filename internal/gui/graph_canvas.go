@@ -1,7 +1,6 @@
 package gui
 
 import (
-	"log/slog"
 	"strconv"
 	"strings"
 
@@ -52,7 +51,7 @@ func (a *Controller) redrawGraphCanvas() {
 	if treePath == "" {
 		return
 	}
-	treeHeight := tkMustAtoi(tkEvalOrEmpty("winfo height %s", treePath))
+	treeHeight := tkAtoi(tkEvalOrEmpty("winfo height %s", treePath))
 	yOffset := a.tree.graphOverlay.y
 	contentHeight := a.tree.graphOverlay.h
 	first := firstVisibleTreeItem(treePath, treeHeight)
@@ -65,9 +64,9 @@ func (a *Controller) redrawGraphCanvas() {
 		return
 	}
 	// Prefer the Treeview column width since the overlay canvas size may lag behind `place`.
-	canvasWidth := tkMustAtoi(tkEvalOrEmpty("%s column graph -width", treePath))
+	canvasWidth := tkAtoi(tkEvalOrEmpty("%s column graph -width", treePath))
 	if canvasWidth <= 0 {
-		canvasWidth = tkMustAtoi(tkEvalOrEmpty("winfo width %s", canvasPath))
+		canvasWidth = tkAtoi(tkEvalOrEmpty("winfo width %s", canvasPath))
 	}
 	if canvasWidth <= 0 {
 		canvasWidth = 120
@@ -89,8 +88,8 @@ func (a *Controller) redrawGraphCanvas() {
 		if len(bbox) < 4 {
 			break
 		}
-		y := tkMustAtoi(bbox[1]) - yOffset
-		h := tkMustAtoi(bbox[3])
+		y := tkAtoi(bbox[1]) - yOffset
+		h := tkAtoi(bbox[3])
 		if contentHeight > 0 && y > contentHeight {
 			break
 		}
@@ -123,11 +122,11 @@ func (a *Controller) ensureGraphCanvasOverlay() {
 	if bg == "" {
 		bg = strings.TrimSpace(tkEvalOrEmpty("ttk::style lookup Treeview -fieldbackground"))
 	}
-	treeHeight := tkMustAtoi(tkEvalOrEmpty("winfo height %s", treePath))
-	treeWidth := tkMustAtoi(tkEvalOrEmpty("winfo width %s", treePath))
+	treeHeight := tkAtoi(tkEvalOrEmpty("winfo height %s", treePath))
+	treeWidth := tkAtoi(tkEvalOrEmpty("winfo width %s", treePath))
 	xOffset, yOffset, colWidth := graphContentCellGeometry(treePath, treeHeight)
 	if colWidth <= 0 {
-		colWidth = tkMustAtoi(tkEvalOrEmpty("%s column graph -width", treePath))
+		colWidth = tkAtoi(tkEvalOrEmpty("%s column graph -width", treePath))
 	}
 	if colWidth <= 0 {
 		colWidth = 120
@@ -273,7 +272,7 @@ func graphContentCellGeometry(treePath string, treeHeight int) (xOffset int, yOf
 	if len(bbox) < 4 {
 		return 0, 0, 0
 	}
-	return tkMustAtoi(bbox[0]), tkMustAtoi(bbox[1]), tkMustAtoi(bbox[2])
+	return tkAtoi(bbox[0]), tkAtoi(bbox[1]), tkAtoi(bbox[2])
 }
 
 func (a *Controller) drawGraphRow(raw string, labels []string, yTop int, height int, maxCols int, canvasWidth int, selected bool) {
@@ -374,10 +373,10 @@ func (a *Controller) drawGraphLabels(labels []string, nodeX int, yMid int, radiu
 		if len(bbox) < 4 {
 			continue
 		}
-		x1 := tkMustAtoi(bbox[0]) - graphCanvasLabelPadX
-		y1 := tkMustAtoi(bbox[1]) - graphCanvasLabelPadY
-		x2 := tkMustAtoi(bbox[2]) + graphCanvasLabelPadX
-		y2 := tkMustAtoi(bbox[3]) + graphCanvasLabelPadY
+		x1 := tkAtoi(bbox[0]) - graphCanvasLabelPadX
+		y1 := tkAtoi(bbox[1]) - graphCanvasLabelPadY
+		x2 := tkAtoi(bbox[2]) + graphCanvasLabelPadX
+		y2 := tkAtoi(bbox[3]) + graphCanvasLabelPadY
 		if x1 >= canvasWidth {
 			continue
 		}
@@ -456,28 +455,4 @@ func graphCanvasLaneColors(dark bool) []string {
 		return []string{"#00ff00", "#ff5c5c", "#4fa3ff", "#d56bff", "#a0a0a0", "#d09a6b", "#ffb347"}
 	}
 	return []string{"#00cc00", "#cc0000", "#0055cc", "#aa00aa", "#555555", "#8b4513", "#ff8c00"}
-}
-
-func tkEvalOrEmpty(format string, a ...any) string {
-	out, err := tkEval(format, a...)
-	if err != nil {
-		slog.Debug("graph canvas tkEval failed", slog.Any("error", err))
-		return ""
-	}
-	return out
-}
-
-func tkMustAtoi(raw string) int {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return 0
-	}
-	v, err := strconv.Atoi(raw)
-	if err != nil {
-		if f, ferr := strconv.ParseFloat(raw, 64); ferr == nil {
-			return int(f)
-		}
-		return 0
-	}
-	return v
 }

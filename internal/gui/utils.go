@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -93,10 +94,34 @@ func tkEval(format string, a ...any) (string, error) {
 	return r, nil
 }
 
+func tkEvalOrEmpty(format string, a ...any) string {
+	out, err := tkEval(format, a...)
+	if err != nil {
+		slog.Error(err.Error())
+		return ""
+	}
+	return out
+}
+
 func tkMustEval(format string, a ...any) string {
 	r, err := tkEval(format, a...)
 	if err != nil {
 		panic(err)
 	}
 	return r
+}
+
+func tkAtoi(raw string) int {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil {
+		if f, ferr := strconv.ParseFloat(raw, 64); ferr == nil {
+			return int(f)
+		}
+		return 0
+	}
+	return v
 }
