@@ -1,5 +1,3 @@
-//go:build gitcli
-
 package git
 
 import (
@@ -13,37 +11,34 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 type scanSession struct {
-	head     plumbing.Hash
+	head     string
 	headName string
 
 	logStream *gitLogStream
 
 	// buffered holds the next commit returned by hasMore() so ScanCommits can keep consuming in-order.
-	buffered  *object.Commit
+	buffered  *Commit
 	exhausted bool
 	returned  int
 
 	graphBuilder   *graphBuilder
-	graphCache     map[plumbing.Hash]string
+	graphCache     map[string]string
 	graphProcessed int
 	graphColsMax   int
 	graphEOF       bool
 }
 
-func (s *Service) ensureScanSessionLocked(ref *plumbing.Reference) error {
-	if s.scan != nil && s.scan.head == ref.Hash() {
+func (s *Service) ensureScanSessionLocked(headHash, headName string) error {
+	if s.scan != nil && s.scan.head == headHash {
 		return nil
 	}
-	return s.resetScanLocked(ref)
+	return s.resetScanLocked(headHash, headName)
 }
 
-func (s *Service) resetScanLocked(ref *plumbing.Reference) error {
+func (s *Service) resetScanLocked(headHash, headName string) error {
 	if s.scan != nil {
 		s.scan.close()
 		s.scan = nil
@@ -51,17 +46,17 @@ func (s *Service) resetScanLocked(ref *plumbing.Reference) error {
 	if s.repo.path == "" {
 		return fmt.Errorf("repository root not set")
 	}
-	stream, err := startGitLogStream(s.repo.path, ref.Hash())
+	stream, err := startGitLogStream(s.repo.path, headHash)
 	if err != nil {
 		return err
 	}
 	s.scan = &scanSession{
-		head:       ref.Hash(),
-		headName:   refName(ref),
+		head:       headHash,
+		headName:   headName,
 		logStream:  stream,
 		graphEOF:   false,
 		exhausted:  false,
-		graphCache: make(map[plumbing.Hash]string, DefaultBatch),
+		graphCache: make(map[string]string, DefaultBatch),
 
 		graphBuilder: newGraphBuilder(s.graphMaxColumns),
 	}
@@ -103,7 +98,7 @@ func (s *scanSession) hasMore() (bool, error) {
 	return true, nil
 }
 
-func (s *scanSession) next() (*object.Commit, error) {
+func (s *scanSession) next() (*Commit, error) {
 	if s.exhausted {
 		return nil, io.EOF
 	}
@@ -151,7 +146,7 @@ func (s *scanSession) assignGraphStrings(entries []*Entry) {
 	}
 }
 
-func (s *scanSession) readNextCommit() (*object.Commit, error) {
+func (s *scanSession) readNextCommit() (*Commit, error) {
 	if s.graphEOF || s.logStream == nil || s.graphBuilder == nil {
 		return nil, io.EOF
 	}
@@ -182,11 +177,12 @@ type gitLogStream struct {
 	waitErr  error
 }
 
-func startGitLogStream(repoPath string, from plumbing.Hash) (*gitLogStream, error) {
+func startGitLogStream(repoPath string, fromHash string) (*gitLogStream, error) {
 	if repoPath == "" {
 		return nil, fmt.Errorf("repository root not set")
 	}
-	if from == plumbing.ZeroHash {
+	fromHash = strings.TrimSpace(fromHash)
+	if fromHash == "" {
 		return nil, fmt.Errorf("starting commit not specified")
 	}
 	// NUL-delimited records; commit message cannot contain NUL.
@@ -206,7 +202,7 @@ func startGitLogStream(repoPath string, from plumbing.Hash) (*gitLogStream, erro
 		"--no-patch",
 		// Use tformat to avoid git log adding an extra newline after each record.
 		"--pretty=tformat:"+format,
-		from.String(),
+		fromHash,
 	)
 	var stream gitLogStream
 	stream.cancel = cancel
@@ -230,7 +226,7 @@ func startGitLogStream(repoPath string, from plumbing.Hash) (*gitLogStream, erro
 	return &stream, nil
 }
 
-func (s *gitLogStream) Next() (*object.Commit, error) {
+func (s *gitLogStream) Next() (*Commit, error) {
 	if s == nil || s.r == nil {
 		return nil, io.EOF
 	}
@@ -293,7 +289,7 @@ func (s *gitLogStream) wait() error {
 	return fmt.Errorf("git log: %w", s.waitErr)
 }
 
-func parseGitLogRecord(rec []byte) (*object.Commit, error) {
+func parseGitLogRecord(rec []byte) (*Commit, error) {
 	parts := strings.Split(string(rec), "\n")
 	if len(parts) < 8 {
 		return nil, fmt.Errorf("unexpected git log record: got %d lines", len(parts))
@@ -302,12 +298,10 @@ func parseGitLogRecord(rec []byte) (*object.Commit, error) {
 	if hashStr == "" {
 		return nil, fmt.Errorf("missing commit hash")
 	}
-	var parents []plumbing.Hash
+	var parents []string
 	parentLine := strings.TrimSpace(parts[1])
 	if parentLine != "" {
-		for _, parent := range strings.Fields(parentLine) {
-			parents = append(parents, plumbing.NewHash(parent))
-		}
+		parents = append(parents, strings.Fields(parentLine)...)
 	}
 	authorName := parts[2]
 	authorEmail := parts[3]
@@ -319,11 +313,11 @@ func parseGitLogRecord(rec []byte) (*object.Commit, error) {
 	if len(parts) > 8 {
 		message = strings.Join(parts[8:], "\n")
 	}
-	return &object.Commit{
-		Hash:         plumbing.NewHash(hashStr),
+	return &Commit{
+		Hash:         hashStr,
 		ParentHashes: parents,
-		Author:       object.Signature{Name: authorName, Email: authorEmail, When: authorWhen},
-		Committer:    object.Signature{Name: committerName, Email: committerEmail, When: committerWhen},
+		Author:       Signature{Name: authorName, Email: authorEmail, When: authorWhen},
+		Committer:    Signature{Name: committerName, Email: committerEmail, When: committerWhen},
 		Message:      message,
 	}, nil
 }

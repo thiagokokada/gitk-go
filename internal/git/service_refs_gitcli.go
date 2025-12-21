@@ -1,17 +1,13 @@
-//go:build gitcli
-
 package git
 
 import (
 	"fmt"
 	"strings"
-
-	"github.com/go-git/go-git/v5/plumbing"
 )
 
 func (s *Service) BranchLabels() (map[string][]string, error) {
 	labels := map[string][]string{}
-	if s.repo.Repository == nil || s.repo.path == "" {
+	if s.repo.path == "" {
 		return labels, nil
 	}
 
@@ -36,22 +32,22 @@ func (s *Service) BranchLabels() (map[string][]string, error) {
 		labels[hash] = append(labels[hash], values...)
 	}
 
-	headRef, err := s.repo.Head()
-	var headHash plumbing.Hash
-	var headBranch string
-	if err == nil && headRef != nil {
-		headHash = headRef.Hash()
-		if headRef.Name().IsBranch() {
-			headBranch = headRef.Name().Short()
-		}
+	headHashOut, err := s.runGitCommand([]string{"rev-parse", "-q", "--verify", "HEAD"}, true, "git rev-parse")
+	if err != nil {
+		return nil, err
 	}
-	if headHash != plumbing.ZeroHash {
-		key := headHash.String()
+	headHash := strings.TrimSpace(headHashOut)
+	if headHash != "" {
+		refOut, err := s.runGitCommand([]string{"symbolic-ref", "-q", "--short", "HEAD"}, true, "git symbolic-ref")
+		if err != nil {
+			return nil, err
+		}
+		headBranch := strings.TrimSpace(refOut)
 		label := "HEAD"
 		if headBranch != "" {
 			label = fmt.Sprintf("HEAD -> %s", headBranch)
 		}
-		labels[key] = append([]string{label}, labels[key]...)
+		labels[headHash] = append([]string{label}, labels[headHash]...)
 	}
 	return labels, nil
 }

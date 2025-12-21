@@ -286,7 +286,7 @@ func (a *Controller) copySelectedCommitReference() {
 	if entry == nil || entry.Commit == nil {
 		return
 	}
-	hash := entry.Commit.Hash.String()
+	hash := entry.Commit.Hash
 	ClipboardClear()
 	ClipboardAppend(hash)
 	a.setStatus(fmt.Sprintf("Copied %s to clipboard.", hash))

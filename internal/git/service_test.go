@@ -1,26 +1,22 @@
 package git
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-
-	gitlib "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/filemode"
-	diff "github.com/go-git/go-git/v5/plumbing/format/diff"
-	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 func TestFormatCommitHeader(t *testing.T) {
 	ts := time.Date(2023, 7, 1, 12, 0, 0, 0, time.UTC)
-	commit := &object.Commit{
-		Hash:   plumbing.NewHash("1234567890abcdef1234567890abcdef12345678"),
-		Author: object.Signature{Name: "Alice", Email: "alice@example.com", When: ts},
-		Committer: object.Signature{
+	commit := &Commit{
+		Hash:   "1234567890abcdef1234567890abcdef12345678",
+		Author: Signature{Name: "Alice", Email: "alice@example.com", When: ts},
+		Committer: Signature{
 			Name:  "Bob",
 			Email: "bob@example.com",
 			When:  ts.Add(2 * time.Hour),
@@ -44,9 +40,9 @@ func TestFormatCommitHeader(t *testing.T) {
 
 func TestNewEntrySearchText(t *testing.T) {
 	ts := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	commit := &object.Commit{
-		Hash:    plumbing.NewHash("abcdef1234567890abcdef1234567890abcdef12"),
-		Author:  object.Signature{Name: "Bob", Email: "bob@example.com", When: ts},
+	commit := &Commit{
+		Hash:    "abcdef1234567890abcdef1234567890abcdef12",
+		Author:  Signature{Name: "Bob", Email: "bob@example.com", When: ts},
 		Message: "Hello World",
 	}
 	entry := newEntry(commit)
@@ -60,21 +56,21 @@ func TestNewEntrySearchText(t *testing.T) {
 }
 
 func TestGraphBuilderLine(t *testing.T) {
-	head := plumbing.NewHash("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-	parent := plumbing.NewHash("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
-	merge := plumbing.NewHash("cccccccccccccccccccccccccccccccccccccccc")
-	other := plumbing.NewHash("dddddddddddddddddddddddddddddddddddddddd")
+	head := strings.Repeat("a", 40)
+	parent := strings.Repeat("b", 40)
+	merge := strings.Repeat("c", 40)
+	other := strings.Repeat("d", 40)
 
 	builder := newGraphBuilder(DefaultGraphMaxColumns)
-	lineHead := builder.Line(&object.Commit{Hash: head, ParentHashes: []plumbing.Hash{parent, merge}})
+	lineHead := builder.Line(&Commit{Hash: head, ParentHashes: []string{parent, merge}})
 	if lineHead != "*" && lineHead != "* |" {
 		t.Fatalf("unexpected graph for merge head: %q", lineHead)
 	}
-	lineParent := builder.Line(&object.Commit{Hash: parent, ParentHashes: []plumbing.Hash{other}})
+	lineParent := builder.Line(&Commit{Hash: parent, ParentHashes: []string{other}})
 	if lineParent != "* |" {
 		t.Fatalf("unexpected graph after shifting columns: %q", lineParent)
 	}
-	lineMerge := builder.Line(&object.Commit{Hash: merge})
+	lineMerge := builder.Line(&Commit{Hash: merge})
 	if lineMerge != "| *" {
 		t.Fatalf("unexpected graph for secondary branch: %q", lineMerge)
 	}
@@ -84,14 +80,14 @@ func TestGraphBuilderCapsColumns(t *testing.T) {
 	builder := newGraphBuilder(DefaultGraphMaxColumns)
 	builder.maxColumns = 50
 
-	parentBase := plumbing.NewHash("9999999999999999999999999999999999999999")
+	parentBase := strings.Repeat("9", 40)
 	for i := range 250 {
-		hash := plumbing.NewHash(fmt.Sprintf("%040x", i+1))
-		parent := plumbing.NewHash(fmt.Sprintf("%040x", i+1000))
+		hash := fmt.Sprintf("%040x", i+1)
+		parent := fmt.Sprintf("%040x", i+1000)
 		if parent == parentBase {
-			parent = plumbing.NewHash(fmt.Sprintf("%040x", i+2000))
+			parent = fmt.Sprintf("%040x", i+2000)
 		}
-		line := builder.Line(&object.Commit{Hash: hash, ParentHashes: []plumbing.Hash{parent}})
+		line := builder.Line(&Commit{Hash: hash, ParentHashes: []string{parent}})
 		if len(builder.columns) > builder.maxColumns {
 			t.Fatalf("columns grew beyond cap: len=%d cap=%d", len(builder.columns), builder.maxColumns)
 		}
@@ -102,14 +98,14 @@ func TestGraphBuilderCapsColumns(t *testing.T) {
 }
 
 func TestFormatSummary(t *testing.T) {
-	commit := &object.Commit{
-		Hash: plumbing.NewHash("abcdef1234567890abcdef1234567890abcdef12"),
-		Author: object.Signature{
+	commit := &Commit{
+		Hash: "abcdef1234567890abcdef1234567890abcdef12",
+		Author: Signature{
 			Name:  "Bob",
 			Email: "bob@example.com",
 			When:  time.Unix(0, 0),
 		},
-		Committer: object.Signature{
+		Committer: Signature{
 			Name:  "Bob",
 			Email: "bob@example.com",
 			When:  time.Unix(3600, 0),
@@ -117,7 +113,7 @@ func TestFormatSummary(t *testing.T) {
 		Message: strings.Repeat("x", 200),
 	}
 	got := formatSummary(commit)
-	if len(got) == 0 || !strings.Contains(got, commit.Hash.String()[:7]) {
+	if len(got) == 0 || !strings.Contains(got, commit.Hash[:7]) {
 		t.Fatalf("summary missing hash: %s", got)
 	}
 	committerStamp := commit.Committer.When.Format("2006-01-02 15:04")
@@ -133,55 +129,26 @@ func TestFormatSummary(t *testing.T) {
 	}
 }
 
-func TestFilePatchPath(t *testing.T) {
-	fp := testPatch{
-		from: testFile{path: "old.txt"},
-		to:   testFile{path: "new.txt"},
-	}
-	if got := filePatchPath(fp); got != "new.txt" {
-		t.Fatalf("expected new path, got %q", got)
-	}
-	fp = testPatch{
-		from: testFile{path: "old.txt"},
-	}
-	if got := filePatchPath(fp); got != "old.txt" {
-		t.Fatalf("expected old path fallback, got %q", got)
-	}
-}
-
 func TestBranchLabels_HeadPrependedAndRemoteHeadFilteredAndTagIncluded(t *testing.T) {
 	dir, hashes := createTestRepo(t, 1)
 	svc, err := Open(dir)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	headHash := plumbing.NewHash(hashes[0])
+	headHash := hashes[0]
 
-	mainRef := plumbing.NewHashReference(plumbing.NewBranchReferenceName("main"), headHash)
-	if err := svc.repo.Storer.SetReference(mainRef); err != nil {
-		t.Fatalf("SetReference(main): %v", err)
-	}
-	if err := svc.repo.Storer.SetReference(plumbing.NewSymbolicReference(plumbing.HEAD, mainRef.Name())); err != nil {
-		t.Fatalf("SetReference(HEAD): %v", err)
-	}
-	if err := svc.repo.Storer.SetReference(plumbing.NewHashReference(plumbing.NewRemoteReferenceName("origin", "main"), headHash)); err != nil {
-		t.Fatalf("SetReference(origin/main): %v", err)
-	}
-	if err := svc.repo.Storer.SetReference(plumbing.NewHashReference(plumbing.NewRemoteReferenceName("origin", "HEAD"), headHash)); err != nil {
-		t.Fatalf("SetReference(origin/HEAD): %v", err)
-	}
-	if err := svc.repo.Storer.SetReference(plumbing.NewHashReference(plumbing.NewTagReferenceName("v1"), headHash)); err != nil {
-		t.Fatalf("SetReference(tag): %v", err)
-	}
+	runGit(t, dir, nil, "branch", "-M", "main")
+	runGit(t, dir, nil, "update-ref", "refs/remotes/origin/main", headHash)
+	runGit(t, dir, nil, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main")
+	runGit(t, dir, nil, "tag", "v1", headHash)
 
 	labels, err := svc.BranchLabels()
 	if err != nil {
 		t.Fatalf("BranchLabels: %v", err)
 	}
-	key := headHash.String()
-	got := labels[key]
+	got := labels[headHash]
 	if len(got) == 0 {
-		t.Fatalf("expected labels for %s, got none: %+v", key, labels)
+		t.Fatalf("expected labels for %s, got none: %+v", headHash, labels)
 	}
 	if got[0] != "HEAD -> main" {
 		t.Fatalf("expected HEAD label to be first, got %q", got[0])
@@ -198,180 +165,6 @@ func TestBranchLabels_HeadPrependedAndRemoteHeadFilteredAndTagIncluded(t *testin
 	if !containsString(got, "tag: v1") {
 		t.Fatalf("expected tag label %q in %+v", "tag: v1", got)
 	}
-}
-
-func containsString(values []string, want string) bool {
-	for _, v := range values {
-		if v == want {
-			return true
-		}
-	}
-	return false
-}
-
-func TestRenderPatch_NilPatch(t *testing.T) {
-	text, sections, err := renderPatch("", nil)
-	if err != nil {
-		t.Fatalf("renderPatch() error = %v", err)
-	}
-	if text != "No changes." {
-		t.Fatalf("expected %q, got %q", "No changes.", text)
-	}
-	if sections != nil {
-		t.Fatalf("expected nil sections, got %+v", sections)
-	}
-
-	text, sections, err = renderPatch("Header", nil)
-	if err != nil {
-		t.Fatalf("renderPatch() error = %v", err)
-	}
-	if text != "Header\n" {
-		t.Fatalf("expected %q, got %q", "Header\n", text)
-	}
-	if sections != nil {
-		t.Fatalf("expected nil sections, got %+v", sections)
-	}
-}
-
-func TestRenderPatch_EmptyFilePatches(t *testing.T) {
-	text, sections, err := renderPatch("Header", emptyFilePatches{})
-	if err != nil {
-		t.Fatalf("renderPatch() error = %v", err)
-	}
-	if text != "Header\nNo changes.\n" {
-		t.Fatalf("expected %q, got %q", "Header\nNo changes.\n", text)
-	}
-	if sections != nil {
-		t.Fatalf("expected nil sections, got %+v", sections)
-	}
-}
-
-func TestRenderPatch_SectionsMatchOutput(t *testing.T) {
-	dir, hashes := createTestRepo(t, 2)
-	repo, err := gitlib.PlainOpen(dir)
-	if err != nil {
-		t.Fatalf("PlainOpen: %v", err)
-	}
-	newest, err := repo.CommitObject(plumbing.NewHash(hashes[0]))
-	if err != nil {
-		t.Fatalf("CommitObject(newest): %v", err)
-	}
-	parent, err := repo.CommitObject(plumbing.NewHash(hashes[1]))
-	if err != nil {
-		t.Fatalf("CommitObject(parent): %v", err)
-	}
-	currentTree, err := newest.Tree()
-	if err != nil {
-		t.Fatalf("Tree(current): %v", err)
-	}
-	parentTree, err := parent.Tree()
-	if err != nil {
-		t.Fatalf("Tree(parent): %v", err)
-	}
-	changes, err := object.DiffTree(parentTree, currentTree)
-	if err != nil {
-		t.Fatalf("DiffTree: %v", err)
-	}
-	patch, err := changes.Patch()
-	if err != nil {
-		t.Fatalf("Patch: %v", err)
-	}
-
-	text, sections, err := renderPatch("Header", patch)
-	if err != nil {
-		t.Fatalf("renderPatch() error = %v", err)
-	}
-	if len(sections) == 0 {
-		t.Fatalf("expected sections, got none")
-	}
-
-	lineByPath := map[string]int{}
-	for i, line := range strings.Split(text, "\n") {
-		if !strings.HasPrefix(line, "diff --git ") {
-			continue
-		}
-		path := parseGitDiffPath(line)
-		if path == "" {
-			continue
-		}
-		lineByPath[path] = i + 1
-	}
-	if len(lineByPath) == 0 {
-		t.Fatalf("expected diff headers in output, got: %q", text)
-	}
-	for _, sec := range sections {
-		wantLine, ok := lineByPath[sec.Path]
-		if !ok {
-			t.Fatalf("missing diff header for section path %q in output: %+v", sec.Path, lineByPath)
-		}
-		if sec.Line != wantLine {
-			t.Fatalf("section line mismatch for %q: got %d want %d", sec.Path, sec.Line, wantLine)
-		}
-	}
-}
-
-type emptyFilePatches struct{}
-
-func (emptyFilePatches) FilePatches() []diff.FilePatch { return nil }
-
-type testFile struct {
-	path string
-}
-
-func (f testFile) Hash() plumbing.Hash     { return plumbing.ZeroHash }
-func (f testFile) Mode() filemode.FileMode { return 0 }
-func (f testFile) Path() string            { return f.path }
-
-type testPatch struct {
-	from diff.File
-	to   diff.File
-}
-
-func (p testPatch) Files() (diff.File, diff.File) { return p.from, p.to }
-func (p testPatch) IsBinary() bool                { return false }
-func (p testPatch) Chunks() []diff.Chunk          { return nil }
-func (p testPatch) Message() string               { return "" }
-func (p testPatch) IsRename() bool                { return false }
-
-func createTestRepo(t *testing.T, commitCount int) (path string, hashesNewestFirst []string) {
-	t.Helper()
-	if commitCount <= 0 {
-		t.Fatalf("commitCount must be positive")
-	}
-	dir := t.TempDir()
-	repo, err := gitlib.PlainInit(dir, false)
-	if err != nil {
-		t.Fatalf("PlainInit: %v", err)
-	}
-	wt, err := repo.Worktree()
-	if err != nil {
-		t.Fatalf("Worktree: %v", err)
-	}
-	fileName := "file.txt"
-	absFile := filepath.Join(dir, fileName)
-	var created []string
-	for i := range commitCount {
-		content := []byte(fmt.Sprintf("commit %d\n", i))
-		if err := os.WriteFile(absFile, content, 0o644); err != nil {
-			t.Fatalf("WriteFile: %v", err)
-		}
-		if _, err := wt.Add(fileName); err != nil {
-			t.Fatalf("Add: %v", err)
-		}
-		when := time.Unix(int64(i+1), 0).UTC()
-		hash, err := wt.Commit(fmt.Sprintf("commit %d", i), &gitlib.CommitOptions{
-			Author:    &object.Signature{Name: "Alice", Email: "alice@example.com", When: when},
-			Committer: &object.Signature{Name: "Alice", Email: "alice@example.com", When: when},
-		})
-		if err != nil {
-			t.Fatalf("Commit: %v", err)
-		}
-		created = append(created, hash.String())
-	}
-	for i := len(created) - 1; i >= 0; i-- {
-		hashesNewestFirst = append(hashesNewestFirst, created[i])
-	}
-	return dir, hashesNewestFirst
 }
 
 func TestScanCommitsPaginationDoesNotSkipExtraCommit(t *testing.T) {
@@ -391,7 +184,7 @@ func TestScanCommitsPaginationDoesNotSkipExtraCommit(t *testing.T) {
 	if !more {
 		t.Fatalf("expected more commits after first batch")
 	}
-	if entries1[0].Commit.Hash.String() != hashes[0] || entries1[1].Commit.Hash.String() != hashes[1] {
+	if entries1[0].Commit.Hash != hashes[0] || entries1[1].Commit.Hash != hashes[1] {
 		t.Fatalf("unexpected first batch hashes: %s %s", entries1[0].Commit.Hash, entries1[1].Commit.Hash)
 	}
 	if entries1[0].Graph == "" || entries1[1].Graph == "" {
@@ -408,7 +201,7 @@ func TestScanCommitsPaginationDoesNotSkipExtraCommit(t *testing.T) {
 	if !more {
 		t.Fatalf("expected more commits after second batch")
 	}
-	if entries2[0].Commit.Hash.String() != hashes[2] || entries2[1].Commit.Hash.String() != hashes[3] {
+	if entries2[0].Commit.Hash != hashes[2] || entries2[1].Commit.Hash != hashes[3] {
 		t.Fatalf("unexpected second batch hashes: %s %s", entries2[0].Commit.Hash, entries2[1].Commit.Hash)
 	}
 
@@ -422,7 +215,7 @@ func TestScanCommitsPaginationDoesNotSkipExtraCommit(t *testing.T) {
 	if more {
 		t.Fatalf("expected no more commits after last batch")
 	}
-	if entries3[0].Commit.Hash.String() != hashes[4] {
+	if entries3[0].Commit.Hash != hashes[4] {
 		t.Fatalf("unexpected last batch hash: %s", entries3[0].Commit.Hash)
 	}
 }
@@ -447,7 +240,7 @@ func TestScanCommitsSkipMismatchResetsSession(t *testing.T) {
 	if len(entries2) != 2 {
 		t.Fatalf("expected 2 entries, got %d", len(entries2))
 	}
-	if entries2[0].Commit.Hash.String() != hashes[0] || entries2[1].Commit.Hash.String() != hashes[1] {
+	if entries2[0].Commit.Hash != hashes[0] || entries2[1].Commit.Hash != hashes[1] {
 		t.Fatalf("unexpected hashes after reset: %s %s", entries2[0].Commit.Hash, entries2[1].Commit.Hash)
 	}
 }
@@ -474,4 +267,70 @@ func TestSetGraphMaxColumnsAppliesToSession(t *testing.T) {
 	if got := svc.scan.graphBuilder.maxColumns; got != DefaultGraphMaxColumns {
 		t.Fatalf("expected default maxColumns=%d, got %d", DefaultGraphMaxColumns, got)
 	}
+}
+
+func containsString(values []string, want string) bool {
+	for _, v := range values {
+		if v == want {
+			return true
+		}
+	}
+	return false
+}
+
+func createTestRepo(t *testing.T, commitCount int) (path string, hashesNewestFirst []string) {
+	t.Helper()
+	if commitCount <= 0 {
+		t.Fatalf("commitCount must be positive")
+	}
+	dir := t.TempDir()
+	runGit(t, dir, nil, "init", "-q")
+	runGit(t, dir, nil, "config", "user.name", "Alice")
+	runGit(t, dir, nil, "config", "user.email", "alice@example.com")
+
+	fileName := "file.txt"
+	absFile := filepath.Join(dir, fileName)
+	var created []string
+	for i := range commitCount {
+		content := []byte(fmt.Sprintf("commit %d\n", i))
+		if err := os.WriteFile(absFile, content, 0o644); err != nil {
+			t.Fatalf("WriteFile: %v", err)
+		}
+		runGit(t, dir, nil, "add", fileName)
+		when := time.Unix(int64(i+1), 0).UTC().Format(time.RFC3339)
+		env := []string{
+			"GIT_AUTHOR_DATE=" + when,
+			"GIT_COMMITTER_DATE=" + when,
+		}
+		runGit(t, dir, env, "commit", "-m", fmt.Sprintf("commit %d", i), "--quiet", "--no-gpg-sign")
+		hash := runGit(t, dir, nil, "rev-parse", "HEAD")
+		created = append(created, hash)
+	}
+
+	// Standardize on main for tests that expect it.
+	runGit(t, dir, nil, "branch", "-M", "main")
+
+	for i := len(created) - 1; i >= 0; i-- {
+		hashesNewestFirst = append(hashesNewestFirst, created[i])
+	}
+	return dir, hashesNewestFirst
+}
+
+func runGit(t *testing.T, dir string, extraEnv []string, args ...string) string {
+	t.Helper()
+
+	cmdArgs := append([]string{"-C", dir}, args...)
+	cmd := exec.Command("git", cmdArgs...)
+	cmd.Env = append(os.Environ(), extraEnv...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg != "" {
+			t.Fatalf("git %s: %v: %s", strings.Join(args, " "), err, msg)
+		}
+		t.Fatalf("git %s: %v", strings.Join(args, " "), err)
+	}
+	return strings.TrimSpace(stdout.String())
 }

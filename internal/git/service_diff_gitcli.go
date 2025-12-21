@@ -1,15 +1,11 @@
-//go:build gitcli
-
 package git
 
 import (
 	"fmt"
 	"strings"
-
-	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
-func (s *Service) Diff(commit *object.Commit) (string, []FileSection, error) {
+func (s *Service) Diff(commit *Commit) (string, []FileSection, error) {
 	if commit == nil {
 		return "", nil, fmt.Errorf("commit not specified")
 	}
@@ -35,17 +31,17 @@ func (s *Service) Diff(commit *object.Commit) (string, []FileSection, error) {
 	return b.String(), sections, nil
 }
 
-func (s *Service) commitDiffText(commit *object.Commit) (string, error) {
+func (s *Service) commitDiffText(commit *Commit) (string, error) {
 	if commit != nil && len(commit.ParentHashes) > 0 {
 		parent := commit.ParentHashes[0]
 		return s.runGitCommand(
-			[]string{"diff", "--no-color", parent.String(), commit.Hash.String()},
+			[]string{"diff", "--no-color", parent, commit.Hash},
 			true,
 			"git diff",
 		)
 	}
 	return s.runGitCommand(
-		[]string{"show", "--no-color", "--pretty=format:", commit.Hash.String()},
+		[]string{"show", "--no-color", "--pretty=format:", commit.Hash},
 		false,
 		"git show",
 	)

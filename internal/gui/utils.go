@@ -26,7 +26,7 @@ func buildTreeRows(entries []*git.Entry, labels map[string][]string, graphCanvas
 			continue
 		}
 		msg, author, when := commitListColumns(entry)
-		graph := formatGraphValue(entry, labels[entry.Commit.Hash.String()], graphCanvas)
+		graph := formatGraphValue(entry, labels[entry.Commit.Hash], graphCanvas)
 		rows = append(rows, treeRow{
 			ID:     strconv.Itoa(i),
 			Graph:  graph,
@@ -43,7 +43,11 @@ func commitListColumns(entry *git.Entry) (msg, author, when string) {
 	if len(firstLine) > 80 {
 		firstLine = firstLine[:77] + "..."
 	}
-	msg = fmt.Sprintf("%s  %s", entry.Commit.Hash.String()[:7], firstLine)
+	hash := entry.Commit.Hash
+	if len(hash) > 7 {
+		hash = hash[:7]
+	}
+	msg = fmt.Sprintf("%s  %s", hash, firstLine)
 	author = fmt.Sprintf("%s <%s>", entry.Commit.Author.Name, entry.Commit.Author.Email)
 	when = entry.Commit.Committer.When.Format("2006-01-02 15:04")
 	return

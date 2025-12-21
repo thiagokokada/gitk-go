@@ -24,7 +24,6 @@
         {
           default = self.packages.${system}.gitk-go;
           gitk-go = pkgs.callPackage ./gitk-go.nix { inherit version; };
-          gitk-go-purego = self.packages.${system}.gitk-go.override { withGitCli = false; };
         }
       );
 

@@ -148,7 +148,7 @@ func (a *Controller) showCommitDetails(index int) {
 	}
 	entry := a.visible[index]
 	header := git.FormatCommitHeader(entry.Commit)
-	hash := entry.Commit.Hash.String()
+	hash := entry.Commit.Hash
 	a.setSelectedHash(hash)
 	a.setFileSections(nil)
 	a.writeDetailText(header+"\nLoading diff...", false)

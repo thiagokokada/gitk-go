@@ -21,20 +21,11 @@ jobs:
     - name: Build (default)
       run: go build -v -o /dev/null ./...
 
-    - name: Build (gitcli)
-      run: go build -tags gitcli -v -o /dev/null ./...
-
     - name: Test (default)
       run: go test -v ./...
 
-    - name: Test (gitcli)
-      run: go test -tags gitcli -v ./...
-
     - name: Vet (default)
       run: go vet -v ./...
-
-    - name: Vet (gitcli)
-      run: go vet -tags gitcli -v ./...
 
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v9

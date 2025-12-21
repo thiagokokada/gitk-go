@@ -1,7 +1,6 @@
 package git
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"log/slog"
@@ -9,11 +8,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	gitlib "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
-	diff "github.com/go-git/go-git/v5/plumbing/format/diff"
-	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 const DefaultBatch = 1000
@@ -31,12 +25,11 @@ type Service struct {
 }
 
 type repoState struct {
-	*gitlib.Repository
 	path string
 }
 
 type Entry struct {
-	Commit     *object.Commit
+	Commit     *Commit
 	Summary    string
 	SearchText string
 	Graph      string
@@ -52,12 +45,17 @@ func Open(repoPath string) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	repo, err := gitlib.PlainOpenWithOptions(abs, &gitlib.PlainOpenOptions{DetectDotGit: true})
+	tmp := &Service{repo: repoState{path: abs}}
+	root, err := tmp.runGitCommand([]string{"rev-parse", "--show-toplevel"}, false, "git rev-parse")
 	if err != nil {
 		return nil, fmt.Errorf("open repository: %w", err)
 	}
+	root = strings.TrimSpace(root)
+	if root == "" {
+		return nil, fmt.Errorf("open repository: git rev-parse returned empty root")
+	}
 	return &Service{
-		repo:            repoState{path: abs, Repository: repo},
+		repo:            repoState{path: root},
 		graphMaxColumns: DefaultGraphMaxColumns,
 	}, nil
 }
@@ -89,21 +87,21 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 	defer s.mu.Unlock()
 
 	startHead := time.Now()
-	ref, err := s.repo.Head()
+	headHash, headName, ok, err := s.headStateLocked()
 	if err != nil {
-		if err == plumbing.ErrReferenceNotFound {
-			if s.scan != nil {
-				s.scan.close()
-				s.scan = nil
-			}
-			return nil, "", false, nil
-		}
 		return nil, "", false, fmt.Errorf("resolve HEAD: %w", err)
+	}
+	if !ok {
+		if s.scan != nil {
+			s.scan.close()
+			s.scan = nil
+		}
+		return nil, "", false, nil
 	}
 	headDur := time.Since(startHead)
 
 	startSession := time.Now()
-	if err := s.ensureScanSessionLocked(ref); err != nil {
+	if err := s.ensureScanSessionLocked(headHash, headName); err != nil {
 		return nil, "", false, err
 	}
 	sessionDur := time.Since(startSession)
@@ -118,7 +116,7 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 			slog.Int("session_returned", s.scan.returned),
 			slog.String("head", s.scan.headName),
 		)
-		if err := s.resetScanLocked(ref); err != nil {
+		if err := s.resetScanLocked(headHash, headName); err != nil {
 			return nil, "", false, err
 		}
 		if err := s.scan.discard(skip); err != nil {
@@ -181,7 +179,30 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 	return entries, s.scan.headName, hasMore, nil
 }
 
-func FormatCommitHeader(c *object.Commit) string {
+func (s *Service) headStateLocked() (hash string, headName string, ok bool, err error) {
+	if s.repo.path == "" {
+		return "", "", false, fmt.Errorf("repository root not set")
+	}
+	out, err := s.runGitCommand([]string{"rev-parse", "-q", "--verify", "HEAD"}, true, "git rev-parse")
+	if err != nil {
+		return "", "", false, err
+	}
+	hash = strings.TrimSpace(out)
+	if hash == "" {
+		return "", "", false, nil
+	}
+	ref, err := s.runGitCommand([]string{"symbolic-ref", "-q", "--short", "HEAD"}, true, "git symbolic-ref")
+	if err != nil {
+		return "", "", false, err
+	}
+	headName = strings.TrimSpace(ref)
+	if headName == "" {
+		headName = "HEAD"
+	}
+	return hash, headName, true, nil
+}
+
+func FormatCommitHeader(c *Commit) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "commit %s\n", c.Hash)
 	appendSignatureLine(&b, "Author", c.Author)
@@ -217,7 +238,7 @@ type LocalChanges struct {
 	StagedSections   []FileSection
 }
 
-func appendSignatureLine(b *strings.Builder, label string, sig object.Signature) {
+func appendSignatureLine(b *strings.Builder, label string, sig Signature) {
 	fmt.Fprintf(b, "%s: %s <%s>", label, sig.Name, sig.Email)
 	if !sig.When.IsZero() {
 		fmt.Fprintf(b, "  %s", sig.When.Format("2006-01-02 15:04:05 -0700"))
@@ -225,10 +246,10 @@ func appendSignatureLine(b *strings.Builder, label string, sig object.Signature)
 	b.WriteByte('\n')
 }
 
-func newEntry(c *object.Commit) *Entry {
+func newEntry(c *Commit) *Entry {
 	summary := formatSummary(c)
 	var b strings.Builder
-	b.WriteString(strings.ToLower(c.Hash.String()))
+	b.WriteString(strings.ToLower(c.Hash))
 	b.WriteByte(' ')
 	b.WriteString(strings.ToLower(c.Author.Name))
 	b.WriteByte(' ')
@@ -238,24 +259,17 @@ func newEntry(c *object.Commit) *Entry {
 	return &Entry{Commit: c, Summary: summary, SearchText: b.String()}
 }
 
-func formatSummary(c *object.Commit) string {
+func formatSummary(c *Commit) string {
 	firstLine := strings.SplitN(strings.TrimSpace(c.Message), "\n", 2)[0]
 	if len(firstLine) > 80 {
 		firstLine = firstLine[:77] + "..."
 	}
 	timestamp := c.Committer.When.Format("2006-01-02 15:04")
-	return fmt.Sprintf("%s  %s  %s", c.Hash.String()[:7], timestamp, firstLine)
-}
-
-func filePatchPath(fp diff.FilePatch) string {
-	from, to := fp.Files()
-	if to != nil && to.Path() != "" {
-		return to.Path()
+	hash := c.Hash
+	if len(hash) > 7 {
+		hash = hash[:7]
 	}
-	if from != nil && from.Path() != "" {
-		return from.Path()
-	}
-	return "(unknown)"
+	return fmt.Sprintf("%s  %s  %s", hash, timestamp, firstLine)
 }
 
 func localDiffHeader(staged bool) string {
@@ -265,57 +279,8 @@ func localDiffHeader(staged bool) string {
 	return "Local uncommitted changes, not checked in to index"
 }
 
-func renderPatch(header string, patch interface{ FilePatches() []diff.FilePatch }) (string, []FileSection, error) {
-	var b strings.Builder
-	lineOffset := 0
-	if header != "" {
-		if !strings.HasSuffix(header, "\n") {
-			header += "\n"
-		}
-		b.WriteString(header)
-		lineOffset = strings.Count(header, "\n")
-	}
-	if patch == nil {
-		if b.Len() == 0 {
-			return "No changes.", nil, nil
-		}
-		return b.String(), nil, nil
-	}
-	filePatches := patch.FilePatches()
-	if len(filePatches) == 0 {
-		if b.Len() == 0 {
-			return "No changes.", nil, nil
-		}
-		b.WriteString("No changes.\n")
-		return b.String(), nil, nil
-	}
-	body, err := encodeUnifiedPatch(filePatches)
-	if err != nil {
-		return "", nil, err
-	}
-	b.WriteString(body)
-	sections := parseGitDiffSections(body, lineOffset)
-	return b.String(), sections, nil
-}
-
-func encodeUnifiedPatch(filePatches []diff.FilePatch) (string, error) {
-	var buf bytes.Buffer
-	enc := diff.NewUnifiedEncoder(&buf, diff.DefaultContextLines)
-	if err := enc.Encode(filePatchSet{patches: filePatches}); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
-}
-
-type filePatchSet struct {
-	patches []diff.FilePatch
-}
-
-func (f filePatchSet) FilePatches() []diff.FilePatch { return f.patches }
-func (filePatchSet) Message() string                 { return "" }
-
 type graphBuilder struct {
-	columns    []plumbing.Hash
+	columns    []string
 	maxColumns int
 }
 
@@ -335,13 +300,13 @@ func (g *graphBuilder) trim() {
 	}
 }
 
-func (g *graphBuilder) Line(c *object.Commit) string {
+func (g *graphBuilder) Line(c *Commit) string {
 	if c == nil {
 		return ""
 	}
 	idx := g.columnIndex(c.Hash)
 	if idx == -1 {
-		g.columns = append([]plumbing.Hash{c.Hash}, g.columns...)
+		g.columns = append([]string{c.Hash}, g.columns...)
 		idx = 0
 	}
 	g.trim()
@@ -360,7 +325,7 @@ func (g *graphBuilder) Line(c *object.Commit) string {
 	return b.String()
 }
 
-func (g *graphBuilder) columnIndex(hash plumbing.Hash) int {
+func (g *graphBuilder) columnIndex(hash string) int {
 	for i, h := range g.columns {
 		if h == hash {
 			return i
@@ -369,7 +334,7 @@ func (g *graphBuilder) columnIndex(hash plumbing.Hash) int {
 	return -1
 }
 
-func (g *graphBuilder) advance(idx int, parents []plumbing.Hash) {
+func (g *graphBuilder) advance(idx int, parents []string) {
 	if g == nil {
 		return
 	}
@@ -386,24 +351,16 @@ func (g *graphBuilder) advance(idx int, parents []plumbing.Hash) {
 		if pos > len(g.columns) {
 			pos = len(g.columns)
 		}
-		g.columns = append(g.columns[:pos], append([]plumbing.Hash{parent}, g.columns[pos:]...)...)
+		g.columns = append(g.columns[:pos], append([]string{parent}, g.columns[pos:]...)...)
 	}
 	g.trim()
 }
 
-func (g *graphBuilder) removeColumn(hash plumbing.Hash) {
+func (g *graphBuilder) removeColumn(hash string) {
 	for i, h := range g.columns {
 		if h == hash {
 			g.columns = append(g.columns[:i], g.columns[i+1:]...)
 			return
 		}
 	}
-}
-
-func refName(ref *plumbing.Reference) string {
-	name := ref.Name().Short()
-	if name == "" {
-		name = ref.Name().String()
-	}
-	return name
 }

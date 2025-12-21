@@ -4,8 +4,7 @@
 
 `gitk-go` is a lightweight Git history explorer written in Go. It recreates much
 of `gitk` using [`modernc.org/tk9.0`](https://pkg.go.dev/modernc.org/tk9.0) and
-[`go-git`](https://github.com/go-git/go-git), and it can optionally leverage the
-system `git` binary for faster local-change handling.
+the system `git` binary.
 
 ![Screenshot](screenshot.png)
 
@@ -16,7 +15,6 @@ system `git` binary for faster local-change handling.
 - Diff viewer highlights additions, removals, headers, and supports per-file navigation plus optional syntax highlighting
 - Built-in file list to jump to specific file diffs
 - Keyboard shortcuts mirroring common gitk bindings (navigation, paging, reload)
-- Optional acceleration using the system `git` CLI (see below)
 - Automatic reload watcher (with UI toggle) to keep history fresh as the repository changes
 - Auto-detects OS dark mode with optional manual override
 
@@ -34,21 +32,9 @@ Arguments:
 - `-nowatch`: disable automatic reload when the repository changes (auto-reload is on by default)
 - `-nosyntax`: disable syntax highlighting in the diff viewer
 - `-verbose`: emit additional debug logging (fsnotify events, reload scheduling)
-- `-version`: print the build version (plus active build tags when available) and exit
+- `-version`: print the build version and exit
 
-#### git CLI acceleration
-
-By default, `gitk-go` uses pure Go code for repository access. For large
-repositories you can opt-in to faster local-change detection and diff rendering
-by building with the `gitcli` build tag:
-
-```bash
-go build -tags gitcli
-```
-
-This requires the `git` binary to be available in `$PATH`. If the binary is not
-available the build will still succeed, but the accelerated paths will fail at
-runtime, so only enable the tag when `git` is installed.
+This requires the `git` binary to be available in `$PATH`.
 
 #### Garbage-collector experiment
 
@@ -72,9 +58,7 @@ This flag is optional and only affects performance for a few operations (e.g., d
 
 ```bash
 go test ./...
-go test -tags gitcli ./...
 go build ./...
-go build -tags gitcli ./...
 ```
 
 See `AGENTS.md` for guidelines followed by the automation helping maintain this project.

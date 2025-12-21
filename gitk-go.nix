@@ -11,7 +11,6 @@
   xorg,
   zlib,
   version ? "unknown",
-  withGitCli ? true,
 }:
 
 buildGoModule {
@@ -29,9 +28,10 @@ buildGoModule {
     ];
   };
 
-  vendorHash = "sha256-c6nJ0b995BzlYxtMXQSqghbBmPDtdrFKEYJrMC0filc=";
+  vendorHash = "sha256-ErILkTre+PVksMcIiAJrQimm8YzUnffl+R522ZT+rLE=";
 
   nativeBuildInputs = [
+    git
     makeBinaryWrapper
   ];
 
@@ -56,7 +56,7 @@ buildGoModule {
         zlib
       ];
 
-      gitPath = lib.optionalString withGitCli "--prefix PATH : ${lib.makeBinPath [ git ]}";
+      gitPath = "--prefix PATH : ${lib.makeBinPath [ git ]}";
     in
     ''
       mv $out/bin/gitk-go $out/bin/.gitk-go-unwrapped
@@ -85,8 +85,6 @@ buildGoModule {
         $out/bin/gitk-go \
         ${gitPath}
     '';
-
-  tags = lib.optionals withGitCli [ "gitcli" ];
 
   ldflags = [
     "-s"

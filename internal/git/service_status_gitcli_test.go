@@ -1,5 +1,3 @@
-//go:build gitcli
-
 package git
 
 import (

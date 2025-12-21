@@ -1,5 +1,3 @@
-//go:build gitcli
-
 package git
 
 import (
@@ -70,21 +68,14 @@ func TestParseRefLabelsFromShowRef_InvalidLine(t *testing.T) {
 	}
 }
 
-func TestBranchLabels_GitCLI_IncludesHEADAndBranch(t *testing.T) {
+func TestBranchLabels_IncludesHEADAndBranch(t *testing.T) {
 	dir, hashes := createTestRepo(t, 1)
 	svc, err := Open(dir)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
 
-	headRef, err := svc.repo.Head()
-	if err != nil {
-		t.Fatalf("Head: %v", err)
-	}
-	branch := ""
-	if headRef.Name().IsBranch() {
-		branch = headRef.Name().Short()
-	}
+	branch := runGit(t, dir, nil, "symbolic-ref", "-q", "--short", "HEAD")
 	wantHead := "HEAD"
 	if branch != "" {
 		wantHead = "HEAD -> " + branch

@@ -110,7 +110,7 @@ func (g *GraphCanvas) Redraw(canvas *CanvasWidget, treeView *TTreeviewWidget, vi
 			if entry != nil {
 				rowLabels := []string(nil)
 				if entry.Commit != nil && labels != nil {
-					rowLabels = labels[entry.Commit.Hash.String()]
+					rowLabels = labels[entry.Commit.Hash]
 				}
 				drawGraphRow(canvas, dark, entry.Graph, rowLabels, y, h, maxCols, canvasWidth, isSelected)
 			}

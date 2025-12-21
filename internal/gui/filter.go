@@ -124,7 +124,7 @@ func (a *Controller) visibleSelectionIndex() int {
 		if entry == nil || entry.Commit == nil {
 			continue
 		}
-		if entry.Commit.Hash.String() == hash {
+		if entry.Commit.Hash == hash {
 			return i
 		}
 	}

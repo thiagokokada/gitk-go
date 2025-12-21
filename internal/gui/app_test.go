@@ -5,20 +5,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/thiagokokada/gitk-go/internal/git"
 )
 
 func TestCommitListColumns(t *testing.T) {
-	commit := &object.Commit{
-		Hash: plumbing.NewHash("abcdef1234567890abcdef1234567890abcdef12"),
-		Author: object.Signature{
+	commit := &git.Commit{
+		Hash: "abcdef1234567890abcdef1234567890abcdef12",
+		Author: git.Signature{
 			Name:  "Alice",
 			Email: "alice@example.com",
 			When:  time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC),
 		},
-		Committer: object.Signature{
+		Committer: git.Signature{
 			Name:  "Alice",
 			Email: "alice@example.com",
 			When:  time.Date(2025, 1, 2, 9, 30, 0, 0, time.UTC),
@@ -100,10 +98,10 @@ func TestStatusSummary(t *testing.T) {
 func TestBuildTreeRows(t *testing.T) {
 	now := time.Date(2025, 2, 1, 12, 0, 0, 0, time.UTC)
 	entry1 := &git.Entry{
-		Commit: &object.Commit{
-			Hash:   plumbing.NewHash("1111111111111111111111111111111111111111"),
-			Author: object.Signature{Name: "Alice", Email: "alice@example.com", When: now},
-			Committer: object.Signature{
+		Commit: &git.Commit{
+			Hash:   "1111111111111111111111111111111111111111",
+			Author: git.Signature{Name: "Alice", Email: "alice@example.com", When: now},
+			Committer: git.Signature{
 				Name:  "Alice",
 				Email: "alice@example.com",
 				When:  now,
@@ -113,10 +111,10 @@ func TestBuildTreeRows(t *testing.T) {
 		Graph: "* |",
 	}
 	entry2 := &git.Entry{
-		Commit: &object.Commit{
-			Hash:   plumbing.NewHash("2222222222222222222222222222222222222222"),
-			Author: object.Signature{Name: "Bob", Email: "bob@example.com", When: now.Add(-time.Hour)},
-			Committer: object.Signature{
+		Commit: &git.Commit{
+			Hash:   "2222222222222222222222222222222222222222",
+			Author: git.Signature{Name: "Bob", Email: "bob@example.com", When: now.Add(-time.Hour)},
+			Committer: git.Signature{
 				Name:  "Bob",
 				Email: "bob@example.com",
 				When:  now.Add(-2 * time.Hour),
@@ -126,7 +124,7 @@ func TestBuildTreeRows(t *testing.T) {
 		Graph: "|/",
 	}
 	labels := map[string][]string{
-		entry1.Commit.Hash.String(): {"HEAD -> main"},
+		entry1.Commit.Hash: {"HEAD -> main"},
 	}
 	rows := buildTreeRows([]*git.Entry{entry1, entry2}, labels, false)
 	if len(rows) != 2 {
@@ -185,17 +183,17 @@ func TestPaletteForPreference(t *testing.T) {
 
 func TestVisibleSelectionIndex(t *testing.T) {
 	ctrl := &Controller{}
-	h1 := plumbing.NewHash("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-	h2 := plumbing.NewHash("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	h1 := strings.Repeat("a", 40)
+	h2 := strings.Repeat("b", 40)
 	ctrl.visible = []*git.Entry{
-		{Commit: &object.Commit{Hash: h1}},
-		{Commit: &object.Commit{Hash: h2}},
+		{Commit: &git.Commit{Hash: h1}},
+		{Commit: &git.Commit{Hash: h2}},
 	}
-	ctrl.setSelectedHash(h2.String())
+	ctrl.setSelectedHash(h2)
 	if idx := ctrl.visibleSelectionIndex(); idx != 1 {
 		t.Fatalf("expected selection index 1, got %d", idx)
 	}
-	ctrl.setSelectedHash(plumbing.NewHash("cccccccccccccccccccccccccccccccccccccccc").String())
+	ctrl.setSelectedHash(strings.Repeat("c", 40))
 	if idx := ctrl.visibleSelectionIndex(); idx != -1 {
 		t.Fatalf("expected -1 for missing hash, got %d", idx)
 	}
