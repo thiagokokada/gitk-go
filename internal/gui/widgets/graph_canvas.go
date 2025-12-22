@@ -22,6 +22,21 @@ const (
 	graphCanvasConnectorW = 1
 
 	graphCanvasLabelFont = "TkDefaultFont 9"
+
+	// Treeview "identify item" takes x/y coordinates; using a small x offset avoids
+	// the left border and hits the first visible cell reliably.
+	defaultTreeIdentifyX = 5
+
+	// Fallback width (pixels) for the "graph" column/overlay canvas when Tk hasn't
+	// reported geometry yet. It only affects the initial draw and any rare cases
+	// where `winfo`/`column -width` returns 0.
+	defaultGraphColumnWidth = 120
+
+	// Bound the amount of probing/advancing we do during redraw. These guards prevent
+	// rare-but-expensive scans when the Treeview is very large or its items behave
+	// unexpectedly.
+	maxTreeIdentifyProbeRows = 200
+	maxNonCommitRowSkips     = 8
 )
 
 type GraphCanvas struct {
@@ -65,7 +80,7 @@ func (g *GraphCanvas) Redraw(canvas *CanvasWidget, treeView *TTreeviewWidget, vi
 	treeHeight := tkutil.Atoi(tkutil.EvalOrEmpty("winfo height %s", treePath))
 	yOffset := g.overlay.y
 	contentHeight := g.overlay.h
-	first := firstVisibleTreeItem(treePath, treeHeight)
+	first := firstVisibleTreeItemForRedraw(treePath, max(1, g.overlay.x+1), yOffset, treeHeight)
 	if first == "" || treeHeight <= 1 {
 		return
 	}
@@ -80,42 +95,51 @@ func (g *GraphCanvas) Redraw(canvas *CanvasWidget, treeView *TTreeviewWidget, vi
 		canvasWidth = tkutil.Atoi(tkutil.EvalOrEmpty("winfo width %s", canvasPath))
 	}
 	if canvasWidth <= 0 {
-		canvasWidth = 120
+		canvasWidth = defaultGraphColumnWidth
 	}
 	maxCols := maxGraphCanvasCols(canvasWidth)
 	if maxCols <= 0 {
 		return
 	}
 
-	selected := map[string]struct{}{}
-	for _, id := range treeView.Selection("") {
-		selected[id] = struct{}{}
+	selectedIdx := -1
+	if sel := treeView.Selection(""); len(sel) > 0 {
+		if idx, err := strconv.Atoi(sel[0]); err == nil && idx >= 0 {
+			selectedIdx = idx
+		}
 	}
 
-	item := first
-	for item != "" {
-		// Use the first data column (#1). The tree column (#0) may be hidden when using `show=headings`.
-		bbox := strings.Fields(tkutil.EvalOrEmpty("%s bbox {%s} #1", treePath, item))
-		if len(bbox) < 4 {
-			break
-		}
-		y := tkutil.Atoi(bbox[1]) - yOffset
-		h := tkutil.Atoi(bbox[3])
+	// Treeview items can include non-commit rows (local changes, "more...", loading); resolve the
+	// first visible commit row and account for any leading non-numeric rows.
+	bbox := strings.Fields(tkutil.EvalOrEmpty("%s bbox {%s} #1", treePath, first))
+	if len(bbox) < 4 {
+		return
+	}
+	firstRowY := tkutil.Atoi(bbox[1]) - yOffset
+	rowHeight := tkutil.Atoi(bbox[3])
+	if rowHeight <= 0 {
+		return
+	}
+	firstIdx, skippedRows, ok := resolveFirstCommitIndex(first, func(item string) string {
+		return strings.TrimSpace(tkutil.EvalOrEmpty("%s next {%s}", treePath, item))
+	})
+	if !ok || firstIdx >= len(visible) {
+		return
+	}
+	y := firstRowY + skippedRows*rowHeight
+	for idx := firstIdx; idx < len(visible); idx++ {
 		if contentHeight > 0 && y > contentHeight {
 			break
 		}
-		_, isSelected := selected[item]
-		if idx, err := strconv.Atoi(item); err == nil && idx >= 0 && idx < len(visible) {
-			entry := visible[idx]
-			if entry != nil {
-				rowLabels := []string(nil)
-				if entry.Commit != nil && labels != nil {
-					rowLabels = labels[entry.Commit.Hash]
-				}
-				drawGraphRow(canvas, dark, entry.Graph, rowLabels, y, h, maxCols, canvasWidth, isSelected)
+		entry := visible[idx]
+		if entry != nil {
+			rowLabels := []string(nil)
+			if entry.Commit != nil && labels != nil {
+				rowLabels = labels[entry.Commit.Hash]
 			}
+			drawGraphRow(canvas, dark, entry.Graph, rowLabels, y, rowHeight, maxCols, canvasWidth, idx == selectedIdx)
 		}
-		item = strings.TrimSpace(tkutil.EvalOrEmpty("%s next {%s}", treePath, item))
+		y += rowHeight
 	}
 }
 
@@ -132,15 +156,25 @@ func (g *GraphCanvas) ensureOverlay(canvas *CanvasWidget, treeView *TTreeviewWid
 	}
 	treeHeight := tkutil.Atoi(tkutil.EvalOrEmpty("winfo height %s", treePath))
 	treeWidth := tkutil.Atoi(tkutil.EvalOrEmpty("winfo width %s", treePath))
-	xOffset, yOffset, colWidth := graphContentCellGeometry(treePath, treeHeight)
-	if colWidth <= 0 {
-		colWidth = tkutil.Atoi(tkutil.EvalOrEmpty("%s column graph -width", treePath))
+
+	colWidth := tkutil.Atoi(tkutil.EvalOrEmpty("%s column graph -width", treePath))
+	xOffset := g.overlay.x
+	yOffset := g.overlay.y
+	if xOffset <= 0 || yOffset <= 0 {
+		xOffset, yOffset, colWidth = graphContentCellGeometry(treePath, treeHeight)
+	} else if colWidth <= 0 {
+		// Fall back to a cached width if the Treeview hasn't been configured yet.
+		colWidth = g.overlay.width
 	}
 	if colWidth <= 0 {
-		colWidth = 120
+		colWidth = defaultGraphColumnWidth
 	}
 	if xOffset <= 0 {
 		xOffset = 1
+	}
+	if yOffset <= 0 {
+		// No items yet; avoid covering the header until we can measure the content area.
+		return
 	}
 	if treeWidth > 0 {
 		// Leave the left and right borders visible.
@@ -251,21 +285,36 @@ func firstVisibleTreeItem(treePath string, treeHeight int) string {
 	if treePath == "" || treeHeight <= 1 {
 		return ""
 	}
-	probeLimit := min(treeHeight-1, 200)
-	x := 5
+	probeLimit := min(treeHeight-1, maxTreeIdentifyProbeRows)
+	x := defaultTreeIdentifyX
 	for y := 1; y <= probeLimit; y++ {
-		region := strings.TrimSpace(tkutil.EvalOrEmpty("%s identify region %d %d", treePath, x, y))
-		switch region {
-		case "cell", "tree":
-		default:
-			continue
-		}
 		item := strings.TrimSpace(tkutil.EvalOrEmpty("%s identify item %d %d", treePath, x, y))
 		if item != "" {
 			return item
 		}
 	}
 	return ""
+}
+
+func firstVisibleTreeItemForRedraw(treePath string, xProbe int, yOffset int, treeHeight int) string {
+	if treePath == "" || treeHeight <= 1 {
+		return ""
+	}
+	if xProbe <= 0 {
+		xProbe = defaultTreeIdentifyX
+	}
+	y := yOffset + 1
+	if y < 1 {
+		y = 1
+	}
+	if y >= treeHeight {
+		y = treeHeight - 1
+	}
+	item := strings.TrimSpace(tkutil.EvalOrEmpty("%s identify item %d %d", treePath, xProbe, y))
+	if item != "" {
+		return item
+	}
+	return firstVisibleTreeItem(treePath, treeHeight)
 }
 
 func graphContentCellGeometry(treePath string, treeHeight int) (xOffset int, yOffset int, width int) {
@@ -281,6 +330,22 @@ func graphContentCellGeometry(treePath string, treeHeight int) (xOffset int, yOf
 		return 0, 0, 0
 	}
 	return tkutil.Atoi(bbox[0]), tkutil.Atoi(bbox[1]), tkutil.Atoi(bbox[2])
+}
+
+func resolveFirstCommitIndex(firstItem string, next func(string) string) (idx int, skipped int, ok bool) {
+	item := strings.TrimSpace(firstItem)
+	for item != "" && skipped <= maxNonCommitRowSkips {
+		parsed, err := strconv.Atoi(item)
+		if err == nil && parsed >= 0 {
+			return parsed, skipped, true
+		}
+		if next == nil {
+			break
+		}
+		item = strings.TrimSpace(next(item))
+		skipped++
+	}
+	return 0, skipped, false
 }
 
 func drawGraphRow(canvas *CanvasWidget, dark bool, raw string, labels []string, yTop int, height int, maxCols int, canvasWidth int, selected bool) {
