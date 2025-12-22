@@ -53,6 +53,13 @@ type graphOverlayState struct {
 	bg    string
 }
 
+type graphDrawContext struct {
+	canvas      *CanvasWidget
+	dark        bool
+	canvasWidth int
+	maxCols     int
+}
+
 func (g *GraphCanvas) ScheduleRedraw(redraw func()) {
 	if g.redrawPending {
 		return
@@ -107,6 +114,12 @@ func (g *GraphCanvas) Redraw(
 	if maxCols <= 0 {
 		return
 	}
+	ctx := graphDrawContext{
+		canvas:      canvas,
+		dark:        dark,
+		canvasWidth: canvasWidth,
+		maxCols:     maxCols,
+	}
 
 	selectedIdx := -1
 	if sel := treeView.Selection(""); len(sel) > 0 {
@@ -143,7 +156,7 @@ func (g *GraphCanvas) Redraw(
 			if entry.Commit != nil && labels != nil {
 				rowLabels = labels[entry.Commit.Hash]
 			}
-			drawGraphRow(canvas, dark, entry.Graph, rowLabels, y, rowHeight, maxCols, canvasWidth, idx == selectedIdx)
+			ctx.drawRow(entry.Graph, rowLabels, y, rowHeight, idx == selectedIdx)
 		}
 		y += rowHeight
 	}
@@ -362,32 +375,34 @@ func resolveFirstCommitIndex(firstItem string, next func(string) string) (idx in
 	return 0, skipped, false
 }
 
-func drawGraphRow(
-	canvas *CanvasWidget,
-	dark bool,
+type graphLabelStyle struct {
+	fill string
+	out  string
+	text string
+}
+
+func (ctx graphDrawContext) drawRow(
 	raw string,
 	labels []string,
 	yTop int,
 	height int,
-	maxCols int,
-	canvasWidth int,
 	selected bool,
 ) {
-	if canvas == nil || maxCols <= 0 || height <= 0 {
+	if ctx.canvas == nil || ctx.maxCols <= 0 || height <= 0 {
 		return
 	}
-	tokens := parseGraphTokens(raw, maxCols)
+	tokens := parseGraphTokens(raw, ctx.maxCols)
 	if len(tokens) == 0 {
 		return
 	}
-	if selected && canvasWidth > 0 {
+	if selected && ctx.canvasWidth > 0 {
 		fill := "#cfe7ff"
-		if dark {
+		if ctx.dark {
 			fill = "#253446"
 		}
-		canvas.CreateRectangle(
+		ctx.canvas.CreateRectangle(
 			0, yTop,
-			canvasWidth, yTop+height,
+			ctx.canvasWidth, yTop+height,
 			Fill(fill),
 			Width(0),
 		)
@@ -395,7 +410,7 @@ func drawGraphRow(
 	yMid := graphRowMidY(yTop, height)
 	radius := min(graphCanvasLaneSpacing/2, max(2, height/3))
 
-	colors := graphCanvasLaneColors(dark)
+	colors := graphCanvasLaneColors(ctx.dark)
 	head := containsPrefix(labels, "HEAD")
 	nodeX := graphCanvasLaneMargin + graphCanvasLaneSpacing/2
 	nodeColor := colors[0]
@@ -404,23 +419,23 @@ func drawGraphRow(
 		color := colors[col%len(colors)]
 		switch token {
 		case "|":
-			canvas.CreateLine(x, yTop, x, yTop+height, Width(graphCanvasLineWidth), Fill(color))
+			ctx.canvas.CreateLine(x, yTop, x, yTop+height, Width(graphCanvasLineWidth), Fill(color))
 		case "*":
 			nodeX = x
 			nodeColor = color
-			canvas.CreateLine(x, yTop, x, yMid-radius, Width(graphCanvasLineWidth), Fill(color))
-			canvas.CreateLine(x, yMid+radius, x, yTop+height, Width(graphCanvasLineWidth), Fill(color))
+			ctx.canvas.CreateLine(x, yTop, x, yMid-radius, Width(graphCanvasLineWidth), Fill(color))
+			ctx.canvas.CreateLine(x, yMid+radius, x, yTop+height, Width(graphCanvasLineWidth), Fill(color))
 			fill := "white"
-			if dark {
+			if ctx.dark {
 				fill = "#1e1e1e"
 			}
 			if head {
 				fill = "#ffd75e"
-				if dark {
+				if ctx.dark {
 					fill = "#b58900"
 				}
 			}
-			canvas.CreateOval(
+			ctx.canvas.CreateOval(
 				x-radius, yMid-radius,
 				x+radius, yMid+radius,
 				Fill(fill),
@@ -430,29 +445,20 @@ func drawGraphRow(
 		default:
 		}
 	}
-	drawGraphLabels(canvas, dark, labels, nodeX, yMid, radius, nodeColor, canvasWidth)
+	ctx.drawLabels(labels, nodeX, yMid, radius, nodeColor)
 }
 
-type graphLabelStyle struct {
-	fill string
-	out  string
-	text string
-}
-
-func drawGraphLabels(
-	canvas *CanvasWidget,
-	dark bool,
+func (ctx graphDrawContext) drawLabels(
 	labels []string,
 	nodeX int,
 	yMid int,
 	radius int,
 	nodeColor string,
-	canvasWidth int,
 ) {
-	if canvas == nil || len(labels) == 0 || canvasWidth <= 0 {
+	if ctx.canvas == nil || len(labels) == 0 || ctx.canvasWidth <= 0 {
 		return
 	}
-	canvasPath := canvas.String()
+	canvasPath := ctx.canvas.String()
 	if canvasPath == "" {
 		return
 	}
@@ -463,18 +469,18 @@ func drawGraphLabels(
 		if label == "" {
 			continue
 		}
-		if x >= canvasWidth-graphCanvasLabelGap {
+		if x >= ctx.canvasWidth-graphCanvasLabelGap {
 			break
 		}
-		style := graphLabelStyleFor(dark, label, nodeColor)
-		textID := canvas.CreateText(
+		style := graphLabelStyleFor(ctx.dark, label, nodeColor)
+		textID := ctx.canvas.CreateText(
 			x+graphCanvasLabelPadX, yMid,
 			Anchor(W),
 			Txt(label),
 			Font(graphCanvasLabelFont),
 			Fill(style.text),
 		)
-		bbox := canvas.Bbox(textID)
+		bbox := ctx.canvas.Bbox(textID)
 		if len(bbox) < 4 {
 			continue
 		}
@@ -482,12 +488,12 @@ func drawGraphLabels(
 		y1 := tkutil.Atoi(bbox[1]) - graphCanvasLabelPadY
 		x2 := tkutil.Atoi(bbox[2]) + graphCanvasLabelPadX
 		y2 := tkutil.Atoi(bbox[3]) + graphCanvasLabelPadY
-		if x1 >= canvasWidth {
+		if x1 >= ctx.canvasWidth {
 			continue
 		}
-		rectID := canvas.CreateRectangle(
+		rectID := ctx.canvas.CreateRectangle(
 			x1, y1,
-			min(x2, canvasWidth), y2,
+			min(x2, ctx.canvasWidth), y2,
 			Fill(style.fill),
 			Outline(style.out),
 			Width(1),
@@ -495,7 +501,7 @@ func drawGraphLabels(
 		tkutil.EvalOrEmpty("%s lower %s %s", canvasPath, rectID, textID)
 		if !connected && x1 > nodeX+radius {
 			connected = true
-			canvas.CreateLine(nodeX+radius, yMid, x1, yMid, Width(graphCanvasConnectorW), Fill(style.out))
+			ctx.canvas.CreateLine(nodeX+radius, yMid, x1, yMid, Width(graphCanvasConnectorW), Fill(style.out))
 		}
 		x = x2 + graphCanvasLabelGap
 	}
