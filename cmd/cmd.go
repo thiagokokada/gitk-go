@@ -55,5 +55,14 @@ func run(args []string) error {
 	if len(remaining) > 0 {
 		repoPath = remaining[len(remaining)-1]
 	}
-	return gui.Run(repoPath, limitU, graphColsU, !*textGraph, gui.ThemePreferenceFromString(*mode), !*noWatch, !*noSyntax, *verbose)
+	return gui.Run(gui.RunConfig{
+		RepoPath:        repoPath,
+		Batch:           limitU,
+		GraphMaxColumns: graphColsU,
+		GraphCanvas:     !*textGraph,
+		ThemePreference: gui.ThemePreferenceFromString(*mode),
+		AutoReload:      !*noWatch,
+		SyntaxHighlight: !*noSyntax,
+		Verbose:         *verbose,
+	})
 }

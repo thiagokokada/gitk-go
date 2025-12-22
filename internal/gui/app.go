@@ -31,26 +31,42 @@ const (
 	localStagedLabel   = "Local changes checked into index but not committed"
 )
 
-func Run(repoPath string, batch uint, graphMaxColumns uint, graphCanvas bool, pref ThemePreference, autoReload bool, syntaxHighlight bool, verbose bool) error {
+// RunConfig describes the parameters that control the GUI runtime.
+type RunConfig struct {
+	RepoPath        string
+	Batch           uint
+	GraphMaxColumns uint
+	GraphCanvas     bool
+	ThemePreference ThemePreference
+	AutoReload      bool
+	SyntaxHighlight bool
+	Verbose         bool
+}
+
+func Run(cfg RunConfig) error {
+	if cfg.RepoPath == "" {
+		cfg.RepoPath = "."
+	}
 	if err := InitializeExtension("eval"); err != nil && err != AlreadyInitialized {
 		return fmt.Errorf("init eval extension: %v", err)
 	}
-	svc, err := git.Open(repoPath)
+	svc, err := git.Open(cfg.RepoPath)
 	if err != nil {
 		return err
 	}
-	svc.SetGraphMaxColumns(int(graphMaxColumns))
+	svc.SetGraphMaxColumns(int(cfg.GraphMaxColumns))
+	pref := cfg.ThemePreference
 	if pref < ThemeAuto || pref > ThemeDark {
 		pref = ThemeAuto
 	}
 	app := &Controller{
 		svc: svc,
 		cfg: controllerConfig{
-			batch:               batch,
-			graphCanvas:         graphCanvas,
-			autoReloadRequested: autoReload,
-			syntaxHighlight:     syntaxHighlight,
-			verbose:             verbose,
+			batch:               cfg.Batch,
+			graphCanvas:         cfg.GraphCanvas,
+			autoReloadRequested: cfg.AutoReload,
+			syntaxHighlight:     cfg.SyntaxHighlight,
+			verbose:             cfg.Verbose,
 		},
 		repo: controllerRepo{
 			path: svc.RepoPath(),
