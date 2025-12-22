@@ -38,6 +38,29 @@ func TestFormatCommitHeader(t *testing.T) {
 	}
 }
 
+func TestOpenRepoResolvesWorkdirToRepoRoot(t *testing.T) {
+	dir, _ := createTestRepo(t, 1)
+	subdir := filepath.Join(dir, "subdir")
+	if err := os.MkdirAll(subdir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	repo, err := openRepo(subdir)
+	if err != nil {
+		t.Fatalf("openRepo: %v", err)
+	}
+	want, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(dir): %v", err)
+	}
+	got, err := filepath.EvalSymlinks(repo.path)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(repo.path): %v", err)
+	}
+	if got != want {
+		t.Fatalf("expected repo root %q, got %q", want, got)
+	}
+}
+
 func TestNewEntrySearchText(t *testing.T) {
 	ts := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
 	commit := &Commit{

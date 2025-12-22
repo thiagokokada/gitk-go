@@ -46,7 +46,7 @@ func (s *Service) resetScanLocked(headHash, headName string) error {
 	if s.repo.path == "" {
 		return fmt.Errorf("repository root not set")
 	}
-	stream, err := startGitLogStream(s.repo.path, headHash)
+	stream, err := s.repo.startGitLogStream(headHash)
 	if err != nil {
 		return err
 	}
@@ -171,8 +171,8 @@ type gitLogStream struct {
 	waitErr  error
 }
 
-func startGitLogStream(repoPath string, fromHash string) (*gitLogStream, error) {
-	if repoPath == "" {
+func (r repo) startGitLogStream(fromHash string) (*gitLogStream, error) {
+	if r.path == "" {
 		return nil, fmt.Errorf("repository root not set")
 	}
 	fromHash = strings.TrimSpace(fromHash)
@@ -188,7 +188,7 @@ func startGitLogStream(repoPath string, fromHash string) (*gitLogStream, error) 
 		"git",
 		"--no-pager",
 		"-C",
-		repoPath,
+		r.path,
 		"log",
 		"--no-color",
 		"--no-decorate",

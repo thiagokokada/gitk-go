@@ -2,10 +2,9 @@ package git
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
-	"os/exec"
+	"strings"
 )
 
 func (s *Service) LocalChanges() (LocalChanges, error) {
@@ -13,18 +12,11 @@ func (s *Service) LocalChanges() (LocalChanges, error) {
 	if s.repo.path == "" {
 		return res, fmt.Errorf("repository root not set")
 	}
-	args := []string{"-C", s.repo.path, "status", "--porcelain=v2"}
-	cmd := exec.Command("git", args...)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		if stderr.Len() > 0 {
-			return res, fmt.Errorf("git status: %v: %s", err, stderr.String())
-		}
-		return res, fmt.Errorf("git status: %w", err)
+	out, err := s.repo.runGitCommand([]string{"status", "--porcelain=v2"}, false, "git status")
+	if err != nil {
+		return res, err
 	}
-	res, err := parseStatusPorcelainV2(&stdout)
+	res, err = parseStatusPorcelainV2(strings.NewReader(out))
 	if err != nil {
 		return res, fmt.Errorf("parse git status: %w", err)
 	}

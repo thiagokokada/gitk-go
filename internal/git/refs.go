@@ -11,7 +11,7 @@ func (s *Service) BranchLabels() (map[string][]string, error) {
 		return labels, nil
 	}
 
-	out, err := s.runGitCommand(
+	out, err := s.repo.runGitCommand(
 		[]string{
 			"--no-pager",
 			"show-ref",
@@ -32,13 +32,13 @@ func (s *Service) BranchLabels() (map[string][]string, error) {
 		labels[hash] = append(labels[hash], values...)
 	}
 
-	headHashOut, err := s.runGitCommand([]string{"rev-parse", "-q", "--verify", "HEAD"}, true, "git rev-parse")
+	headHashOut, err := s.repo.runGitCommand([]string{"rev-parse", "-q", "--verify", "HEAD"}, true, "git rev-parse")
 	if err != nil {
 		return nil, err
 	}
 	headHash := strings.TrimSpace(headHashOut)
 	if headHash != "" {
-		refOut, err := s.runGitCommand([]string{"symbolic-ref", "-q", "--short", "HEAD"}, true, "git symbolic-ref")
+		refOut, err := s.repo.runGitCommand([]string{"symbolic-ref", "-q", "--short", "HEAD"}, true, "git symbolic-ref")
 		if err != nil {
 			return nil, err
 		}

@@ -13,7 +13,7 @@ func (s *Service) WorktreeDiff(staged bool) (string, []FileSection, error) {
 	if staged {
 		args = append(args, "--cached")
 	}
-	diffText, err := s.runGitCommand(args, true, "git diff")
+	diffText, err := s.repo.runGitCommand(args, true, "git diff")
 	if err != nil {
 		return "", nil, err
 	}

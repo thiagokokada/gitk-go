@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -18,14 +17,10 @@ type Service struct {
 	// mu serializes access to repo operations that share iterators/state (scan session).
 	mu sync.Mutex
 
-	repo repoState
+	repo repo
 	scan *scanSession
 
 	graphMaxColumns int
-}
-
-type repoState struct {
-	path string
 }
 
 type Entry struct {
@@ -41,21 +36,12 @@ type FileSection struct {
 }
 
 func Open(repoPath string) (*Service, error) {
-	abs, err := filepath.Abs(repoPath)
+	repo, err := openRepo(repoPath)
 	if err != nil {
 		return nil, err
 	}
-	tmp := &Service{repo: repoState{path: abs}}
-	root, err := tmp.runGitCommand([]string{"rev-parse", "--show-toplevel"}, false, "git rev-parse")
-	if err != nil {
-		return nil, fmt.Errorf("open repository: %w", err)
-	}
-	root = strings.TrimSpace(root)
-	if root == "" {
-		return nil, fmt.Errorf("open repository: git rev-parse returned empty root")
-	}
 	return &Service{
-		repo:            repoState{path: root},
+		repo:            repo,
 		graphMaxColumns: DefaultGraphMaxColumns,
 	}, nil
 }
@@ -201,7 +187,7 @@ func (s *Service) headStateLocked() (hash string, headName string, ok bool, err 
 	if s.repo.path == "" {
 		return "", "", false, fmt.Errorf("repository root not set")
 	}
-	out, err := s.runGitCommand([]string{"rev-parse", "-q", "--verify", "HEAD"}, true, "git rev-parse")
+	out, err := s.repo.runGitCommand([]string{"rev-parse", "-q", "--verify", "HEAD"}, true, "git rev-parse")
 	if err != nil {
 		return "", "", false, err
 	}
@@ -209,7 +195,7 @@ func (s *Service) headStateLocked() (hash string, headName string, ok bool, err 
 	if hash == "" {
 		return "", "", false, nil
 	}
-	ref, err := s.runGitCommand([]string{"symbolic-ref", "-q", "--short", "HEAD"}, true, "git symbolic-ref")
+	ref, err := s.repo.runGitCommand([]string{"symbolic-ref", "-q", "--short", "HEAD"}, true, "git symbolic-ref")
 	if err != nil {
 		return "", "", false, err
 	}
@@ -248,12 +234,6 @@ func FormatCommitHeader(c *Commit) string {
 type LocalChanges struct {
 	HasWorktree bool
 	HasStaged   bool
-
-	UnstagedDiff string
-	StagedDiff   string
-
-	UnstagedSections []FileSection
-	StagedSections   []FileSection
 }
 
 func appendSignatureLine(b *strings.Builder, label string, sig Signature) {
