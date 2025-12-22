@@ -46,19 +46,6 @@ Usage of gitk-go:
     	print version information and exit
 ```
 
-#### Garbage-collector experiment
-
-If you are using Go 1.25 or newer, building or running with
-`GOEXPERIMENT=greenteagc` can noticeably reduce UI pauses on very large
-repositories:
-
-```bash
-GOEXPERIMENT=greenteagc go build
-```
-
-This flag is optional and only affects performance for a few operations (e.g.,
-diffs); functionality remains the same.
-
 ### Known issues
 
 - Automatic reload doesn't work well with `core.fsmonitor` option from `git`

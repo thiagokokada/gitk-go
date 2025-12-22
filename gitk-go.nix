@@ -35,8 +35,6 @@ buildGoModule {
     makeBinaryWrapper
   ];
 
-  env.GOEXPERIMENT = "greenteagc";
-
   postFixup =
     let
       linuxLibs = lib.makeLibraryPath [
