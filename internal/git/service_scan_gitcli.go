@@ -65,9 +65,6 @@ func (s *Service) resetScanLocked(headHash, headName string) error {
 }
 
 func (s *scanSession) close() {
-	if s == nil {
-		return
-	}
 	if s.logStream != nil {
 		if err := s.logStream.Close(); err != nil {
 			slog.Debug("git log stream close", slog.Any("error", err))
@@ -139,9 +136,6 @@ func (s *scanSession) assignGraphStrings(entries []*Entry) {
 		return
 	}
 	for _, entry := range entries {
-		if entry == nil || entry.Commit == nil {
-			continue
-		}
 		entry.Graph = s.graphCache[entry.Commit.Hash]
 	}
 }
@@ -227,9 +221,6 @@ func startGitLogStream(repoPath string, fromHash string) (*gitLogStream, error) 
 }
 
 func (s *gitLogStream) Next() (*Commit, error) {
-	if s == nil || s.r == nil {
-		return nil, io.EOF
-	}
 	rec, err := s.r.ReadBytes(0)
 	if err != nil {
 		if err == io.EOF {
@@ -261,9 +252,6 @@ func (s *gitLogStream) Next() (*Commit, error) {
 }
 
 func (s *gitLogStream) Close() error {
-	if s == nil {
-		return nil
-	}
 	if s.cancel != nil {
 		s.cancel()
 	}
@@ -274,9 +262,6 @@ func (s *gitLogStream) Close() error {
 }
 
 func (s *gitLogStream) wait() error {
-	if s == nil || s.cmd == nil {
-		return nil
-	}
 	s.waitOnce.Do(func() {
 		s.waitErr = s.cmd.Wait()
 	})

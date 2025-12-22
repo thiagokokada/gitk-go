@@ -316,7 +316,7 @@ func newGraphBuilder(maxColumns int) *graphBuilder {
 }
 
 func (g *graphBuilder) trim() {
-	if g == nil || g.maxColumns <= 0 {
+	if g.maxColumns <= 0 {
 		return
 	}
 	if len(g.columns) > g.maxColumns {
@@ -325,9 +325,6 @@ func (g *graphBuilder) trim() {
 }
 
 func (g *graphBuilder) Line(c *Commit) string {
-	if c == nil {
-		return ""
-	}
 	idx := g.columnIndex(c.Hash)
 	if idx == -1 {
 		g.columns = append([]string{c.Hash}, g.columns...)
@@ -359,9 +356,6 @@ func (g *graphBuilder) columnIndex(hash string) int {
 }
 
 func (g *graphBuilder) advance(idx int, parents []string) {
-	if g == nil {
-		return
-	}
 	if len(parents) == 0 {
 		g.columns = append(g.columns[:idx], g.columns[idx+1:]...)
 		return

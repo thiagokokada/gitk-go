@@ -32,7 +32,7 @@ func (s *Service) Diff(commit *Commit) (string, []FileSection, error) {
 }
 
 func (s *Service) commitDiffText(commit *Commit) (string, error) {
-	if commit != nil && len(commit.ParentHashes) > 0 {
+	if len(commit.ParentHashes) > 0 {
 		parent := commit.ParentHashes[0]
 		return s.runGitCommand(
 			[]string{"diff", "--no-color", parent, commit.Hash},
