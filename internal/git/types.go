@@ -1,17 +1,7 @@
 package git
 
-import "time"
+import gitbackend "github.com/thiagokokada/gitk-go/internal/git/backend"
 
-type Signature struct {
-	Name  string
-	Email string
-	When  time.Time
-}
-
-type Commit struct {
-	Hash         string
-	ParentHashes []string
-	Author       Signature
-	Committer    Signature
-	Message      string
-}
+type Signature = gitbackend.Signature
+type Commit = gitbackend.Commit
+type LocalChanges = gitbackend.LocalChanges

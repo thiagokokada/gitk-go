@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	gitbackend "github.com/thiagokokada/gitk-go/internal/git/backend"
 )
 
 const DefaultBatch = 1000
@@ -17,7 +19,7 @@ type Service struct {
 	// mu serializes access to repo operations that share iterators/state (scan session).
 	mu sync.Mutex
 
-	backend Backend
+	backend gitbackend.Backend
 	scan    *scanSession
 
 	graphMaxColumns int
@@ -36,7 +38,7 @@ type FileSection struct {
 }
 
 func Open(repoPath string) (*Service, error) {
-	backend, err := openRepo(repoPath)
+	backend, err := gitbackend.OpenCLI(repoPath)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +48,7 @@ func Open(repoPath string) (*Service, error) {
 	}, nil
 }
 
-func NewWithBackend(backend Backend) *Service {
+func NewWithBackend(backend gitbackend.Backend) *Service {
 	return &Service{
 		backend:         backend,
 		graphMaxColumns: DefaultGraphMaxColumns,
@@ -223,11 +225,6 @@ func FormatCommitHeader(c *Commit) string {
 		fmt.Fprintf(&b, "    %s\n", line)
 	}
 	return b.String()
-}
-
-type LocalChanges struct {
-	HasWorktree bool
-	HasStaged   bool
 }
 
 func appendSignatureLine(b *strings.Builder, label string, sig Signature) {

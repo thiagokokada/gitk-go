@@ -3,6 +3,8 @@ package git
 import (
 	"fmt"
 	"strings"
+
+	gitbackend "github.com/thiagokokada/gitk-go/internal/git/backend"
 )
 
 func (s *Service) BranchLabels() (map[string][]string, error) {
@@ -19,11 +21,11 @@ func (s *Service) BranchLabels() (map[string][]string, error) {
 		if ref.Hash == "" || ref.Name == "" {
 			continue
 		}
-		if ref.Kind == RefKindRemoteBranch && strings.HasSuffix(ref.Name, "/HEAD") {
+		if ref.Kind == gitbackend.RefKindRemoteBranch && strings.HasSuffix(ref.Name, "/HEAD") {
 			continue
 		}
 		label := ref.Name
-		if ref.Kind == RefKindTag {
+		if ref.Kind == gitbackend.RefKindTag {
 			label = fmt.Sprintf("tag: %s", ref.Name)
 		}
 		labels[ref.Hash] = append(labels[ref.Hash], label)

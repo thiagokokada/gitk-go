@@ -1,4 +1,4 @@
-package git
+package backend
 
 import (
 	"errors"
@@ -85,8 +85,62 @@ func TestParseStatusPorcelainV2_Error(t *testing.T) {
 	}
 }
 
+func TestParseRefsFromShowRef(t *testing.T) {
+	t.Parallel()
+
+	const (
+		commit1 = "1111111111111111111111111111111111111111"
+		commit2 = "2222222222222222222222222222222222222222"
+		tagObj  = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	)
+
+	in := strings.Join([]string{
+		commit1 + " refs/heads/main",
+		commit1 + " refs/remotes/origin/main",
+		commit1 + " refs/remotes/origin/HEAD",
+		commit2 + " refs/tags/v1.0",
+		tagObj + " refs/tags/v2.0",
+		commit1 + " refs/tags/v2.0^{}",
+		"",
+	}, "\n")
+
+	got, err := parseRefsFromShowRef(in)
+	if err != nil {
+		t.Fatalf("parseRefsFromShowRef() error = %v", err)
+	}
+	if len(got) != 5 {
+		t.Fatalf("unexpected ref count: got %d want 5", len(got))
+	}
+
+	assertHasRef(t, got, Ref{Hash: commit1, Kind: RefKindBranch, Name: "main"})
+	assertHasRef(t, got, Ref{Hash: commit1, Kind: RefKindRemoteBranch, Name: "origin/main"})
+	assertHasRef(t, got, Ref{Hash: commit1, Kind: RefKindRemoteBranch, Name: "origin/HEAD"})
+	assertHasRef(t, got, Ref{Hash: commit2, Kind: RefKindTag, Name: "v1.0"})
+	// v2.0 should use the peeled hash.
+	assertHasRef(t, got, Ref{Hash: commit1, Kind: RefKindTag, Name: "v2.0"})
+}
+
+func TestParseRefsFromShowRef_InvalidLine(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseRefsFromShowRef("refs/heads/main\n")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
 type failingReader struct{}
 
 func (failingReader) Read([]byte) (int, error) {
 	return 0, errors.New("boom")
+}
+
+func assertHasRef(t *testing.T, refs []Ref, want Ref) {
+	t.Helper()
+	for _, got := range refs {
+		if got.Hash == want.Hash && got.Kind == want.Kind && got.Name == want.Name {
+			return
+		}
+	}
+	t.Fatalf("missing ref: %+v (got=%+v)", want, refs)
 }

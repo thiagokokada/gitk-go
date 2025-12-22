@@ -1,4 +1,4 @@
-package git
+package backend
 
 import (
 	"bytes"
@@ -9,36 +9,39 @@ import (
 	"strings"
 )
 
-type repo struct {
+type gitCLI struct {
 	path string
 }
 
-func (r repo) RepoPath() string {
-	return r.path
-}
-
-func openRepo(repoPath string) (repo, error) {
+func OpenCLI(repoPath string) (Backend, error) {
 	abs, err := filepath.Abs(repoPath)
 	if err != nil {
-		return repo{}, err
+		return nil, err
 	}
-	tmp := repo{path: abs}
+	tmp := &gitCLI{path: abs}
 	root, err := tmp.runGitCommand([]string{"rev-parse", "--show-toplevel"}, false, "git rev-parse")
 	if err != nil {
-		return repo{}, fmt.Errorf("open repository: %w", err)
+		return nil, fmt.Errorf("open repository: %w", err)
 	}
 	root = strings.TrimSpace(root)
 	if root == "" {
-		return repo{}, fmt.Errorf("open repository: git rev-parse returned empty root")
+		return nil, fmt.Errorf("open repository: git rev-parse returned empty root")
 	}
-	return repo{path: root}, nil
+	return &gitCLI{path: root}, nil
 }
 
-func (r repo) runGitCommand(args []string, allowExit1 bool, context string) (string, error) {
-	if r.path == "" {
+func (g *gitCLI) RepoPath() string {
+	if g == nil {
+		return ""
+	}
+	return g.path
+}
+
+func (g *gitCLI) runGitCommand(args []string, allowExit1 bool, context string) (string, error) {
+	if g == nil || g.path == "" {
 		return "", fmt.Errorf("repository root not set")
 	}
-	cmdArgs := append([]string{"-C", r.path}, args...)
+	cmdArgs := append([]string{"-C", g.path}, args...)
 	cmd := exec.Command("git", cmdArgs...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

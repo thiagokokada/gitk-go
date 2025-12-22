@@ -38,23 +38,23 @@ func TestFormatCommitHeader(t *testing.T) {
 	}
 }
 
-func TestOpenRepoResolvesWorkdirToRepoRoot(t *testing.T) {
+func TestOpenResolvesWorkdirToRepoRoot(t *testing.T) {
 	dir, _ := createTestRepo(t, 1)
 	subdir := filepath.Join(dir, "subdir")
 	if err := os.MkdirAll(subdir, 0o755); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
-	repo, err := openRepo(subdir)
+	svc, err := Open(subdir)
 	if err != nil {
-		t.Fatalf("openRepo: %v", err)
+		t.Fatalf("Open: %v", err)
 	}
 	want, err := filepath.EvalSymlinks(dir)
 	if err != nil {
 		t.Fatalf("EvalSymlinks(dir): %v", err)
 	}
-	got, err := filepath.EvalSymlinks(repo.RepoPath())
+	got, err := filepath.EvalSymlinks(svc.RepoPath())
 	if err != nil {
-		t.Fatalf("EvalSymlinks(repo.RepoPath()): %v", err)
+		t.Fatalf("EvalSymlinks(svc.RepoPath()): %v", err)
 	}
 	if got != want {
 		t.Fatalf("expected repo root %q, got %q", want, got)

@@ -1,23 +1,18 @@
 package git
 
 import (
-	"bufio"
-	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"log/slog"
-	"os/exec"
-	"strings"
-	"sync"
-	"time"
+
+	gitbackend "github.com/thiagokokada/gitk-go/internal/git/backend"
 )
 
 type scanSession struct {
 	head     string
 	headName string
 
-	logStream LogStream
+	logStream gitbackend.LogStream
 
 	// buffered holds the next commit returned by hasMore() so ScanCommits can keep consuming in-order.
 	buffered  *Commit
@@ -158,171 +153,4 @@ func (s *scanSession) readNextCommit() (*Commit, error) {
 		s.graphColsMax = cols
 	}
 	return commit, nil
-}
-
-type gitLogStream struct {
-	cancel context.CancelFunc
-	cmd    *exec.Cmd
-	stdout io.ReadCloser
-	stderr bytes.Buffer
-	r      *bufio.Reader
-
-	waitOnce sync.Once
-	waitErr  error
-}
-
-func (r repo) StartLogStream(fromHash string) (LogStream, error) {
-	if r.path == "" {
-		return nil, fmt.Errorf("repository root not set")
-	}
-	fromHash = strings.TrimSpace(fromHash)
-	if fromHash == "" {
-		return nil, fmt.Errorf("starting commit not specified")
-	}
-	// NUL-delimited records; commit message cannot contain NUL.
-	const format = "%H%n%P%n%an%n%ae%n%aI%n%cn%n%ce%n%cI%n%B%x00"
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cmd := exec.CommandContext(
-		ctx,
-		"git",
-		"--no-pager",
-		"-C",
-		r.path,
-		"log",
-		"--no-color",
-		"--no-decorate",
-		"--date-order",
-		"--no-patch",
-		// Use tformat to avoid git log adding an extra newline after each record.
-		"--pretty=tformat:"+format,
-		fromHash,
-	)
-	var stream gitLogStream
-	stream.cancel = cancel
-	stream.cmd = cmd
-	cmd.Stderr = &stream.stderr
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		cancel()
-		return nil, fmt.Errorf("git log stdout: %w", err)
-	}
-	stream.stdout = stdout
-	stream.r = bufio.NewReader(stdout)
-	if err := cmd.Start(); err != nil {
-		cancel()
-		_ = stdout.Close()
-		if stream.stderr.Len() > 0 {
-			return nil, fmt.Errorf("git log start: %v: %s", err, strings.TrimSpace(stream.stderr.String()))
-		}
-		return nil, fmt.Errorf("git log start: %w", err)
-	}
-	return &stream, nil
-}
-
-func (s *gitLogStream) Next() (*Commit, error) {
-	rec, err := s.r.ReadBytes(0)
-	if err != nil {
-		if err == io.EOF {
-			if waitErr := s.wait(); waitErr != nil {
-				return nil, waitErr
-			}
-			return nil, io.EOF
-		}
-		return nil, err
-	}
-	if len(rec) == 0 {
-		return nil, io.EOF
-	}
-	// Strip trailing NUL.
-	rec = rec[:len(rec)-1]
-	// git log prints a newline between commits even when the format ends with NUL,
-	// so subsequent records can start with '\n'.
-	for len(rec) > 0 && (rec[0] == '\n' || rec[0] == '\r') {
-		rec = rec[1:]
-	}
-	if len(rec) == 0 {
-		return nil, fmt.Errorf("unexpected empty git log record")
-	}
-	commit, err := parseGitLogRecord(rec)
-	if err != nil {
-		return nil, err
-	}
-	return commit, nil
-}
-
-func (s *gitLogStream) Close() error {
-	if s.cancel != nil {
-		s.cancel()
-	}
-	if s.stdout != nil {
-		_ = s.stdout.Close()
-	}
-	return s.wait()
-}
-
-func (s *gitLogStream) wait() error {
-	s.waitOnce.Do(func() {
-		s.waitErr = s.cmd.Wait()
-	})
-	if s.waitErr == nil {
-		return nil
-	}
-	if s.stderr.Len() > 0 {
-		return fmt.Errorf("git log: %v: %s", s.waitErr, strings.TrimSpace(s.stderr.String()))
-	}
-	return fmt.Errorf("git log: %w", s.waitErr)
-}
-
-func parseGitLogRecord(rec []byte) (*Commit, error) {
-	const headerLines = 8
-	var lines [headerLines][]byte
-	lineCount := 0
-	start := 0
-	for i := 0; i < len(rec) && lineCount < headerLines; i++ {
-		if rec[i] != '\n' {
-			continue
-		}
-		lines[lineCount] = rec[start:i]
-		lineCount++
-		start = i + 1
-	}
-	if lineCount < headerLines {
-		gotLines := lineCount
-		if len(rec) > 0 {
-			gotLines = lineCount + 1
-		}
-		return nil, fmt.Errorf("unexpected git log record: got %d lines", gotLines)
-	}
-	hashBytes := bytes.TrimSpace(lines[0])
-	if len(hashBytes) == 0 {
-		return nil, fmt.Errorf("missing commit hash")
-	}
-
-	hashStr := string(hashBytes)
-	var parents []string
-	parentLine := bytes.TrimSpace(lines[1])
-	if len(parentLine) != 0 {
-		for _, parent := range bytes.Fields(parentLine) {
-			parents = append(parents, string(parent))
-		}
-	}
-
-	authorName := string(lines[2])
-	authorEmail := string(lines[3])
-	authorWhen, _ := time.Parse(time.RFC3339, string(bytes.TrimSpace(lines[4])))
-	committerName := string(lines[5])
-	committerEmail := string(lines[6])
-	committerWhen, _ := time.Parse(time.RFC3339, string(bytes.TrimSpace(lines[7])))
-	message := string(rec[start:])
-	if start >= len(rec) {
-		message = ""
-	}
-	return &Commit{
-		Hash:         hashStr,
-		ParentHashes: parents,
-		Author:       Signature{Name: authorName, Email: authorEmail, When: authorWhen},
-		Committer:    Signature{Name: committerName, Email: committerEmail, When: committerWhen},
-		Message:      message,
-	}, nil
 }

@@ -1,15 +1,17 @@
-package git
+package backend
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"strings"
 )
 
-func (r repo) HeadState() (hash string, headName string, ok bool, err error) {
-	if r.path == "" {
+func (g *gitCLI) HeadState() (hash string, headName string, ok bool, err error) {
+	if g == nil || g.path == "" {
 		return "", "", false, fmt.Errorf("repository root not set")
 	}
-	out, err := r.runGitCommand([]string{"rev-parse", "-q", "--verify", "HEAD"}, true, "git rev-parse")
+	out, err := g.runGitCommand([]string{"rev-parse", "-q", "--verify", "HEAD"}, true, "git rev-parse")
 	if err != nil {
 		return "", "", false, err
 	}
@@ -17,7 +19,7 @@ func (r repo) HeadState() (hash string, headName string, ok bool, err error) {
 	if hash == "" {
 		return "", "", false, nil
 	}
-	ref, err := r.runGitCommand([]string{"symbolic-ref", "-q", "--short", "HEAD"}, true, "git symbolic-ref")
+	ref, err := g.runGitCommand([]string{"symbolic-ref", "-q", "--short", "HEAD"}, true, "git symbolic-ref")
 	if err != nil {
 		return "", "", false, err
 	}
@@ -28,43 +30,43 @@ func (r repo) HeadState() (hash string, headName string, ok bool, err error) {
 	return hash, headName, true, nil
 }
 
-func (r repo) CommitDiffText(commitHash string, parentHash string) (string, error) {
+func (g *gitCLI) CommitDiffText(commitHash string, parentHash string) (string, error) {
 	commitHash = strings.TrimSpace(commitHash)
 	parentHash = strings.TrimSpace(parentHash)
 	if commitHash == "" {
 		return "", fmt.Errorf("commit not specified")
 	}
 	if parentHash != "" {
-		return r.runGitCommand(
+		return g.runGitCommand(
 			[]string{"diff", "--no-color", parentHash, commitHash},
 			true,
 			"git diff",
 		)
 	}
-	return r.runGitCommand(
+	return g.runGitCommand(
 		[]string{"show", "--no-color", "--pretty=format:", commitHash},
 		false,
 		"git show",
 	)
 }
 
-func (r repo) WorktreeDiffText(staged bool) (string, error) {
-	if r.path == "" {
+func (g *gitCLI) WorktreeDiffText(staged bool) (string, error) {
+	if g == nil || g.path == "" {
 		return "", fmt.Errorf("repository root not set")
 	}
 	args := []string{"diff", "--no-color"}
 	if staged {
 		args = append(args, "--cached")
 	}
-	return r.runGitCommand(args, true, "git diff")
+	return g.runGitCommand(args, true, "git diff")
 }
 
-func (r repo) LocalChangesStatus() (LocalChanges, error) {
+func (g *gitCLI) LocalChangesStatus() (LocalChanges, error) {
 	var res LocalChanges
-	if r.path == "" {
+	if g == nil || g.path == "" {
 		return res, fmt.Errorf("repository root not set")
 	}
-	out, err := r.runGitCommand([]string{"status", "--porcelain=v2"}, false, "git status")
+	out, err := g.runGitCommand([]string{"status", "--porcelain=v2"}, false, "git status")
 	if err != nil {
 		return res, err
 	}
@@ -75,11 +77,42 @@ func (r repo) LocalChangesStatus() (LocalChanges, error) {
 	return res, nil
 }
 
-func (r repo) ListRefs() ([]Ref, error) {
-	if r.path == "" {
+func parseStatusPorcelainV2(r io.Reader) (LocalChanges, error) {
+	var res LocalChanges
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) < 2 {
+			continue
+		}
+		switch line[0] {
+		case '1', '2', 'u':
+			if len(line) < 4 {
+				continue
+			}
+			stagedState := line[2]
+			worktreeState := line[3]
+			if stagedState != '.' {
+				res.HasStaged = true
+			}
+			if worktreeState != '.' && worktreeState != '?' {
+				res.HasWorktree = true
+			}
+		default:
+			// '?' untracked, '!' ignored, etc.
+		}
+		if res.HasWorktree && res.HasStaged {
+			break
+		}
+	}
+	return res, scanner.Err()
+}
+
+func (g *gitCLI) ListRefs() ([]Ref, error) {
+	if g == nil || g.path == "" {
 		return nil, nil
 	}
-	out, err := r.runGitCommand(
+	out, err := g.runGitCommand(
 		[]string{
 			"--no-pager",
 			"show-ref",
