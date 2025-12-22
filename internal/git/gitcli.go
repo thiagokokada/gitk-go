@@ -13,6 +13,10 @@ type repo struct {
 	path string
 }
 
+func (r repo) RepoPath() string {
+	return r.path
+}
+
 func openRepo(repoPath string) (repo, error) {
 	abs, err := filepath.Abs(repoPath)
 	if err != nil {

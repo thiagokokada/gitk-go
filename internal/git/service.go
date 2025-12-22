@@ -17,8 +17,8 @@ type Service struct {
 	// mu serializes access to repo operations that share iterators/state (scan session).
 	mu sync.Mutex
 
-	repo repo
-	scan *scanSession
+	backend Backend
+	scan    *scanSession
 
 	graphMaxColumns int
 }
@@ -36,18 +36,28 @@ type FileSection struct {
 }
 
 func Open(repoPath string) (*Service, error) {
-	repo, err := openRepo(repoPath)
+	backend, err := openRepo(repoPath)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		repo:            repo,
+		backend:         backend,
 		graphMaxColumns: DefaultGraphMaxColumns,
 	}, nil
 }
 
+func NewWithBackend(backend Backend) *Service {
+	return &Service{
+		backend:         backend,
+		graphMaxColumns: DefaultGraphMaxColumns,
+	}
+}
+
 func (s *Service) RepoPath() string {
-	return s.repo.path
+	if s.backend == nil {
+		return ""
+	}
+	return s.backend.RepoPath()
 }
 
 func (s *Service) SetGraphMaxColumns(maxColumns int) {
@@ -184,26 +194,10 @@ func (s *Service) processGraph(target uint, entries []*Entry) error {
 }
 
 func (s *Service) headStateLocked() (hash string, headName string, ok bool, err error) {
-	if s.repo.path == "" {
+	if s.backend == nil {
 		return "", "", false, fmt.Errorf("repository root not set")
 	}
-	out, err := s.repo.runGitCommand([]string{"rev-parse", "-q", "--verify", "HEAD"}, true, "git rev-parse")
-	if err != nil {
-		return "", "", false, err
-	}
-	hash = strings.TrimSpace(out)
-	if hash == "" {
-		return "", "", false, nil
-	}
-	ref, err := s.repo.runGitCommand([]string{"symbolic-ref", "-q", "--short", "HEAD"}, true, "git symbolic-ref")
-	if err != nil {
-		return "", "", false, err
-	}
-	headName = strings.TrimSpace(ref)
-	if headName == "" {
-		headName = "HEAD"
-	}
-	return hash, headName, true, nil
+	return s.backend.HeadState()
 }
 
 func FormatCommitHeader(c *Commit) string {

@@ -4,23 +4,13 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"strings"
 )
 
 func (s *Service) LocalChanges() (LocalChanges, error) {
-	var res LocalChanges
-	if s.repo.path == "" {
-		return res, fmt.Errorf("repository root not set")
+	if s.backend == nil {
+		return LocalChanges{}, fmt.Errorf("repository root not set")
 	}
-	out, err := s.repo.runGitCommand([]string{"status", "--porcelain=v2"}, false, "git status")
-	if err != nil {
-		return res, err
-	}
-	res, err = parseStatusPorcelainV2(strings.NewReader(out))
-	if err != nil {
-		return res, fmt.Errorf("parse git status: %w", err)
-	}
-	return res, nil
+	return s.backend.LocalChangesStatus()
 }
 
 func parseStatusPorcelainV2(r io.Reader) (LocalChanges, error) {

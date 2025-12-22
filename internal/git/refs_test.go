@@ -24,45 +24,27 @@ func TestParseRefLabelsFromShowRef(t *testing.T) {
 		"",
 	}, "\n")
 
-	got, err := parseRefLabelsFromShowRef(in)
+	got, err := parseRefsFromShowRef(in)
 	if err != nil {
-		t.Fatalf("parseRefLabelsFromShowRef() error = %v", err)
+		t.Fatalf("parseRefsFromShowRef() error = %v", err)
 	}
 
-	if len(got) != 2 {
-		t.Fatalf("unexpected key count: got %d want 2", len(got))
+	if len(got) != 5 {
+		t.Fatalf("unexpected ref count: got %d want 5", len(got))
 	}
 
-	labels1 := got[commit1]
-	if labels1 == nil {
-		t.Fatalf("missing commit key %s", commit1)
-	}
-	if !contains(labels1, "main") {
-		t.Fatalf("expected branch label main in %+v", labels1)
-	}
-	if !contains(labels1, "origin/main") {
-		t.Fatalf("expected remote label origin/main in %+v", labels1)
-	}
-	if contains(labels1, "origin/HEAD") {
-		t.Fatalf("did not expect origin/HEAD in %+v", labels1)
-	}
-	if !contains(labels1, "tag: v2.0") {
-		t.Fatalf("expected peeled tag label tag: v2.0 in %+v", labels1)
-	}
-
-	labels2 := got[commit2]
-	if labels2 == nil {
-		t.Fatalf("missing commit key %s", commit2)
-	}
-	if !contains(labels2, "tag: v1.0") {
-		t.Fatalf("expected tag label tag: v1.0 in %+v", labels2)
-	}
+	assertHasRef(t, got, Ref{Hash: commit1, Kind: RefKindBranch, Name: "main"})
+	assertHasRef(t, got, Ref{Hash: commit1, Kind: RefKindRemoteBranch, Name: "origin/main"})
+	assertHasRef(t, got, Ref{Hash: commit1, Kind: RefKindRemoteBranch, Name: "origin/HEAD"})
+	assertHasRef(t, got, Ref{Hash: commit2, Kind: RefKindTag, Name: "v1.0"})
+	// v2.0 should use the peeled hash.
+	assertHasRef(t, got, Ref{Hash: commit1, Kind: RefKindTag, Name: "v2.0"})
 }
 
-func TestParseRefLabelsFromShowRef_InvalidLine(t *testing.T) {
+func TestParseRefsFromShowRef_InvalidLine(t *testing.T) {
 	t.Parallel()
 
-	_, err := parseRefLabelsFromShowRef("refs/heads/main\n")
+	_, err := parseRefsFromShowRef("refs/heads/main\n")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -106,4 +88,14 @@ func contains(vals []string, want string) bool {
 		}
 	}
 	return false
+}
+
+func assertHasRef(t *testing.T, refs []Ref, want Ref) {
+	t.Helper()
+	for _, got := range refs {
+		if got.Hash == want.Hash && got.Kind == want.Kind && got.Name == want.Name {
+			return
+		}
+	}
+	t.Fatalf("missing ref: %+v (got=%+v)", want, refs)
 }

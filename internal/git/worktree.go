@@ -6,14 +6,10 @@ import (
 )
 
 func (s *Service) WorktreeDiff(staged bool) (string, []FileSection, error) {
-	if s.repo.path == "" {
+	if s.backend == nil || s.backend.RepoPath() == "" {
 		return "", nil, fmt.Errorf("repository root not set")
 	}
-	args := []string{"diff", "--no-color"}
-	if staged {
-		args = append(args, "--cached")
-	}
-	diffText, err := s.repo.runGitCommand(args, true, "git diff")
+	diffText, err := s.backend.WorktreeDiffText(staged)
 	if err != nil {
 		return "", nil, err
 	}

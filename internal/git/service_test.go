@@ -52,9 +52,9 @@ func TestOpenRepoResolvesWorkdirToRepoRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EvalSymlinks(dir): %v", err)
 	}
-	got, err := filepath.EvalSymlinks(repo.path)
+	got, err := filepath.EvalSymlinks(repo.RepoPath())
 	if err != nil {
-		t.Fatalf("EvalSymlinks(repo.path): %v", err)
+		t.Fatalf("EvalSymlinks(repo.RepoPath()): %v", err)
 	}
 	if got != want {
 		t.Fatalf("expected repo root %q, got %q", want, got)

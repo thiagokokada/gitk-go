@@ -34,17 +34,9 @@ func (s *Service) Diff(commit *Commit) (string, []FileSection, error) {
 func (s *Service) commitDiffText(commit *Commit) (string, error) {
 	if len(commit.ParentHashes) > 0 {
 		parent := commit.ParentHashes[0]
-		return s.repo.runGitCommand(
-			[]string{"diff", "--no-color", parent, commit.Hash},
-			true,
-			"git diff",
-		)
+		return s.backend.CommitDiffText(commit.Hash, parent)
 	}
-	return s.repo.runGitCommand(
-		[]string{"show", "--no-color", "--pretty=format:", commit.Hash},
-		false,
-		"git show",
-	)
+	return s.backend.CommitDiffText(commit.Hash, "")
 }
 
 func parseGitDiffSections(diffText string, lineOffset int) []FileSection {

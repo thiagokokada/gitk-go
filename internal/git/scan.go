@@ -17,7 +17,7 @@ type scanSession struct {
 	head     string
 	headName string
 
-	logStream *gitLogStream
+	logStream LogStream
 
 	// buffered holds the next commit returned by hasMore() so ScanCommits can keep consuming in-order.
 	buffered  *Commit
@@ -43,10 +43,10 @@ func (s *Service) resetScanLocked(headHash, headName string) error {
 		s.scan.close()
 		s.scan = nil
 	}
-	if s.repo.path == "" {
+	if s.backend == nil || s.backend.RepoPath() == "" {
 		return fmt.Errorf("repository root not set")
 	}
-	stream, err := s.repo.startGitLogStream(headHash)
+	stream, err := s.backend.StartLogStream(headHash)
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ type gitLogStream struct {
 	waitErr  error
 }
 
-func (r repo) startGitLogStream(fromHash string) (*gitLogStream, error) {
+func (r repo) StartLogStream(fromHash string) (LogStream, error) {
 	if r.path == "" {
 		return nil, fmt.Errorf("repository root not set")
 	}
