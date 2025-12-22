@@ -1,5 +1,5 @@
 .cache
-.modcache
+.gomodcache
 .gocache
 .gotmp
 

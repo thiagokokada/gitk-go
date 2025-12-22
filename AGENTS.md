@@ -14,3 +14,4 @@ agents should follow these rules:
 9. When working with mutexes, prefer `defer mu.Unlock()` immediately after locking unless there is a strong reason not to.
 10. Prefer `slog/log` instead of `log` for logging.
 11. Prefer tests co-located with the implementation (e.g. `internal/gui/filter_test.go` for `filter.go`) instead of creating per-feature test filenames.
+12. Always run tests with `GOCACHE` set to avoid sandbox issues: `env GOCACHE="$PWD/.gocache" go test ./...`.
