@@ -10,6 +10,7 @@ type Backend interface {
 
 	HeadState() (hash string, headName string, ok bool, err error)
 	ListRefs() ([]Ref, error)
+	SwitchBranch(branch string) error
 
 	CommitDiffText(commitHash string, parentHash string) (string, error)
 	WorktreeDiffText(staged bool) (string, error)

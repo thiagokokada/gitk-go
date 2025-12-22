@@ -16,4 +16,5 @@ type appWidgets struct {
 	diffFileList    *ListboxWidget
 	diffContextMenu *MenuWidget
 	shortcutsWindow *ToplevelWidget
+	branchWindow    *ToplevelWidget
 }

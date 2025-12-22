@@ -175,6 +175,22 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			handler:     a.showShortcutsDialog,
 		},
 		{
+			category:    "General",
+			display:     "Ctrl/Cmd + O",
+			description: "Open repository",
+			sequences:   []string{"<Control-KeyPress-o>", "<Command-KeyPress-o>"},
+			navigation:  false,
+			handler:     a.promptRepositorySwitch,
+		},
+		{
+			category:    "General",
+			display:     "Ctrl/Cmd + B",
+			description: "Switch branches",
+			sequences:   []string{"<Control-KeyPress-b>", "<Command-KeyPress-b>"},
+			navigation:  false,
+			handler:     a.promptBranchSwitch,
+		},
+		{
 			category:    "Shortcuts dialog",
 			display:     "Escape",
 			description: "Close this dialog",

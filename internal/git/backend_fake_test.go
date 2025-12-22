@@ -11,14 +11,16 @@ type fakeBackend struct {
 
 	headStateFunc          func() (hash string, headName string, ok bool, err error)
 	listRefsFunc           func() ([]gitbackend.Ref, error)
+	switchBranchFunc       func(branch string) error
 	commitDiffTextFunc     func(commitHash string, parentHash string) (string, error)
 	worktreeDiffTextFunc   func(staged bool) (string, error)
 	localChangesStatusFunc func() (gitbackend.LocalChanges, error)
 	startLogStreamFunc     func(fromHash string) (gitbackend.LogStream, error)
 
-	lastCommitHash  string
-	lastParentHash  string
-	lastStagedParam *bool
+	lastCommitHash   string
+	lastParentHash   string
+	lastStagedParam  *bool
+	lastSwitchBranch string
 }
 
 func (f *fakeBackend) RepoPath() string { return f.repoPath }
@@ -42,6 +44,14 @@ func (f *fakeBackend) ListRefs() ([]gitbackend.Ref, error) {
 		return f.listRefsFunc()
 	}
 	return nil, errors.New("unexpected ListRefs call")
+}
+
+func (f *fakeBackend) SwitchBranch(branch string) error {
+	f.lastSwitchBranch = branch
+	if f.switchBranchFunc != nil {
+		return f.switchBranchFunc(branch)
+	}
+	return errors.New("unexpected SwitchBranch call")
 }
 
 func (f *fakeBackend) CommitDiffText(commitHash string, parentHash string) (string, error) {

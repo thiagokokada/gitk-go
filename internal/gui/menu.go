@@ -3,6 +3,7 @@ package gui
 import (
 	"fmt"
 	"log/slog"
+	"runtime"
 	"strings"
 
 	"github.com/thiagokokada/gitk-go/internal/buildinfo"
@@ -13,8 +14,16 @@ import (
 func (a *Controller) initMenubar() {
 	menubar := Menu(Tearoff(false))
 
+	openAccel := "Ctrl+O"
+	branchAccel := "Ctrl+B"
+	if runtime.GOOS == "darwin" {
+		openAccel = "Cmd+O"
+		branchAccel = "Cmd+B"
+	}
+
 	fileMenu := menubar.Menu(Tearoff(false))
-	fileMenu.AddCommand(Lbl("Open Repository..."), Command(a.promptRepositorySwitch))
+	fileMenu.AddCommand(Lbl("Open Repository..."), Accelerator(openAccel), Command(a.promptRepositorySwitch))
+	fileMenu.AddCommand(Lbl("Switch Branch..."), Accelerator(branchAccel), Command(a.promptBranchSwitch))
 	fileMenu.AddSeparator()
 	fileMenu.AddCommand(Lbl("Quit"), Command(func() { Destroy(App) }))
 	menubar.AddCascade(Lbl("File"), Mnu(fileMenu))
