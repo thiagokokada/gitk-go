@@ -175,6 +175,13 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			handler:     a.showShortcutsDialog,
 		},
 		{
+			category:    "Shortcuts dialog",
+			display:     "Escape",
+			description: "Close this dialog",
+			// No handler: Esc is bound on the dialog window so it only closes the
+			// dialog when it is open.
+		},
+		{
 			category:    "General",
 			display:     "Ctrl+Q",
 			description: "Quit gitk-go",
@@ -219,6 +226,7 @@ func (a *Controller) showShortcutsDialog() {
 	closeBtn := frame.TButton(Txt("Close"), Command(func() { Destroy(dialog.Window) }))
 	Grid(closeBtn, Row(2), Column(0), Sticky(E), Pady("8p 0"))
 
+	Bind(dialog.Window, "<KeyPress-Escape>", Command(func() { Destroy(dialog.Window) }))
 	Bind(dialog.Window, "<Destroy>", Command(func() {
 		if a.ui.shortcutsWindow == dialog {
 			a.ui.shortcutsWindow = nil
