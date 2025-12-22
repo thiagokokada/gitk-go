@@ -13,7 +13,7 @@ import (
 	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 
 	. "modernc.org/tk9.0"
-	_ "modernc.org/tk9.0/themes/azure"
+	_ "modernc.org/tk9.0/themes/azure" // load theme
 )
 
 const (

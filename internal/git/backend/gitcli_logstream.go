@@ -155,7 +155,7 @@ func parseGitLogRecord(rec []byte) (*Commit, error) {
 	var parents []string
 	parentLine := bytes.TrimSpace(lines[1])
 	if len(parentLine) != 0 {
-		for _, parent := range bytes.Fields(parentLine) {
+		for parent := range bytes.FieldsSeq(parentLine) {
 			parents = append(parents, string(parent))
 		}
 	}

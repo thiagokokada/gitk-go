@@ -50,7 +50,7 @@ func commitListColumns(entry *git.Entry) (msg, author, when string) {
 	msg = fmt.Sprintf("%s  %s", hash, firstLine)
 	author = fmt.Sprintf("%s <%s>", entry.Commit.Author.Name, entry.Commit.Author.Email)
 	when = entry.Commit.Committer.When.Format("2006-01-02 15:04")
-	return
+	return msg, author, when
 }
 
 func formatGraphValue(entry *git.Entry, labels []string, graphCanvas bool) string {

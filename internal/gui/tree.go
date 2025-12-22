@@ -37,9 +37,7 @@ func (a *Controller) onTreeSelectionChanged() {
 		return
 	}
 	switch sel[0] {
-	case moreIndicatorID:
-		return
-	case loadingIndicatorID:
+	case moreIndicatorID, loadingIndicatorID:
 		return
 	case localUnstagedRowID:
 		a.showLocalChanges(false)
@@ -175,7 +173,7 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 	}
 }
 
-func (a *Controller) treeYviewRange() (float64, float64, error) {
+func (a *Controller) treeYviewRange() (start float64, end float64, err error) {
 	if a.ui.treeView == nil {
 		return 0, 0, fmt.Errorf("tree widget not ready")
 	}
@@ -191,11 +189,11 @@ func (a *Controller) treeYviewRange() (float64, float64, error) {
 	if len(fields) < 2 {
 		return 0, 0, fmt.Errorf("unexpected treeview yview output %q", out)
 	}
-	start, err := strconv.ParseFloat(fields[0], 64)
+	start, err = strconv.ParseFloat(fields[0], 64)
 	if err != nil {
 		return 0, 0, err
 	}
-	end, err := strconv.ParseFloat(fields[1], 64)
+	end, err = strconv.ParseFloat(fields[1], 64)
 	if err != nil {
 		return 0, 0, err
 	}

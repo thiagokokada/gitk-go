@@ -292,6 +292,7 @@ func (a *Controller) selectSpecialRow(id string) {
 		a.showLocalChanges(false)
 	case localStagedRowID:
 		a.showLocalChanges(true)
+	default:
 	}
 }
 

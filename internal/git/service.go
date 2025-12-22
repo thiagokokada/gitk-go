@@ -119,9 +119,7 @@ func (s *Service) ScanCommits(skip, batch uint) ([]*Entry, string, bool, error) 
 
 	graphTarget := skip + uint(len(entries))
 	startGraph := time.Now()
-	if err := s.processGraph(graphTarget, entries); err != nil {
-		return nil, "", false, err
-	}
+	s.scan.assignGraphStrings(entries)
 	graphDur := time.Since(startGraph)
 
 	startMore := time.Now()
@@ -182,17 +180,6 @@ func (s *Service) collectEntries(batch uint) ([]*Entry, error) {
 		entries = append(entries, newEntry(commit))
 	}
 	return entries, nil
-}
-
-func (s *Service) processGraph(target uint, entries []*Entry) error {
-	if target == 0 {
-		return nil
-	}
-	if err := s.scan.ensureGraphProcessed(target); err != nil {
-		return err
-	}
-	s.scan.assignGraphStrings(entries)
-	return nil
 }
 
 func (s *Service) headStateLocked() (hash string, headName string, ok bool, err error) {

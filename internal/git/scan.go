@@ -120,12 +120,6 @@ func (s *scanSession) discard(count uint) error {
 	return nil
 }
 
-func (s *scanSession) ensureGraphProcessed(target uint) error {
-	// Graph lines are computed while commits are streamed; there is no separate iterator to
-	// advance without affecting displayed commits.
-	return nil
-}
-
 func (s *scanSession) assignGraphStrings(entries []*Entry) {
 	if len(entries) == 0 || len(s.graphCache) == 0 {
 		return

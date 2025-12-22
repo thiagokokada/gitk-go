@@ -1,6 +1,7 @@
 package git
 
 import (
+	"slices"
 	"bytes"
 	"fmt"
 	"os"
@@ -176,16 +177,16 @@ func TestBranchLabels_HeadPrependedAndRemoteHeadFilteredAndTagIncluded(t *testin
 	if got[0] != "HEAD -> main" {
 		t.Fatalf("expected HEAD label to be first, got %q", got[0])
 	}
-	if !containsString(got, "main") {
+	if !slices.Contains(got, "main") {
 		t.Fatalf("expected local branch label %q in %+v", "main", got)
 	}
-	if !containsString(got, "origin/main") {
+	if !slices.Contains(got, "origin/main") {
 		t.Fatalf("expected remote branch label %q in %+v", "origin/main", got)
 	}
-	if containsString(got, "origin/HEAD") {
+	if slices.Contains(got, "origin/HEAD") {
 		t.Fatalf("did not expect remote HEAD label %q in %+v", "origin/HEAD", got)
 	}
-	if !containsString(got, "tag: v1") {
+	if !slices.Contains(got, "tag: v1") {
 		t.Fatalf("expected tag label %q in %+v", "tag: v1", got)
 	}
 }
@@ -292,15 +293,6 @@ func TestSetGraphMaxColumnsAppliesToSession(t *testing.T) {
 	}
 }
 
-func containsString(values []string, want string) bool {
-	for _, v := range values {
-		if v == want {
-			return true
-		}
-	}
-	return false
-}
-
 func createTestRepo(t *testing.T, commitCount int) (path string, hashesNewestFirst []string) {
 	t.Helper()
 	if commitCount <= 0 {
@@ -315,7 +307,7 @@ func createTestRepo(t *testing.T, commitCount int) (path string, hashesNewestFir
 	absFile := filepath.Join(dir, fileName)
 	var created []string
 	for i := range commitCount {
-		content := []byte(fmt.Sprintf("commit %d\n", i))
+		content := fmt.Appendf(nil, "commit %d\n", i)
 		if err := os.WriteFile(absFile, content, 0o644); err != nil {
 			t.Fatalf("WriteFile: %v", err)
 		}

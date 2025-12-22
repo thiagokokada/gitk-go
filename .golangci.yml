@@ -1,8 +1,49 @@
 version: "2"
 
 linters:
+  enable:
+    - "revive"
   exclusions:
     rules:
       - linters:
           - staticcheck
         text: "ST1001:"
+  settings:
+    revive:
+        enable-all-rules: true
+        rules:
+          - name: argument-limit
+            disabled: true
+          - name: add-constant
+            disabled: true
+          - name: cognitive-complexity
+            disabled: true
+          - name: confusing-naming
+            disabled: true
+          - name: cyclomatic
+            disabled: true
+          - name: empty-block
+            disabled: true
+          - name: early-return
+            disabled: true
+          - name: exported
+            disabled: true
+          - name: dot-imports
+            arguments:
+              - allowed-packages: ["modernc.org/tk9.0"]
+          - name: flag-parameter
+            disabled: true
+          - name: function-length
+            disabled: true
+          - name: function-result-limit
+            disabled: true
+          - name: package-comments
+            disabled: true
+          - name: line-length-limit
+            disabled: true
+          - name: unnecessary-format
+            disabled: true
+          - name: unused-parameter
+            disabled: true
+          - name: use-errors-new
+            disabled: true

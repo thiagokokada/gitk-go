@@ -40,7 +40,7 @@ func (a *Controller) promptRepositorySwitch() {
 	a.switchRepository(dir)
 }
 
-func (a *Controller) showAboutDialog() {
+func (*Controller) showAboutDialog() {
 	message := fmt.Sprintf("gitk-go %s", buildinfo.VersionWithTags())
 	MessageBox(
 		Parent(App),
