@@ -170,7 +170,7 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 		slog.Error("tree yview", slog.Any("error", err))
 		return
 	}
-	if a.tree.shouldLoadMoreOnScroll(a.filter.value, len(a.visible), a.batch, start, end) {
+	if a.tree.shouldLoadMoreOnScroll(a.filter.value, len(a.visible), int(a.batch), start, end) {
 		a.loadMoreCommitsAsync(false)
 	}
 }

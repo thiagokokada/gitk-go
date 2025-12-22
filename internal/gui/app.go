@@ -31,7 +31,7 @@ const (
 	localStagedLabel   = "Local changes checked into index but not committed"
 )
 
-func Run(repoPath string, batch int, graphMaxColumns int, graphCanvas bool, pref ThemePreference, autoReload bool, syntaxHighlight bool, verbose bool) error {
+func Run(repoPath string, batch uint, graphMaxColumns uint, graphCanvas bool, pref ThemePreference, autoReload bool, syntaxHighlight bool, verbose bool) error {
 	if err := InitializeExtension("eval"); err != nil && err != AlreadyInitialized {
 		return fmt.Errorf("init eval extension: %v", err)
 	}
@@ -39,12 +39,7 @@ func Run(repoPath string, batch int, graphMaxColumns int, graphCanvas bool, pref
 	if err != nil {
 		return err
 	}
-	if graphMaxColumns != 0 {
-		svc.SetGraphMaxColumns(graphMaxColumns)
-	}
-	if batch <= 0 {
-		batch = git.DefaultBatch
-	}
+	svc.SetGraphMaxColumns(int(graphMaxColumns))
 	if pref < ThemeAuto || pref > ThemeDark {
 		pref = ThemeAuto
 	}
@@ -348,7 +343,7 @@ func (a *Controller) reloadCommitsAsync() {
 	}
 	a.tree.loadingBatch = true
 	slog.Debug("reloadCommitsAsync start",
-		slog.Int("batch", a.batch),
+		slog.Uint64("batch", uint64(a.batch)),
 		slog.String("filter", a.filter.value),
 	)
 	go func() {
@@ -390,7 +385,7 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 		slog.Bool("prefetch", prefetch),
 		slog.String("filter", a.filter.value),
 	)
-	go func(skipCount int, background bool) {
+	go func(skipCount uint, background bool) {
 		entries, _, hasMore, err := a.svc.ScanCommits(skipCount, a.batch)
 		PostEvent(func() {
 			a.tree.loadingBatch = false
@@ -426,7 +421,7 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 				go a.loadMoreCommitsAsync(true)
 			}
 		}, false)
-	}(skip, prefetch)
+	}(uint(skip), prefetch)
 }
 
 func (a *Controller) clearDetailText(msg string) {

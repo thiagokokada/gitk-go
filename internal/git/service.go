@@ -77,11 +77,8 @@ func (s *Service) SetGraphMaxColumns(maxColumns int) {
 	}
 }
 
-func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
-	if batch <= 0 {
-		batch = DefaultBatch
-	}
-	slog.Debug("ScanCommits start", slog.Int("skip", skip), slog.Int("batch", batch))
+func (s *Service) ScanCommits(skip, batch uint) ([]*Entry, string, bool, error) {
+	slog.Debug("ScanCommits start", slog.Uint64("skip", uint64(skip)), slog.Uint64("batch", uint64(batch)))
 	startTotal := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -105,9 +102,6 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 		return nil, "", false, err
 	}
 	sessionDur := time.Since(startSession)
-	if skip < 0 {
-		skip = 0
-	}
 	// If the caller requests a different position than the current session, reset and advance to skip.
 	if skip != s.scan.returned {
 		if err := s.alignSessionLocked(skip, headHash, headName); err != nil {
@@ -125,7 +119,7 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 	}
 	iterDur := time.Since(startIter)
 
-	graphTarget := skip + len(entries)
+	graphTarget := skip + uint(len(entries))
 	startGraph := time.Now()
 	if err := s.processGraph(graphTarget, entries); err != nil {
 		return nil, "", false, err
@@ -143,10 +137,10 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 	// dur_* fields represent the wall time spent in each ScanCommits stage.
 	slog.Debug("ScanCommits done",
 		slog.Int("returned", len(entries)),
-		slog.Int("session_returned", s.scan.returned),
+		slog.Uint64("session_returned", uint64(s.scan.returned)),
 		slog.Bool("has_more", hasMore),
 		slog.String("head", s.scan.headName),
-		slog.Int("graph_target", graphTarget),
+		slog.Uint64("graph_target", uint64(graphTarget)),
 		slog.Int("graph_processed", s.scan.graphProcessed),
 		slog.Int("graph_cache_len", len(s.scan.graphCache)),
 		slog.Int("graph_cols", len(s.scan.graphBuilder.columns)),
@@ -160,11 +154,11 @@ func (s *Service) ScanCommits(skip, batch int) ([]*Entry, string, bool, error) {
 	)
 	return entries, s.scan.headName, hasMore, nil
 }
-func (s *Service) alignSessionLocked(skip int, headHash, headName string) error {
+func (s *Service) alignSessionLocked(skip uint, headHash, headName string) error {
 	start := time.Now()
 	slog.Debug("ScanCommits reset session",
-		slog.Int("requested_skip", skip),
-		slog.Int("session_returned", s.scan.returned),
+		slog.Uint64("requested_skip", uint64(skip)),
+		slog.Uint64("session_returned", uint64(s.scan.returned)),
 		slog.String("head", s.scan.headName),
 	)
 	if err := s.resetScanLocked(headHash, headName); err != nil {
@@ -177,9 +171,9 @@ func (s *Service) alignSessionLocked(skip int, headHash, headName string) error 
 	return nil
 }
 
-func (s *Service) collectEntries(batch int) ([]*Entry, error) {
-	entries := make([]*Entry, 0, batch)
-	for len(entries) < batch {
+func (s *Service) collectEntries(batch uint) ([]*Entry, error) {
+	entries := make([]*Entry, 0, max(batch, DefaultBatch))
+	for uint(len(entries)) < batch {
 		commit, err := s.scan.next()
 		if err != nil {
 			if err == io.EOF {
@@ -192,8 +186,8 @@ func (s *Service) collectEntries(batch int) ([]*Entry, error) {
 	return entries, nil
 }
 
-func (s *Service) processGraph(target int, entries []*Entry) error {
-	if target <= 0 {
+func (s *Service) processGraph(target uint, entries []*Entry) error {
+	if target == 0 {
 		return nil
 	}
 	if err := s.scan.ensureGraphProcessed(target); err != nil {

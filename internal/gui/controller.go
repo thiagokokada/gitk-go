@@ -7,7 +7,7 @@ import (
 type Controller struct {
 	svc                 *git.Service
 	repoPath            string
-	batch               int
+	batch               uint
 	graphCanvas         bool
 	themePref           ThemePreference
 	palette             colorPalette

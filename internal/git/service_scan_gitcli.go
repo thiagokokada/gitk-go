@@ -22,7 +22,7 @@ type scanSession struct {
 	// buffered holds the next commit returned by hasMore() so ScanCommits can keep consuming in-order.
 	buffered  *Commit
 	exhausted bool
-	returned  int
+	returned  uint
 
 	graphBuilder   *graphBuilder
 	graphCache     map[string]string
@@ -116,7 +116,7 @@ func (s *scanSession) next() (*Commit, error) {
 	return commit, nil
 }
 
-func (s *scanSession) discard(count int) error {
+func (s *scanSession) discard(count uint) error {
 	for range count {
 		if _, err := s.next(); err != nil {
 			return err
@@ -125,7 +125,7 @@ func (s *scanSession) discard(count int) error {
 	return nil
 }
 
-func (s *scanSession) ensureGraphProcessed(target int) error {
+func (s *scanSession) ensureGraphProcessed(target uint) error {
 	// Graph lines are computed while commits are streamed; there is no separate iterator to
 	// advance without affecting displayed commits.
 	return nil
