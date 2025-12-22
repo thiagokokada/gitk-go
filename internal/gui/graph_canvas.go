@@ -19,5 +19,11 @@ func (a *Controller) redrawGraphCanvas() {
 	if a.ui.graphCanvas == nil || a.ui.treeView == nil {
 		return
 	}
-	a.state.tree.graphCanvas.Redraw(a.ui.graphCanvas, a.ui.treeView, a.data.visible, a.state.tree.branchLabels, a.theme.palette.isDark())
+	a.state.tree.graphCanvas.Redraw(
+		a.ui.graphCanvas,
+		a.ui.treeView,
+		a.data.visible,
+		a.state.tree.branchLabels,
+		a.theme.palette.isDark(),
+	)
 }

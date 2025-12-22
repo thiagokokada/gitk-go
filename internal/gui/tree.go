@@ -200,7 +200,13 @@ func (a *Controller) treeYviewRange() (start float64, end float64, err error) {
 	return start, end, nil
 }
 
-func (t treeState) shouldLoadMoreOnScroll(filterValue string, visibleLen int, batch int, yStart float64, yEnd float64) bool {
+func (t treeState) shouldLoadMoreOnScroll(
+	filterValue string,
+	visibleLen int,
+	batch int,
+	yStart float64,
+	yEnd float64,
+) bool {
 	if t.loadingBatch || !t.hasMore {
 		return false
 	}

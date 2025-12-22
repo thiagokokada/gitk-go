@@ -28,7 +28,9 @@ func TestParseGitLogRecord(t *testing.T) {
 	if commit.Hash != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
 		t.Fatalf("unexpected hash: %q", commit.Hash)
 	}
-	if len(commit.ParentHashes) != 2 || commit.ParentHashes[0] != "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" || commit.ParentHashes[1] != "cccccccccccccccccccccccccccccccccccccccc" {
+	if len(commit.ParentHashes) != 2 ||
+		commit.ParentHashes[0] != "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" ||
+		commit.ParentHashes[1] != "cccccccccccccccccccccccccccccccccccccccc" {
 		t.Fatalf("unexpected parents: %#v", commit.ParentHashes)
 	}
 	if commit.Author.Name != "Alice" || commit.Author.Email != "alice@example.com" {

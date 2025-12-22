@@ -66,7 +66,13 @@ func (g *GraphCanvas) ScheduleRedraw(redraw func()) {
 	}, false)
 }
 
-func (g *GraphCanvas) Redraw(canvas *CanvasWidget, treeView *TTreeviewWidget, visible []*git.Entry, labels map[string][]string, dark bool) {
+func (g *GraphCanvas) Redraw(
+	canvas *CanvasWidget,
+	treeView *TTreeviewWidget,
+	visible []*git.Entry,
+	labels map[string][]string,
+	dark bool,
+) {
 	if canvas == nil || treeView == nil {
 		return
 	}
@@ -196,7 +202,15 @@ func (g *GraphCanvas) ensureOverlay(canvas *CanvasWidget, treeView *TTreeviewWid
 		canvas.Configure(Background(bg))
 	}
 	// Place the overlay only over the content area, not over the header.
-	tkutil.EvalOrEmpty("place %s -in %s -x %d -y %d -width %d -height %d", canvasPath, treePath, xOffset, yOffset, colWidth, canvasHeight)
+	tkutil.EvalOrEmpty(
+		"place %s -in %s -x %d -y %d -width %d -height %d",
+		canvasPath,
+		treePath,
+		xOffset,
+		yOffset,
+		colWidth,
+		canvasHeight,
+	)
 	tkutil.EvalOrEmpty("raise %s", canvasPath)
 
 	if st.ready {
@@ -348,7 +362,17 @@ func resolveFirstCommitIndex(firstItem string, next func(string) string) (idx in
 	return 0, skipped, false
 }
 
-func drawGraphRow(canvas *CanvasWidget, dark bool, raw string, labels []string, yTop int, height int, maxCols int, canvasWidth int, selected bool) {
+func drawGraphRow(
+	canvas *CanvasWidget,
+	dark bool,
+	raw string,
+	labels []string,
+	yTop int,
+	height int,
+	maxCols int,
+	canvasWidth int,
+	selected bool,
+) {
 	if canvas == nil || maxCols <= 0 || height <= 0 {
 		return
 	}
@@ -415,7 +439,16 @@ type graphLabelStyle struct {
 	text string
 }
 
-func drawGraphLabels(canvas *CanvasWidget, dark bool, labels []string, nodeX int, yMid int, radius int, nodeColor string, canvasWidth int) {
+func drawGraphLabels(
+	canvas *CanvasWidget,
+	dark bool,
+	labels []string,
+	nodeX int,
+	yMid int,
+	radius int,
+	nodeColor string,
+	canvasWidth int,
+) {
 	if canvas == nil || len(labels) == 0 || canvasWidth <= 0 {
 		return
 	}

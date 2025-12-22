@@ -62,7 +62,14 @@ func TestShouldLoadMoreOnScroll(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := tc.tree.shouldLoadMoreOnScroll(tc.filter, tc.visibleLen, tc.batch, tc.start, tc.end); got != tc.want {
+			got := tc.tree.shouldLoadMoreOnScroll(
+				tc.filter,
+				tc.visibleLen,
+				tc.batch,
+				tc.start,
+				tc.end,
+			)
+			if got != tc.want {
 				t.Fatalf("want %v, got %v", tc.want, got)
 			}
 		})

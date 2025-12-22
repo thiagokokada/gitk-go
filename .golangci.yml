@@ -40,7 +40,7 @@ linters:
           - name: package-comments
             disabled: true
           - name: line-length-limit
-            disabled: true
+            arguments: [120]
           - name: unnecessary-format
             disabled: true
           - name: unused-parameter

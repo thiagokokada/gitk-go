@@ -16,8 +16,16 @@ func Run() error {
 
 func run(args []string) error {
 	fs := flag.NewFlagSet("gitk-go", flag.ContinueOnError)
-	limit := fs.Uint("limit", uint(git.DefaultBatch), "number of commits to load per batch (larger uses more CPU/memory)")
-	graphCols := fs.Uint("graph-cols", uint(git.DefaultGraphMaxColumns), "max number of graph columns to render (lower uses less CPU/memory)")
+	limit := fs.Uint(
+		"limit",
+		uint(git.DefaultBatch),
+		"number of commits to load per batch (larger uses more CPU/memory)",
+	)
+	graphCols := fs.Uint(
+		"graph-cols",
+		uint(git.DefaultGraphMaxColumns),
+		"max number of graph columns to render (lower uses less CPU/memory)",
+	)
 	textGraph := fs.Bool("text-graph", false, "render commit graph as text (disables canvas graph)")
 	mode := fs.String("mode", gui.ThemeAuto.String(), "color mode: auto, light, or dark")
 	noWatch := fs.Bool("nowatch", false, "disable automatic reload when repository changes")
