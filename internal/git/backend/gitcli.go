@@ -14,6 +14,9 @@ type gitCLI struct {
 }
 
 func OpenCLI(repoPath string) (Backend, error) {
+	if err := ensureMinGitVersion(); err != nil {
+		return nil, err
+	}
 	abs, err := filepath.Abs(repoPath)
 	if err != nil {
 		return nil, err

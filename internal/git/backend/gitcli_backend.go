@@ -2,7 +2,6 @@ package backend
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -134,17 +133,6 @@ func (g *gitCLI) SwitchBranch(branch string) error {
 		return fmt.Errorf("branch not specified")
 	}
 	_, err := g.runGitCommand([]string{"switch", "--", branch}, false, "git switch")
-	if err == nil {
-		return nil
-	}
-	// Fallback for older git versions that don't support "git switch".
-	if strings.Contains(err.Error(), "'switch' is not a git command") || strings.Contains(err.Error(), "git: 'switch'") {
-		_, err2 := g.runGitCommand([]string{"checkout", branch}, false, "git checkout")
-		if err2 == nil {
-			return nil
-		}
-		return errors.Join(err, err2)
-	}
 	return err
 }
 

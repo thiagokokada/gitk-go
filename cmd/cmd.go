@@ -32,6 +32,14 @@ func run(args []string) error {
 	}
 	if *showVersion {
 		fmt.Println(buildinfo.VersionWithTags())
+		if gitVer, err := git.GitVersion(); gitVer != "" {
+			fmt.Println(gitVer)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "git version warning: %v\n", err)
+			}
+		} else if err != nil {
+			fmt.Fprintf(os.Stderr, "git version unavailable: %v\n", err)
+		}
 		return nil
 	}
 	limitU := *limit

@@ -51,6 +51,14 @@ func (a *Controller) promptRepositorySwitch() {
 
 func (*Controller) showAboutDialog() {
 	message := fmt.Sprintf("gitk-go %s", buildinfo.VersionWithTags())
+	if gitVer, err := git.GitVersion(); gitVer != "" {
+		message += "\n" + gitVer
+		if err != nil {
+			message += fmt.Sprintf(" (warning: %v)", err)
+		}
+	} else if err != nil {
+		message += fmt.Sprintf("\ngit: %v", err)
+	}
 	MessageBox(
 		Parent(App),
 		Title("About gitk-go"),

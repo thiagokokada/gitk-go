@@ -23,6 +23,10 @@ much of `gitk` using
   repository changes
 - Auto-detects OS dark mode with optional manual override
 
+### Requirements
+
+- Git version 2.23.0 or newer
+
 ### Usage
 
 ```bash
