@@ -68,19 +68,21 @@ func TestFilterEntries(t *testing.T) {
 
 func TestStatusSummary(t *testing.T) {
 	ctrl := &Controller{
-		repoPath: "/repo/path",
-		headRef:  "main",
-		commits: []*git.Entry{
-			{}, {},
+		repo: controllerRepo{
+			path:    "/repo/path",
+			headRef: "main",
 		},
-		visible: []*git.Entry{
-			{},
+		data: controllerData{
+			commits: []*git.Entry{{}, {}},
+			visible: []*git.Entry{{}},
 		},
-		tree: treeState{
-			hasMore: true,
-		},
-		filter: filterState{
-			value: "feature",
+		state: controllerState{
+			tree: treeState{
+				hasMore: true,
+			},
+			filter: filterState{
+				value: "feature",
+			},
 		},
 	}
 	summary := ctrl.statusSummary()
@@ -185,7 +187,7 @@ func TestVisibleSelectionIndex(t *testing.T) {
 	ctrl := &Controller{}
 	h1 := strings.Repeat("a", 40)
 	h2 := strings.Repeat("b", 40)
-	ctrl.visible = []*git.Entry{
+	ctrl.data.visible = []*git.Entry{
 		{Commit: &git.Commit{Hash: h1}},
 		{Commit: &git.Commit{Hash: h2}},
 	}

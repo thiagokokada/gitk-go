@@ -16,12 +16,12 @@ func (a *Controller) insertLocalRows() {
 		return
 	}
 	index := 0
-	if a.tree.showLocalUnstaged {
+	if a.state.tree.showLocalUnstaged {
 		vals := []string{"", localUnstagedLabel, "", ""}
 		a.ui.treeView.Insert("", index, Id(localUnstagedRowID), Values(vals), Tags("localUnstaged"))
 		index++
 	}
-	if a.tree.showLocalStaged {
+	if a.state.tree.showLocalStaged {
 		vals := []string{"", localStagedLabel, "", ""}
 		a.ui.treeView.Insert("", index, Id(localStagedRowID), Values(vals), Tags("localStaged"))
 	}
@@ -49,7 +49,7 @@ func (a *Controller) onTreeSelectionChanged() {
 		return
 	}
 	idx, err := strconv.Atoi(sel[0])
-	if err != nil || idx < 0 || idx >= len(a.visible) {
+	if err != nil || idx < 0 || idx >= len(a.data.visible) {
 		return
 	}
 	a.showCommitDetails(idx)
@@ -58,17 +58,17 @@ func (a *Controller) onTreeSelectionChanged() {
 func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
 	var current bool
 	if staged {
-		current = a.tree.showLocalStaged
+		current = a.state.tree.showLocalStaged
 	} else {
-		current = a.tree.showLocalUnstaged
+		current = a.state.tree.showLocalUnstaged
 	}
 	if current == show {
 		return
 	}
 	if staged {
-		a.tree.showLocalStaged = show
+		a.state.tree.showLocalStaged = show
 	} else {
-		a.tree.showLocalUnstaged = show
+		a.state.tree.showLocalUnstaged = show
 	}
 	if a.ui.treeView == nil {
 		return
@@ -92,7 +92,7 @@ func (a *Controller) insertSingleLocalRow(staged bool) {
 	label := localRowLabel(staged)
 	tag := localRowTag(staged)
 	index := 0
-	if staged && a.tree.showLocalUnstaged {
+	if staged && a.state.tree.showLocalUnstaged {
 		index = 1
 	}
 	vals := []string{"", label, "", ""}
@@ -148,13 +148,13 @@ func (a *Controller) clearTreeRows() {
 }
 
 func (a *Controller) scheduleAutoLoadCheck() {
-	if a.ui.treeView == nil || a.filter.value == "" || !a.tree.hasMore {
+	if a.ui.treeView == nil || a.state.filter.value == "" || !a.state.tree.hasMore {
 		return
 	}
 	slog.Debug("scheduleAutoLoadCheck",
-		slog.String("filter", a.filter.value),
-		slog.Int("visible", len(a.visible)),
-		slog.Bool("has_more", a.tree.hasMore),
+		slog.String("filter", a.state.filter.value),
+		slog.Int("visible", len(a.data.visible)),
+		slog.Bool("has_more", a.state.tree.hasMore),
 	)
 	PostEvent(func() {
 		a.maybeLoadMoreOnScroll()
@@ -162,7 +162,7 @@ func (a *Controller) scheduleAutoLoadCheck() {
 }
 
 func (a *Controller) maybeLoadMoreOnScroll() {
-	if a.ui.treeView == nil || a.tree.loadingBatch || !a.tree.hasMore {
+	if a.ui.treeView == nil || a.state.tree.loadingBatch || !a.state.tree.hasMore {
 		return
 	}
 	start, end, err := a.treeYviewRange()
@@ -170,7 +170,7 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 		slog.Error("tree yview", slog.Any("error", err))
 		return
 	}
-	if a.tree.shouldLoadMoreOnScroll(a.filter.value, len(a.visible), int(a.batch), start, end) {
+	if a.state.tree.shouldLoadMoreOnScroll(a.state.filter.value, len(a.data.visible), int(a.cfg.batch), start, end) {
 		a.loadMoreCommitsAsync(false)
 	}
 }

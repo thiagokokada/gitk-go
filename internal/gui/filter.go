@@ -15,7 +15,7 @@ func (a *Controller) applyFilter(raw string) {
 	if a.ui.filterEntry != nil && a.ui.filterEntry.Textvariable() != raw {
 		return
 	}
-	a.filter.value = raw
+	a.state.filter.value = raw
 	a.applyFilterContent(raw)
 }
 
@@ -25,7 +25,7 @@ func (a *Controller) applyFilterImmediate(raw string) {
 }
 
 func (a *Controller) applyFilterContent(raw string) {
-	a.visible = filterEntries(a.commits, raw)
+	a.data.visible = filterEntries(a.data.commits, raw)
 	if a.ui.treeView == nil {
 		return
 	}
@@ -33,23 +33,23 @@ func (a *Controller) applyFilterContent(raw string) {
 	a.storeScrollState()
 	a.clearTreeRows()
 	a.insertLocalRows()
-	rows := buildTreeRows(a.visible, a.tree.branchLabels, a.graphCanvas)
+	rows := buildTreeRows(a.data.visible, a.state.tree.branchLabels, a.cfg.graphCanvas)
 	for _, row := range rows {
 		graph := row.Graph
-		if a.graphCanvas {
+		if a.cfg.graphCanvas {
 			// Keep the graph column data-less; the canvas overlay renders the graph.
 			graph = ""
 		}
 		vals := []string{graph, row.Commit, row.Author, row.Date}
 		a.ui.treeView.Insert("", "end", Id(row.ID), Values(vals))
 	}
-	if a.tree.hasMore && len(a.visible) > 0 {
+	if a.state.tree.hasMore && len(a.data.visible) > 0 {
 		vals := []string{"", "There are more commits...", "", ""}
 		a.ui.treeView.Insert("", "end", Id(moreIndicatorID), Values(vals))
 	}
 
-	if len(a.visible) == 0 {
-		if len(a.commits) == 0 {
+	if len(a.data.visible) == 0 {
+		if len(a.data.commits) == 0 {
 			a.clearDetailText("Repository has no commits yet.")
 		} else {
 			a.clearDetailText("No commits match the current filter.")
@@ -59,7 +59,7 @@ func (a *Controller) applyFilterContent(raw string) {
 	}
 
 	index := a.visibleSelectionIndex()
-	if index < 0 && len(a.visible) > 0 {
+	if index < 0 && len(a.data.visible) > 0 {
 		index = 0
 	}
 	if index >= 0 {
@@ -76,10 +76,10 @@ func (a *Controller) applyFilterContent(raw string) {
 }
 
 func (a *Controller) storeScrollState() {
-	a.scroll.total = a.treeChildCount()
-	if a.scroll.total > 0 {
+	a.state.scroll.total = a.treeChildCount()
+	if a.state.scroll.total > 0 {
 		if start, _, err := a.treeYviewRange(); err == nil {
-			a.scroll.start = start
+			a.state.scroll.start = start
 		}
 	}
 }
@@ -89,7 +89,7 @@ func (a *Controller) restoreScrollState() {
 		return
 	}
 	newTotal := a.treeChildCount()
-	target, ok := a.scroll.restoreTarget(newTotal)
+	target, ok := a.state.scroll.restoreTarget(newTotal)
 	if !ok {
 		return
 	}
@@ -120,7 +120,7 @@ func (a *Controller) visibleSelectionIndex() int {
 	if hash == "" {
 		return -1
 	}
-	for i, entry := range a.visible {
+	for i, entry := range a.data.visible {
 		if entry == nil || entry.Commit == nil {
 			continue
 		}
@@ -138,10 +138,10 @@ func (a *Controller) scheduleFilterApply(raw string) {
 	}
 	slog.Debug("scheduleFilterApply", slog.String("value", raw))
 	debouncer := func() *debounce.Debouncer {
-		a.filter.mu.Lock()
-		defer a.filter.mu.Unlock()
-		a.filter.pending = raw
-		return debounce.Ensure(&a.filter.debouncer, filterDebounceDelay, func() {
+		a.state.filter.mu.Lock()
+		defer a.state.filter.mu.Unlock()
+		a.state.filter.pending = raw
+		return debounce.Ensure(&a.state.filter.debouncer, filterDebounceDelay, func() {
 			a.flushFilterDebounce()
 		})
 	}()
@@ -150,10 +150,10 @@ func (a *Controller) scheduleFilterApply(raw string) {
 
 func (a *Controller) flushFilterDebounce() {
 	value := func() string {
-		a.filter.mu.Lock()
-		defer a.filter.mu.Unlock()
-		val := a.filter.pending
-		a.filter.pending = ""
+		a.state.filter.mu.Lock()
+		defer a.state.filter.mu.Unlock()
+		val := a.state.filter.pending
+		a.state.filter.pending = ""
 		return val
 	}()
 	if value == "" {
@@ -165,13 +165,13 @@ func (a *Controller) flushFilterDebounce() {
 }
 
 func (a *Controller) stopFilterDebounce() {
-	a.filter.mu.Lock()
-	defer a.filter.mu.Unlock()
-	if deb := a.filter.debouncer; deb != nil {
+	a.state.filter.mu.Lock()
+	defer a.state.filter.mu.Unlock()
+	if deb := a.state.filter.debouncer; deb != nil {
 		deb.Stop()
 	}
-	a.filter.debouncer = nil
-	a.filter.pending = ""
+	a.state.filter.debouncer = nil
+	a.state.filter.pending = ""
 }
 
 func (s scrollState) restoreTarget(newTotal int) (float64, bool) {

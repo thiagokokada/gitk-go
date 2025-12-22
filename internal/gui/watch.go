@@ -28,68 +28,68 @@ type autoReloadState struct {
 }
 
 func (a *Controller) initAutoReload(requested bool) {
-	a.watch.mu.Lock()
-	a.watch.configured = requested
-	a.watch.mu.Unlock()
+	a.state.watch.mu.Lock()
+	a.state.watch.configured = requested
+	a.state.watch.mu.Unlock()
 	if requested {
 		if err := a.enableAutoReload(); err != nil {
 			slog.Error("auto reload disabled", slog.Any("error", err))
-			a.watch.mu.Lock()
-			a.watch.configured = false
-			a.watch.mu.Unlock()
+			a.state.watch.mu.Lock()
+			a.state.watch.configured = false
+			a.state.watch.mu.Unlock()
 		}
 	}
 	a.updateReloadButtonLabel()
 }
 
 func (a *Controller) enableAutoReload() error {
-	a.watch.mu.Lock()
-	defer a.watch.mu.Unlock()
-	if !a.watch.configured {
+	a.state.watch.mu.Lock()
+	defer a.state.watch.mu.Unlock()
+	if !a.state.watch.configured {
 		return nil
 	}
-	if a.watch.enabled {
+	if a.state.watch.enabled {
 		return nil
 	}
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("fsnotify: %w", err)
 	}
-	for path := range watchPaths(a.repoPath) {
+	for path := range watchPaths(a.repo.path) {
 		slog.Debug("adding path to FS watcher", slog.String("path", path))
 		if err := watcher.Add(path); err != nil {
 			err := errors.Join(err, watcher.Close())
 			return fmt.Errorf("watch %s: %w", path, err)
 		}
 	}
-	if a.watch.debounce == nil {
-		a.watch.debounce = debounce.New(autoReloadDebounceDelay, func() {
+	if a.state.watch.debounce == nil {
+		a.state.watch.debounce = debounce.New(autoReloadDebounceDelay, func() {
 			PostEvent(func() {
 				a.reloadCommitsAsync()
 			}, false)
 		})
 	}
-	a.watch.watcher = watcher
-	a.watch.enabled = true
+	a.state.watch.watcher = watcher
+	a.state.watch.enabled = true
 	go a.watchLoop(watcher)
 	return nil
 }
 
 func (a *Controller) disableAutoReload() {
-	a.watch.mu.Lock()
-	defer a.watch.mu.Unlock()
-	if a.watch.debounce != nil {
-		a.watch.debounce.Stop()
-		a.watch.debounce = nil
+	a.state.watch.mu.Lock()
+	defer a.state.watch.mu.Unlock()
+	if a.state.watch.debounce != nil {
+		a.state.watch.debounce.Stop()
+		a.state.watch.debounce = nil
 	}
-	if a.watch.watcher != nil {
-		err := a.watch.watcher.Close()
+	if a.state.watch.watcher != nil {
+		err := a.state.watch.watcher.Close()
 		if err != nil {
 			slog.Error("watcher close", slog.Any("error", err))
 		}
-		a.watch.watcher = nil
+		a.state.watch.watcher = nil
 	}
-	a.watch.enabled = false
+	a.state.watch.enabled = false
 }
 
 func (a *Controller) shutdown() {
@@ -124,13 +124,13 @@ func (a *Controller) watchLoop(w *fsnotify.Watcher) {
 }
 
 func (a *Controller) scheduleAutoReload() {
-	a.watch.mu.Lock()
-	defer a.watch.mu.Unlock()
-	if !a.watch.enabled || a.watch.debounce == nil {
+	a.state.watch.mu.Lock()
+	defer a.state.watch.mu.Unlock()
+	if !a.state.watch.enabled || a.state.watch.debounce == nil {
 		return
 	}
 	slog.Debug("auto reload scheduled")
-	a.watch.debounce.Trigger()
+	a.state.watch.debounce.Trigger()
 }
 
 func watchPaths(root string) iter.Seq[string] {
@@ -161,10 +161,10 @@ func (a *Controller) updateReloadButtonLabel() {
 		return
 	}
 	label := "Reload"
-	a.watch.mu.Lock()
-	configured := a.watch.configured
-	enabled := a.watch.enabled
-	a.watch.mu.Unlock()
+	a.state.watch.mu.Lock()
+	configured := a.state.watch.configured
+	enabled := a.state.watch.enabled
+	a.state.watch.mu.Unlock()
 	if configured {
 		state := "Off"
 		if enabled {
@@ -176,10 +176,10 @@ func (a *Controller) updateReloadButtonLabel() {
 }
 
 func (a *Controller) onReloadButton() {
-	a.watch.mu.Lock()
-	configured := a.watch.configured
-	enabled := a.watch.enabled
-	a.watch.mu.Unlock()
+	a.state.watch.mu.Lock()
+	configured := a.state.watch.configured
+	enabled := a.state.watch.enabled
+	a.state.watch.mu.Unlock()
 	if !configured {
 		a.reloadCommitsAsync()
 		return

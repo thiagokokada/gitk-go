@@ -31,10 +31,10 @@ func (a *Controller) promptRepositorySwitch() {
 	dir := strings.TrimSpace(ChooseDirectory(
 		Parent(App),
 		Title("Select Git repository"),
-		Initialdir(a.repoPath),
+		Initialdir(a.repo.path),
 		Mustexist(true),
 	))
-	if dir == "" || dir == a.repoPath {
+	if dir == "" || dir == a.repo.path {
 		return
 	}
 	a.switchRepository(dir)
@@ -64,23 +64,23 @@ func (a *Controller) switchRepository(path string) {
 		return
 	}
 
-	a.watch.mu.Lock()
-	wasConfigured := a.watch.configured
-	wasEnabled := a.watch.enabled
-	a.watch.mu.Unlock()
+	a.state.watch.mu.Lock()
+	wasConfigured := a.state.watch.configured
+	wasEnabled := a.state.watch.enabled
+	a.state.watch.mu.Unlock()
 
 	a.disableAutoReload()
 	a.cancelPendingDiffLoad()
 
 	a.svc = newSvc
-	a.repoPath = newSvc.RepoPath()
-	a.headRef = ""
-	a.commits = nil
-	a.visible = nil
-	a.tree = treeState{}
-	a.localDiffs = localDiffCache{}
-	a.filter = filterState{}
-	a.selection = selectionState{}
+	a.repo.path = newSvc.RepoPath()
+	a.repo.headRef = ""
+	a.data.commits = nil
+	a.data.visible = nil
+	a.state.tree = treeState{}
+	a.state.localDiff = localDiffCache{}
+	a.state.filter = filterState{}
+	a.state.selection = selectionState{}
 	a.stopFilterDebounce()
 	if a.ui.filterEntry != nil {
 		a.ui.filterEntry.Configure(Textvariable(""))

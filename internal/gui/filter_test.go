@@ -44,34 +44,34 @@ func TestScrollRestoreTarget(t *testing.T) {
 
 func TestApplyFilterDoesNotStopDebounce(t *testing.T) {
 	a := &Controller{}
-	a.filter.debouncer = debounce.New(time.Hour, func() {})
-	a.filter.pending = "stale"
+	a.state.filter.debouncer = debounce.New(time.Hour, func() {})
+	a.state.filter.pending = "stale"
 
 	a.applyFilter("foo")
 
-	if a.filter.debouncer == nil {
+	if a.state.filter.debouncer == nil {
 		t.Fatalf("expected debouncer to remain set")
 	}
-	if got := a.filter.value; got != "foo" {
+	if got := a.state.filter.value; got != "foo" {
 		t.Fatalf("expected filter value %q, got %q", "foo", got)
 	}
 }
 
 func TestScheduleFilterApplyEmptyStopsDebounce(t *testing.T) {
 	a := &Controller{}
-	a.filter.debouncer = debounce.New(time.Hour, func() {})
-	a.filter.pending = "foo"
-	a.filter.value = "foo"
+	a.state.filter.debouncer = debounce.New(time.Hour, func() {})
+	a.state.filter.pending = "foo"
+	a.state.filter.value = "foo"
 
 	a.scheduleFilterApply("")
 
-	if a.filter.debouncer != nil {
+	if a.state.filter.debouncer != nil {
 		t.Fatalf("expected debouncer to be stopped")
 	}
-	if a.filter.pending != "" {
+	if a.state.filter.pending != "" {
 		t.Fatalf("expected pending filter to be cleared")
 	}
-	if got := a.filter.value; got != "" {
+	if got := a.state.filter.value; got != "" {
 		t.Fatalf("expected filter value cleared, got %q", got)
 	}
 }

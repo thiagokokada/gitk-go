@@ -98,7 +98,7 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 	GridColumnConfigure(listArea.Window, 1, Weight(0))
 
 	treeScroll := listArea.TScrollbar()
-	if a.graphCanvas {
+	if a.cfg.graphCanvas {
 		// Avoid setting Background(""): Tk treats it as an invalid color name.
 		a.ui.graphCanvas = listArea.Canvas(Width(120), Highlightthickness(0), Borderwidth(0))
 	} else {
@@ -115,7 +115,7 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 			a.scheduleGraphCanvasRedraw()
 		}),
 	)
-	if a.graphCanvas {
+	if a.cfg.graphCanvas {
 		a.ui.treeView.Column("graph", Anchor(W), Width(260), Stretch(false))
 	} else {
 		a.ui.treeView.Column("graph", Anchor(W), Width(120), Stretch(false))
@@ -127,11 +127,11 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 	a.ui.treeView.Heading("commit", Txt("Commit"))
 	a.ui.treeView.Heading("author", Txt("Author"))
 	a.ui.treeView.Heading("date", Txt("Date"))
-	unstagedColor := a.palette.LocalUnstagedRow
+	unstagedColor := a.theme.palette.LocalUnstagedRow
 	if unstagedColor == "" {
 		unstagedColor = "#fde2e1"
 	}
-	stagedColor := a.palette.LocalStagedRow
+	stagedColor := a.theme.palette.LocalStagedRow
 	if stagedColor == "" {
 		stagedColor = "#e2f7e1"
 	}
@@ -145,7 +145,7 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 	}))
 
 	Bind(a.ui.treeView, "<<TreeviewSelect>>", Command(a.onTreeSelectionChanged))
-	if a.graphCanvas {
+	if a.cfg.graphCanvas {
 		Bind(a.ui.treeView, "<Configure>", Command(a.scheduleGraphCanvasRedraw))
 		// Column resizing uses click+drag on the header separator; it doesn't reliably
 		// trigger <Configure>, so watch for B1 drag/release too.
@@ -181,15 +181,15 @@ func (a *Controller) buildDiffPane(diffArea *TFrameWidget) {
 		a.onDiffScrolled()
 	}))
 	a.ui.diffDetail.Configure(Xscrollcommand(func(e *Event) { e.ScrollSet(detailXScroll) }))
-	addColor := a.palette.DiffAdd
+	addColor := a.theme.palette.DiffAdd
 	if addColor == "" {
 		addColor = lightPalette.DiffAdd
 	}
-	delColor := a.palette.DiffDel
+	delColor := a.theme.palette.DiffDel
 	if delColor == "" {
 		delColor = lightPalette.DiffDel
 	}
-	headerColor := a.palette.DiffHeader
+	headerColor := a.theme.palette.DiffHeader
 	if headerColor == "" {
 		headerColor = lightPalette.DiffHeader
 	}
@@ -228,7 +228,7 @@ func (a *Controller) showInitialLoadingRow() {
 	if a.ui.treeView == nil {
 		return
 	}
-	if len(a.commits) != 0 || len(a.visible) != 0 {
+	if len(a.data.commits) != 0 || len(a.data.visible) != 0 {
 		return
 	}
 	if a.treeItemExists(loadingIndicatorID) {
@@ -267,12 +267,12 @@ func (a *Controller) showTreeContextMenu(e *Event) {
 	}
 	a.ui.treeView.Selection("set", item)
 	a.ui.treeView.Focus(item)
-	a.tree.contextTargetID = item
+	a.state.tree.contextTargetID = item
 	Popup(a.ui.treeContextMenu.Window, e.XRoot, e.YRoot, nil)
 }
 
 func (a *Controller) copySelectedCommitReference() {
-	id := a.tree.contextTargetID
+	id := a.state.tree.contextTargetID
 	if id == "" && a.ui.treeView != nil {
 		if sel := a.ui.treeView.Selection(""); len(sel) > 0 {
 			id = sel[0]
@@ -282,7 +282,7 @@ func (a *Controller) copySelectedCommitReference() {
 	if !ok {
 		return
 	}
-	entry := a.visible[idx]
+	entry := a.data.visible[idx]
 	if entry == nil || entry.Commit == nil {
 		return
 	}
@@ -296,7 +296,7 @@ func (a *Controller) updateRepoLabel() {
 	if a.ui.repoLabel == nil {
 		return
 	}
-	label := fmt.Sprintf("Repository: %s", a.repoPath)
+	label := fmt.Sprintf("Repository: %s", a.repo.path)
 	a.ui.repoLabel.Configure(Txt(label))
 }
 
@@ -330,7 +330,7 @@ func (a *Controller) treeCommitIndex(id string) (int, bool) {
 		return 0, false
 	}
 	idx, err := strconv.Atoi(id)
-	if err != nil || idx < 0 || idx >= len(a.visible) {
+	if err != nil || idx < 0 || idx >= len(a.data.visible) {
 		return 0, false
 	}
 	return idx, true

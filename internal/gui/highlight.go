@@ -16,7 +16,7 @@ func (a *Controller) applySyntaxHighlight(content string) {
 		return
 	}
 	a.clearSyntaxHighlight()
-	style := styleForPalette(a.palette)
+	style := styleForPalette(a.theme.palette)
 	if style == nil {
 		return
 	}
@@ -49,7 +49,7 @@ func (a *Controller) clearSyntaxHighlight() {
 	if a.ui.diffDetail == nil {
 		return
 	}
-	for _, tag := range a.diff.syntaxTags {
+	for _, tag := range a.state.diff.syntaxTags {
 		a.ui.diffDetail.TagRemove(tag, "1.0", END)
 	}
 }
@@ -58,15 +58,15 @@ func (a *Controller) syntaxTagForColor(color string) string {
 	if color == "" || a.ui.diffDetail == nil {
 		return ""
 	}
-	if a.diff.syntaxTags == nil {
-		a.diff.syntaxTags = make(map[string]string)
+	if a.state.diff.syntaxTags == nil {
+		a.state.diff.syntaxTags = make(map[string]string)
 	}
-	if tag, ok := a.diff.syntaxTags[color]; ok {
+	if tag, ok := a.state.diff.syntaxTags[color]; ok {
 		return tag
 	}
-	tag := fmt.Sprintf("syntax_%d", len(a.diff.syntaxTags))
+	tag := fmt.Sprintf("syntax_%d", len(a.state.diff.syntaxTags))
 	a.ui.diffDetail.TagConfigure(tag, Foreground(color))
-	a.diff.syntaxTags[color] = tag
+	a.state.diff.syntaxTags[color] = tag
 	return tag
 }
 

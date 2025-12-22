@@ -5,29 +5,47 @@ import (
 )
 
 type Controller struct {
-	svc                 *git.Service
-	repoPath            string
-	batch               uint
-	graphCanvas         bool
-	themePref           ThemePreference
-	palette             colorPalette
-	autoReloadRequested bool
-	syntaxHighlight     bool
-	verbose             bool
+	svc *git.Service
 
-	headRef string
-
-	commits []*git.Entry
-	visible []*git.Entry
+	cfg   controllerConfig
+	repo  controllerRepo
+	theme controllerTheme
+	data  controllerData
 
 	ui appWidgets
 
-	tree   treeState
-	diff   diffState
-	filter filterState
+	state controllerState
+}
 
-	localDiffs localDiffCache
-	scroll     scrollState
-	selection  selectionState
-	watch      autoReloadState
+type controllerConfig struct {
+	batch               uint
+	graphCanvas         bool
+	autoReloadRequested bool
+	syntaxHighlight     bool
+	verbose             bool
+}
+
+type controllerRepo struct {
+	path    string
+	headRef string
+}
+
+type controllerTheme struct {
+	pref    ThemePreference
+	palette colorPalette
+}
+
+type controllerData struct {
+	commits []*git.Entry
+	visible []*git.Entry
+}
+
+type controllerState struct {
+	tree      treeState
+	diff      diffState
+	filter    filterState
+	localDiff localDiffCache
+	scroll    scrollState
+	selection selectionState
+	watch     autoReloadState
 }

@@ -44,40 +44,46 @@ func Run(repoPath string, batch uint, graphMaxColumns uint, graphCanvas bool, pr
 		pref = ThemeAuto
 	}
 	app := &Controller{
-		svc:                 svc,
-		repoPath:            svc.RepoPath(),
-		batch:               batch,
-		graphCanvas:         graphCanvas,
-		themePref:           pref,
-		autoReloadRequested: autoReload,
-		syntaxHighlight:     syntaxHighlight,
-		verbose:             verbose,
+		svc: svc,
+		cfg: controllerConfig{
+			batch:               batch,
+			graphCanvas:         graphCanvas,
+			autoReloadRequested: autoReload,
+			syntaxHighlight:     syntaxHighlight,
+			verbose:             verbose,
+		},
+		repo: controllerRepo{
+			path: svc.RepoPath(),
+		},
+		theme: controllerTheme{
+			pref: pref,
+		},
 	}
-	app.diff.syntaxTags = make(map[string]string)
+	app.state.diff.syntaxTags = make(map[string]string)
 	return app.run()
 }
 
 func (a *Controller) run() error {
 	defer a.shutdown()
-	a.palette = paletteForPreference(a.themePref)
-	if a.palette.ThemeName != "" {
-		err := ActivateTheme(a.palette.ThemeName)
+	a.theme.palette = paletteForPreference(a.theme.pref)
+	if a.theme.palette.ThemeName != "" {
+		err := ActivateTheme(a.theme.palette.ThemeName)
 		if err != nil {
 			slog.Error(
 				"activate theme",
-				slog.String("theme", a.palette.ThemeName),
+				slog.String("theme", a.theme.palette.ThemeName),
 				slog.Any("error", err),
 			)
 		}
 	}
 	level := slog.LevelInfo
-	if a.verbose {
+	if a.cfg.verbose {
 		level = slog.LevelDebug
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
 	applyAppIcon()
 	a.buildUI()
-	a.initAutoReload(a.autoReloadRequested)
+	a.initAutoReload(a.cfg.autoReloadRequested)
 	a.showInitialLoadingRow()
 	a.setStatus("Loading commits...")
 	a.refreshLocalChangesAsync(true)
@@ -93,7 +99,7 @@ func (a *Controller) loadBranchLabels() error {
 	if err != nil {
 		return err
 	}
-	a.tree.branchLabels = labels
+	a.state.tree.branchLabels = labels
 	return nil
 }
 
@@ -119,7 +125,7 @@ func (a *Controller) refreshLocalChangesAsync(prefetch bool) {
 }
 
 func (a *Controller) applyLocalChangeStatus(status git.LocalChanges, repoReady bool, prefetch bool) {
-	actions := a.tree.localChangePlan(repoReady, prefetch, status)
+	actions := a.state.tree.localChangePlan(repoReady, prefetch, status)
 	a.setLocalRowVisibility(false, actions.showUnstaged)
 	a.setLocalRowVisibility(true, actions.showStaged)
 	if actions.resetUnstaged {
@@ -137,11 +143,11 @@ func (a *Controller) applyLocalChangeStatus(status git.LocalChanges, repoReady b
 }
 
 func (a *Controller) showCommitDetails(index int) {
-	if index < 0 || index >= len(a.visible) {
+	if index < 0 || index >= len(a.data.visible) {
 		a.clearDetailText("Commit index out of range.")
 		return
 	}
-	entry := a.visible[index]
+	entry := a.data.visible[index]
 	header := git.FormatCommitHeader(entry.Commit)
 	hash := entry.Commit.Hash
 	a.setSelectedHash(hash)
@@ -253,7 +259,7 @@ func (a *Controller) resetLocalDiffState(staged bool) {
 }
 
 func (a *Controller) localDiffState(staged bool, create bool) *localDiffState {
-	return a.localDiffs.state(staged, create)
+	return a.state.localDiff.state(staged, create)
 }
 
 func (a *Controller) onLocalDiffLoaded(staged bool) {
@@ -298,11 +304,11 @@ func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
 	}
 	slog.Debug("scheduleDiffLoad", slog.String("hash", hash))
 	deb := func() *debounce.Debouncer {
-		a.diff.mu.Lock()
-		defer a.diff.mu.Unlock()
-		a.diff.pendingDiff = entry
-		a.diff.pendingHash = hash
-		return debounce.Ensure(&a.diff.debouncer, diffDebounceDelay, func() {
+		a.state.diff.mu.Lock()
+		defer a.state.diff.mu.Unlock()
+		a.state.diff.pendingDiff = entry
+		a.state.diff.pendingHash = hash
+		return debounce.Ensure(&a.state.diff.debouncer, diffDebounceDelay, func() {
 			a.flushDiffDebounce()
 		})
 	}()
@@ -311,12 +317,12 @@ func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
 
 func (a *Controller) flushDiffDebounce() {
 	entry, hash := func() (*git.Entry, string) {
-		a.diff.mu.Lock()
-		defer a.diff.mu.Unlock()
-		pending := a.diff.pendingDiff
-		pendingHash := a.diff.pendingHash
-		a.diff.pendingDiff = nil
-		a.diff.pendingHash = ""
+		a.state.diff.mu.Lock()
+		defer a.state.diff.mu.Unlock()
+		pending := a.state.diff.pendingDiff
+		pendingHash := a.state.diff.pendingHash
+		a.state.diff.pendingDiff = nil
+		a.state.diff.pendingHash = ""
 		return pending, pendingHash
 	}()
 	if entry == nil {
@@ -326,39 +332,39 @@ func (a *Controller) flushDiffDebounce() {
 }
 
 func (a *Controller) cancelPendingDiffLoad() {
-	slog.Debug("cancelPendingDiffLoad", slog.String("hash", a.diff.pendingHash))
-	a.diff.mu.Lock()
-	defer a.diff.mu.Unlock()
-	if a.diff.debouncer != nil {
-		a.diff.debouncer.Stop()
+	slog.Debug("cancelPendingDiffLoad", slog.String("hash", a.state.diff.pendingHash))
+	a.state.diff.mu.Lock()
+	defer a.state.diff.mu.Unlock()
+	if a.state.diff.debouncer != nil {
+		a.state.diff.debouncer.Stop()
 	}
-	a.diff.debouncer = nil
-	a.diff.pendingDiff = nil
-	a.diff.pendingHash = ""
+	a.state.diff.debouncer = nil
+	a.state.diff.pendingDiff = nil
+	a.state.diff.pendingHash = ""
 }
 
 func (a *Controller) reloadCommitsAsync() {
-	if a.tree.loadingBatch {
+	if a.state.tree.loadingBatch {
 		return
 	}
-	a.tree.loadingBatch = true
+	a.state.tree.loadingBatch = true
 	slog.Debug("reloadCommitsAsync start",
-		slog.Uint64("batch", uint64(a.batch)),
-		slog.String("filter", a.filter.value),
+		slog.Uint64("batch", uint64(a.cfg.batch)),
+		slog.String("filter", a.state.filter.value),
 	)
 	go func() {
-		entries, head, hasMore, err := a.svc.ScanCommits(0, a.batch)
+		entries, head, hasMore, err := a.svc.ScanCommits(0, a.cfg.batch)
 		PostEvent(func() {
-			a.tree.loadingBatch = false
+			a.state.tree.loadingBatch = false
 			if err != nil {
 				slog.Error("failed to reload commits", slog.Any("error", err))
 				a.setStatus(fmt.Sprintf("Failed to reload commits: %v", err))
 				return
 			}
-			a.commits = entries
-			a.visible = entries
-			a.headRef = head
-			a.tree.hasMore = hasMore
+			a.data.commits = entries
+			a.data.visible = entries
+			a.repo.headRef = head
+			a.state.tree.hasMore = hasMore
 			slog.Debug("reloadCommitsAsync loaded",
 				slog.Int("count", len(entries)),
 				slog.String("head", head),
@@ -367,7 +373,7 @@ func (a *Controller) reloadCommitsAsync() {
 			if err := a.loadBranchLabels(); err != nil {
 				slog.Error("failed to refresh branch labels", slog.Any("error", err))
 			}
-			a.applyFilterContent(a.filter.value)
+			a.applyFilterContent(a.state.filter.value)
 			a.refreshLocalChangesAsync(true)
 			a.setStatus(a.statusSummary())
 		}, false)
@@ -375,20 +381,20 @@ func (a *Controller) reloadCommitsAsync() {
 }
 
 func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
-	if a.tree.loadingBatch || (!prefetch && !a.tree.hasMore) {
+	if a.state.tree.loadingBatch || (!prefetch && !a.state.tree.hasMore) {
 		return
 	}
-	a.tree.loadingBatch = true
-	skip := len(a.commits)
+	a.state.tree.loadingBatch = true
+	skip := len(a.data.commits)
 	slog.Debug("loadMoreCommitsAsync start",
 		slog.Int("skip", skip),
 		slog.Bool("prefetch", prefetch),
-		slog.String("filter", a.filter.value),
+		slog.String("filter", a.state.filter.value),
 	)
 	go func(skipCount uint, background bool) {
-		entries, _, hasMore, err := a.svc.ScanCommits(skipCount, a.batch)
+		entries, _, hasMore, err := a.svc.ScanCommits(skipCount, a.cfg.batch)
 		PostEvent(func() {
-			a.tree.loadingBatch = false
+			a.state.tree.loadingBatch = false
 			if err != nil {
 				slog.Error("failed to load more commits", slog.Any("error", err))
 				if !background {
@@ -397,27 +403,27 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 				return
 			}
 			if len(entries) == 0 {
-				a.tree.hasMore = false
+				a.state.tree.hasMore = false
 				if !background {
 					a.setStatus("No more commits available.")
 				}
 				return
 			}
-			a.commits = append(a.commits, entries...)
-			a.tree.hasMore = hasMore
+			a.data.commits = append(a.data.commits, entries...)
+			a.state.tree.hasMore = hasMore
 			slog.Debug("loadMoreCommitsAsync loaded",
 				slog.Int("added", len(entries)),
-				slog.Int("total", len(a.commits)),
+				slog.Int("total", len(a.data.commits)),
 				slog.Bool("has_more", hasMore),
 				slog.Bool("background", background),
 			)
 			if err := a.loadBranchLabels(); err != nil {
 				slog.Error("failed to refresh branch labels", slog.Any("error", err))
 			}
-			a.applyFilterContent(a.filter.value)
+			a.applyFilterContent(a.state.filter.value)
 			a.refreshLocalChangesAsync(false)
 			a.setStatus(a.statusSummary())
-			if background && a.tree.hasMore {
+			if background && a.state.tree.hasMore {
 				go a.loadMoreCommitsAsync(true)
 			}
 		}, false)
@@ -446,7 +452,7 @@ func (a *Controller) writeDetailText(content string, highlightDiff bool) {
 		a.ui.diffDetail.TagRemove("diffDel", "1.0", END)
 		a.ui.diffDetail.TagRemove("diffHeader", "1.0", END)
 	}
-	if a.syntaxHighlight && highlightDiff {
+	if a.cfg.syntaxHighlight && highlightDiff {
 		a.applySyntaxHighlight(content)
 	} else {
 		a.clearSyntaxHighlight()
@@ -516,7 +522,7 @@ func (a *Controller) setFileSections(sections []git.FileSection) {
 	augmented := make([]git.FileSection, 0, len(sections)+1)
 	augmented = append(augmented, git.FileSection{Path: "Commit", Line: 1})
 	augmented = append(augmented, sections...)
-	a.diff.fileSections = augmented
+	a.state.diff.fileSections = augmented
 	if a.ui.diffFileList == nil {
 		return
 	}
@@ -537,10 +543,10 @@ func (a *Controller) setFileSections(sections []git.FileSection) {
 }
 
 func (a *Controller) onFileSelectionChanged() {
-	if a.diff.suppressFileSelection {
+	if a.state.diff.suppressFileSelection {
 		return
 	}
-	if len(a.diff.fileSections) == 0 || a.ui.diffFileList == nil {
+	if len(a.state.diff.fileSections) == 0 || a.ui.diffFileList == nil {
 		return
 	}
 	selection := a.ui.diffFileList.Curselection()
@@ -548,11 +554,11 @@ func (a *Controller) onFileSelectionChanged() {
 		return
 	}
 	idx := selection[0]
-	if idx < 0 || idx >= len(a.diff.fileSections) {
+	if idx < 0 || idx >= len(a.state.diff.fileSections) {
 		return
 	}
-	a.diff.skipNextSync = true
-	a.scrollDiffToLine(a.diff.fileSections[idx].Line)
+	a.state.diff.skipNextSync = true
+	a.scrollDiffToLine(a.state.diff.fileSections[idx].Line)
 }
 
 func (a *Controller) scrollDiffToLine(line int) {
@@ -595,11 +601,11 @@ func (a *Controller) textLineCount() int {
 
 func (a *Controller) setSelectedHash(hash string) {
 	h := hash
-	a.selection.hash.Store(&h)
+	a.state.selection.hash.Store(&h)
 }
 
 func (a *Controller) currentSelection() string {
-	ptr := a.selection.hash.Load()
+	ptr := a.state.selection.hash.Load()
 	if ptr == nil {
 		return ""
 	}
@@ -618,19 +624,19 @@ func (a *Controller) setStatus(msg string) {
 }
 
 func (a *Controller) statusSummary() string {
-	total := len(a.commits)
-	visible := len(a.visible)
-	head := a.headRef
+	total := len(a.data.commits)
+	visible := len(a.data.visible)
+	head := a.repo.headRef
 	if head == "" {
 		head = "HEAD"
 	}
-	filterDesc := strings.TrimSpace(a.filter.value)
-	path := a.repoPath
+	filterDesc := strings.TrimSpace(a.state.filter.value)
+	path := a.repo.path
 	if path == "" && a.svc != nil {
 		path = a.svc.RepoPath()
 	}
 	base := fmt.Sprintf("Showing %d/%d loaded commits on %s — %s", visible, total, head, path)
-	if a.tree.hasMore {
+	if a.state.tree.hasMore {
 		base += " (more available)"
 	}
 	if filterDesc == "" {
@@ -640,10 +646,10 @@ func (a *Controller) statusSummary() string {
 }
 
 func (a *Controller) syncFileSelectionToDiff() {
-	if a.ui.diffFileList == nil || len(a.diff.fileSections) == 0 {
+	if a.ui.diffFileList == nil || len(a.state.diff.fileSections) == 0 {
 		return
 	}
-	if a.diff.skipNextSync {
+	if a.state.diff.skipNextSync {
 		return
 	}
 	line := func() int {
@@ -664,30 +670,30 @@ func (a *Controller) syncFileSelectionToDiff() {
 	if line <= 0 {
 		return
 	}
-	a.setFileListSelection(fileSectionIndexForLine(a.diff.fileSections, line))
+	a.setFileListSelection(fileSectionIndexForLine(a.state.diff.fileSections, line))
 }
 
 func (a *Controller) setFileListSelection(idx int) {
-	if a.ui.diffFileList == nil || idx < 0 || idx >= len(a.diff.fileSections) {
+	if a.ui.diffFileList == nil || idx < 0 || idx >= len(a.state.diff.fileSections) {
 		return
 	}
 	current := a.ui.diffFileList.Curselection()
 	if len(current) > 0 && current[0] == idx {
 		return
 	}
-	a.diff.suppressFileSelection = true
+	a.state.diff.suppressFileSelection = true
 	a.ui.diffFileList.SelectionClear(0, END)
 	a.ui.diffFileList.SelectionSet(idx)
 	a.ui.diffFileList.Activate(idx)
 	a.ui.diffFileList.See(idx)
 	PostEvent(func() {
-		a.diff.suppressFileSelection = false
+		a.state.diff.suppressFileSelection = false
 	}, false)
 }
 
 func (a *Controller) onDiffScrolled() {
-	if a.diff.skipNextSync {
-		a.diff.skipNextSync = false
+	if a.state.diff.skipNextSync {
+		a.state.diff.skipNextSync = false
 		return
 	}
 	a.syncFileSelectionToDiff()
