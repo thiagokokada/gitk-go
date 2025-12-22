@@ -275,28 +275,48 @@ func (s *gitLogStream) wait() error {
 }
 
 func parseGitLogRecord(rec []byte) (*Commit, error) {
-	parts := strings.Split(string(rec), "\n")
-	if len(parts) < 8 {
-		return nil, fmt.Errorf("unexpected git log record: got %d lines", len(parts))
+	const headerLines = 8
+	var lines [headerLines][]byte
+	lineCount := 0
+	start := 0
+	for i := 0; i < len(rec) && lineCount < headerLines; i++ {
+		if rec[i] != '\n' {
+			continue
+		}
+		lines[lineCount] = rec[start:i]
+		lineCount++
+		start = i + 1
 	}
-	hashStr := strings.TrimSpace(parts[0])
-	if hashStr == "" {
+	if lineCount < headerLines {
+		gotLines := lineCount
+		if len(rec) > 0 {
+			gotLines = lineCount + 1
+		}
+		return nil, fmt.Errorf("unexpected git log record: got %d lines", gotLines)
+	}
+	hashBytes := bytes.TrimSpace(lines[0])
+	if len(hashBytes) == 0 {
 		return nil, fmt.Errorf("missing commit hash")
 	}
+
+	hashStr := string(hashBytes)
 	var parents []string
-	parentLine := strings.TrimSpace(parts[1])
-	if parentLine != "" {
-		parents = append(parents, strings.Fields(parentLine)...)
+	parentLine := bytes.TrimSpace(lines[1])
+	if len(parentLine) != 0 {
+		for _, parent := range bytes.Fields(parentLine) {
+			parents = append(parents, string(parent))
+		}
 	}
-	authorName := parts[2]
-	authorEmail := parts[3]
-	authorWhen, _ := time.Parse(time.RFC3339, parts[4])
-	committerName := parts[5]
-	committerEmail := parts[6]
-	committerWhen, _ := time.Parse(time.RFC3339, parts[7])
-	message := ""
-	if len(parts) > 8 {
-		message = strings.Join(parts[8:], "\n")
+
+	authorName := string(lines[2])
+	authorEmail := string(lines[3])
+	authorWhen, _ := time.Parse(time.RFC3339, string(bytes.TrimSpace(lines[4])))
+	committerName := string(lines[5])
+	committerEmail := string(lines[6])
+	committerWhen, _ := time.Parse(time.RFC3339, string(bytes.TrimSpace(lines[7])))
+	message := string(rec[start:])
+	if start >= len(rec) {
+		message = ""
 	}
 	return &Commit{
 		Hash:         hashStr,
