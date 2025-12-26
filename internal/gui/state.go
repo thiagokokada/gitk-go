@@ -29,7 +29,7 @@ type treeState struct {
 	showLocalUnstaged bool
 	showLocalStaged   bool
 
-	graphCanvas widgets.GraphCanvas
+	graphCanvas *widgets.GraphCanvas
 }
 
 type filterState struct {

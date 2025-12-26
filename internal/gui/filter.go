@@ -72,7 +72,7 @@ func (a *Controller) applyFilterContent(raw string) {
 	a.setStatus(a.statusSummary())
 	a.scheduleAutoLoadCheck()
 	a.restoreScrollState()
-	a.scheduleGraphCanvasRedraw()
+	a.scheduleGraphCanvasDraw()
 }
 
 func (a *Controller) storeScrollState() {

@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -42,6 +43,18 @@ const (
 type GraphCanvas struct {
 	redrawPending bool
 	overlay       graphOverlayState
+	canvas        *CanvasWidget
+	treeView      *TTreeviewWidget
+	canvasPath    string
+	treePath      string
+	input         GraphCanvasDrawInput
+	draw          graphCanvasDrawState
+}
+
+type GraphCanvasDrawInput struct {
+	Visible []*git.Entry
+	Labels  map[string][]string
+	Dark    bool
 }
 
 type graphOverlayState struct {
@@ -53,14 +66,44 @@ type graphOverlayState struct {
 	bg    string
 }
 
-type graphDrawContext struct {
+type graphCanvasDrawState struct {
 	canvas      *CanvasWidget
 	dark        bool
 	canvasWidth int
 	maxCols     int
 }
 
-func (g *GraphCanvas) ScheduleRedraw(redraw func()) {
+type graphCanvasDrawPlan struct {
+	contentHeight int
+	rowHeight     int
+	startY        int
+	firstIdx      int
+	selectedIdx   int
+	visible       []*git.Entry
+	labels        map[string][]string
+}
+
+func NewGraphCanvas(canvas *CanvasWidget, treeView *TTreeviewWidget) (*GraphCanvas, error) {
+	if canvas == nil || treeView == nil {
+		return nil, fmt.Errorf("graph canvas: canvas and treeview must be set")
+	}
+	canvasPath := canvas.String()
+	if canvasPath == "" {
+		return nil, fmt.Errorf("graph canvas: canvas path is empty")
+	}
+	treePath := treeView.String()
+	if treePath == "" {
+		return nil, fmt.Errorf("graph canvas: treeview path is empty")
+	}
+	return &GraphCanvas{
+		canvas:     canvas,
+		treeView:   treeView,
+		canvasPath: canvasPath,
+		treePath:   treePath,
+	}, nil
+}
+
+func (g *GraphCanvas) ScheduleDraw(redraw func()) {
 	if g.redrawPending {
 		return
 	}
@@ -73,35 +116,44 @@ func (g *GraphCanvas) ScheduleRedraw(redraw func()) {
 	}, false)
 }
 
-func (g *GraphCanvas) Redraw(
-	canvas *CanvasWidget,
-	treeView *TTreeviewWidget,
-	visible []*git.Entry,
-	labels map[string][]string,
-	dark bool,
-) {
-	if canvas == nil || treeView == nil {
+func (g *GraphCanvas) Draw(input GraphCanvasDrawInput) {
+	g.input = input
+	plan, ok := g.planGraphCanvasDraw()
+	if !ok {
 		return
 	}
-	g.ensureOverlay(canvas, treeView)
-	canvas.Delete("all")
+	y := plan.startY
+	for idx := plan.firstIdx; idx < len(plan.visible); idx++ {
+		if plan.contentHeight > 0 && y > plan.contentHeight {
+			break
+		}
+		entry := plan.visible[idx]
+		if entry != nil {
+			rowLabels := []string(nil)
+			if entry.Commit != nil && plan.labels != nil {
+				rowLabels = plan.labels[entry.Commit.Hash]
+			}
+			g.drawGraphRow(entry.Graph, rowLabels, y, plan.rowHeight, idx == plan.selectedIdx)
+		}
+		y += plan.rowHeight
+	}
+}
 
-	treePath := treeView.String()
-	if treePath == "" {
-		return
-	}
+func (g *GraphCanvas) planGraphCanvasDraw() (graphCanvasDrawPlan, bool) {
+	input := g.input
+	g.ensureOverlay()
+	g.canvas.Delete("all")
+
+	treePath := g.treePath
 	treeHeight := tkutil.Atoi(tkutil.EvalOrEmpty("winfo height %s", treePath))
 	yOffset := g.overlay.y
 	contentHeight := g.overlay.h
 	first := firstVisibleTreeItemForRedraw(treePath, max(1, g.overlay.x+1), yOffset, treeHeight)
-	if first == "" || treeHeight <= 1 {
-		return
+	if first == "" {
+		return graphCanvasDrawPlan{}, false
 	}
 
-	canvasPath := canvas.String()
-	if canvasPath == "" {
-		return
-	}
+	canvasPath := g.canvasPath
 	// Prefer the Treeview column width since the overlay canvas size may lag behind `place`.
 	canvasWidth := tkutil.Atoi(tkutil.EvalOrEmpty("%s column graph -width", treePath))
 	if canvasWidth <= 0 {
@@ -112,17 +164,17 @@ func (g *GraphCanvas) Redraw(
 	}
 	maxCols := maxGraphCanvasCols(canvasWidth)
 	if maxCols <= 0 {
-		return
+		return graphCanvasDrawPlan{}, false
 	}
-	ctx := graphDrawContext{
-		canvas:      canvas,
-		dark:        dark,
+	g.draw = graphCanvasDrawState{
+		canvas:      g.canvas,
+		dark:        input.Dark,
 		canvasWidth: canvasWidth,
 		maxCols:     maxCols,
 	}
 
 	selectedIdx := -1
-	if sel := treeView.Selection(""); len(sel) > 0 {
+	if sel := g.treeView.Selection(""); len(sel) > 0 {
 		if idx, err := strconv.Atoi(sel[0]); err == nil && idx >= 0 {
 			selectedIdx = idx
 		}
@@ -132,42 +184,35 @@ func (g *GraphCanvas) Redraw(
 	// first visible commit row and account for any leading non-numeric rows.
 	bbox := strings.Fields(tkutil.EvalOrEmpty("%s bbox {%s} #1", treePath, first))
 	if len(bbox) < 4 {
-		return
+		return graphCanvasDrawPlan{}, false
 	}
 	firstRowY := tkutil.Atoi(bbox[1]) - yOffset
 	rowHeight := tkutil.Atoi(bbox[3])
 	if rowHeight <= 0 {
-		return
+		return graphCanvasDrawPlan{}, false
 	}
 	firstIdx, skippedRows, ok := resolveFirstCommitIndex(first, func(item string) string {
 		return strings.TrimSpace(tkutil.EvalOrEmpty("%s next {%s}", treePath, item))
 	})
-	if !ok || firstIdx >= len(visible) {
-		return
+	if !ok || firstIdx >= len(input.Visible) {
+		return graphCanvasDrawPlan{}, false
 	}
-	y := firstRowY + skippedRows*rowHeight
-	for idx := firstIdx; idx < len(visible); idx++ {
-		if contentHeight > 0 && y > contentHeight {
-			break
-		}
-		entry := visible[idx]
-		if entry != nil {
-			rowLabels := []string(nil)
-			if entry.Commit != nil && labels != nil {
-				rowLabels = labels[entry.Commit.Hash]
-			}
-			ctx.drawRow(entry.Graph, rowLabels, y, rowHeight, idx == selectedIdx)
-		}
-		y += rowHeight
-	}
+
+	return graphCanvasDrawPlan{
+		contentHeight: contentHeight,
+		rowHeight:     rowHeight,
+		startY:        firstRowY + skippedRows*rowHeight,
+		firstIdx:      firstIdx,
+		selectedIdx:   selectedIdx,
+		visible:       input.Visible,
+		labels:        input.Labels,
+	}, true
 }
 
-func (g *GraphCanvas) ensureOverlay(canvas *CanvasWidget, treeView *TTreeviewWidget) {
-	canvasPath := canvas.String()
-	treePath := treeView.String()
-	if canvasPath == "" || treePath == "" {
-		return
-	}
+func (g *GraphCanvas) ensureOverlay() {
+	canvas := g.canvas
+	canvasPath := g.canvasPath
+	treePath := g.treePath
 
 	bg := strings.TrimSpace(tkutil.EvalOrEmpty("ttk::style lookup Treeview -background"))
 	if bg == "" {
@@ -381,28 +426,25 @@ type graphLabelStyle struct {
 	text string
 }
 
-func (ctx graphDrawContext) drawRow(
+func (g *GraphCanvas) drawGraphRow(
 	raw string,
 	labels []string,
 	yTop int,
 	height int,
 	selected bool,
 ) {
-	if ctx.canvas == nil || ctx.maxCols <= 0 || height <= 0 {
-		return
-	}
-	tokens := parseGraphTokens(raw, ctx.maxCols)
+	tokens := parseGraphTokens(raw, g.draw.maxCols)
 	if len(tokens) == 0 {
 		return
 	}
-	if selected && ctx.canvasWidth > 0 {
+	if selected {
 		fill := "#cfe7ff"
-		if ctx.dark {
+		if g.draw.dark {
 			fill = "#253446"
 		}
-		ctx.canvas.CreateRectangle(
+		g.draw.canvas.CreateRectangle(
 			0, yTop,
-			ctx.canvasWidth, yTop+height,
+			g.draw.canvasWidth, yTop+height,
 			Fill(fill),
 			Width(0),
 		)
@@ -410,7 +452,7 @@ func (ctx graphDrawContext) drawRow(
 	yMid := graphRowMidY(yTop, height)
 	radius := min(graphCanvasLaneSpacing/2, max(2, height/3))
 
-	colors := graphCanvasLaneColors(ctx.dark)
+	colors := graphCanvasLaneColors(g.draw.dark)
 	head := containsPrefix(labels, "HEAD")
 	nodeX := graphCanvasLaneMargin + graphCanvasLaneSpacing/2
 	nodeColor := colors[0]
@@ -419,23 +461,23 @@ func (ctx graphDrawContext) drawRow(
 		color := colors[col%len(colors)]
 		switch token {
 		case "|":
-			ctx.canvas.CreateLine(x, yTop, x, yTop+height, Width(graphCanvasLineWidth), Fill(color))
+			g.draw.canvas.CreateLine(x, yTop, x, yTop+height, Width(graphCanvasLineWidth), Fill(color))
 		case "*":
 			nodeX = x
 			nodeColor = color
-			ctx.canvas.CreateLine(x, yTop, x, yMid-radius, Width(graphCanvasLineWidth), Fill(color))
-			ctx.canvas.CreateLine(x, yMid+radius, x, yTop+height, Width(graphCanvasLineWidth), Fill(color))
+			g.draw.canvas.CreateLine(x, yTop, x, yMid-radius, Width(graphCanvasLineWidth), Fill(color))
+			g.draw.canvas.CreateLine(x, yMid+radius, x, yTop+height, Width(graphCanvasLineWidth), Fill(color))
 			fill := "white"
-			if ctx.dark {
+			if g.draw.dark {
 				fill = "#1e1e1e"
 			}
 			if head {
 				fill = "#ffd75e"
-				if ctx.dark {
+				if g.draw.dark {
 					fill = "#b58900"
 				}
 			}
-			ctx.canvas.CreateOval(
+			g.draw.canvas.CreateOval(
 				x-radius, yMid-radius,
 				x+radius, yMid+radius,
 				Fill(fill),
@@ -445,23 +487,20 @@ func (ctx graphDrawContext) drawRow(
 		default:
 		}
 	}
-	ctx.drawLabels(labels, nodeX, yMid, radius, nodeColor)
+	g.drawGraphLabels(labels, nodeX, yMid, radius, nodeColor)
 }
 
-func (ctx graphDrawContext) drawLabels(
+func (g *GraphCanvas) drawGraphLabels(
 	labels []string,
 	nodeX int,
 	yMid int,
 	radius int,
 	nodeColor string,
 ) {
-	if ctx.canvas == nil || len(labels) == 0 || ctx.canvasWidth <= 0 {
+	if len(labels) == 0 {
 		return
 	}
-	canvasPath := ctx.canvas.String()
-	if canvasPath == "" {
-		return
-	}
+	canvasPath := g.draw.canvas.String()
 	x := max(graphCanvasLabelMinX, nodeX+radius+graphCanvasLabelGap)
 	connected := false
 	for _, label := range labels {
@@ -469,18 +508,18 @@ func (ctx graphDrawContext) drawLabels(
 		if label == "" {
 			continue
 		}
-		if x >= ctx.canvasWidth-graphCanvasLabelGap {
+		if x >= g.draw.canvasWidth-graphCanvasLabelGap {
 			break
 		}
-		style := graphLabelStyleFor(ctx.dark, label, nodeColor)
-		textID := ctx.canvas.CreateText(
+		style := graphLabelStyleFor(g.draw.dark, label, nodeColor)
+		textID := g.draw.canvas.CreateText(
 			x+graphCanvasLabelPadX, yMid,
 			Anchor(W),
 			Txt(label),
 			Font(graphCanvasLabelFont),
 			Fill(style.text),
 		)
-		bbox := ctx.canvas.Bbox(textID)
+		bbox := g.draw.canvas.Bbox(textID)
 		if len(bbox) < 4 {
 			continue
 		}
@@ -488,12 +527,12 @@ func (ctx graphDrawContext) drawLabels(
 		y1 := tkutil.Atoi(bbox[1]) - graphCanvasLabelPadY
 		x2 := tkutil.Atoi(bbox[2]) + graphCanvasLabelPadX
 		y2 := tkutil.Atoi(bbox[3]) + graphCanvasLabelPadY
-		if x1 >= ctx.canvasWidth {
+		if x1 >= g.draw.canvasWidth {
 			continue
 		}
-		rectID := ctx.canvas.CreateRectangle(
+		rectID := g.draw.canvas.CreateRectangle(
 			x1, y1,
-			min(x2, ctx.canvasWidth), y2,
+			min(x2, g.draw.canvasWidth), y2,
 			Fill(style.fill),
 			Outline(style.out),
 			Width(1),
@@ -501,7 +540,7 @@ func (ctx graphDrawContext) drawLabels(
 		tkutil.EvalOrEmpty("%s lower %s %s", canvasPath, rectID, textID)
 		if !connected && x1 > nodeX+radius {
 			connected = true
-			ctx.canvas.CreateLine(nodeX+radius, yMid, x1, yMid, Width(graphCanvasConnectorW), Fill(style.out))
+			g.draw.canvas.CreateLine(nodeX+radius, yMid, x1, yMid, Width(graphCanvasConnectorW), Fill(style.out))
 		}
 		x = x2 + graphCanvasLabelGap
 	}

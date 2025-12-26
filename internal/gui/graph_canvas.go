@@ -1,29 +1,29 @@
 package gui
 
-func (a *Controller) scheduleGraphCanvasRedraw() {
+import "github.com/thiagokokada/gitk-go/internal/gui/widgets"
+
+func (a *Controller) scheduleGraphCanvasDraw() {
 	if !a.cfg.graphCanvas {
 		return
 	}
-	if a.ui.graphCanvas == nil || a.ui.treeView == nil {
+	if a.state.tree.graphCanvas == nil {
 		return
 	}
-	a.state.tree.graphCanvas.ScheduleRedraw(func() {
-		a.redrawGraphCanvas()
+	a.state.tree.graphCanvas.ScheduleDraw(func() {
+		a.drawGraphCanvas()
 	})
 }
 
-func (a *Controller) redrawGraphCanvas() {
+func (a *Controller) drawGraphCanvas() {
 	if !a.cfg.graphCanvas {
 		return
 	}
-	if a.ui.graphCanvas == nil || a.ui.treeView == nil {
+	if a.state.tree.graphCanvas == nil {
 		return
 	}
-	a.state.tree.graphCanvas.Redraw(
-		a.ui.graphCanvas,
-		a.ui.treeView,
-		a.data.visible,
-		a.state.tree.branchLabels,
-		a.theme.palette.isDark(),
-	)
+	a.state.tree.graphCanvas.Draw(widgets.GraphCanvasDrawInput{
+		Visible: a.data.visible,
+		Labels:  a.state.tree.branchLabels,
+		Dark:    a.theme.palette.isDark(),
+	})
 }

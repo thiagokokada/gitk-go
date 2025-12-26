@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fmt"
+	"log/slog"
 	"runtime"
 	"strconv"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	. "modernc.org/tk9.0"
 
 	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
+	"github.com/thiagokokada/gitk-go/internal/gui/widgets"
 )
 
 func (a *Controller) buildUI() {
@@ -112,7 +114,7 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 		Yscrollcommand(func(e *Event) {
 			e.ScrollSet(treeScroll)
 			a.maybeLoadMoreOnScroll()
-			a.scheduleGraphCanvasRedraw()
+			a.scheduleGraphCanvasDraw()
 		}),
 	)
 	if a.cfg.graphCanvas {
@@ -141,16 +143,28 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 	Grid(treeScroll, Row(0), Column(1), Sticky(NS))
 	treeScroll.Configure(Command(func(e *Event) {
 		e.Yview(a.ui.treeView)
-		a.scheduleGraphCanvasRedraw()
+		a.scheduleGraphCanvasDraw()
 	}))
+
+	if a.cfg.graphCanvas {
+		graphCanvas, err := widgets.NewGraphCanvas(a.ui.graphCanvas, a.ui.treeView)
+		if err != nil {
+			slog.Error("graph canvas init", slog.Any("error", err))
+			a.state.tree.graphCanvas = nil
+		} else {
+			a.state.tree.graphCanvas = graphCanvas
+		}
+	} else {
+		a.state.tree.graphCanvas = nil
+	}
 
 	Bind(a.ui.treeView, "<<TreeviewSelect>>", Command(a.onTreeSelectionChanged))
 	if a.cfg.graphCanvas {
-		Bind(a.ui.treeView, "<Configure>", Command(a.scheduleGraphCanvasRedraw))
+		Bind(a.ui.treeView, "<Configure>", Command(a.scheduleGraphCanvasDraw))
 		// Column resizing uses click+drag on the header separator; it doesn't reliably
 		// trigger <Configure>, so watch for B1 drag/release too.
-		Bind(a.ui.treeView, "<B1-Motion>", Command(a.scheduleGraphCanvasRedraw))
-		Bind(a.ui.treeView, "<ButtonRelease-1>", Command(a.scheduleGraphCanvasRedraw))
+		Bind(a.ui.treeView, "<B1-Motion>", Command(a.scheduleGraphCanvasDraw))
+		Bind(a.ui.treeView, "<ButtonRelease-1>", Command(a.scheduleGraphCanvasDraw))
 	}
 	a.initTreeContextMenu()
 	a.bindTreeContextMenu()
@@ -236,7 +250,7 @@ func (a *Controller) showInitialLoadingRow() {
 	}
 	vals := []string{"", "Loading commits...", "", ""}
 	a.ui.treeView.Insert("", "end", Id(loadingIndicatorID), Values(vals))
-	a.scheduleGraphCanvasRedraw()
+	a.scheduleGraphCanvasDraw()
 }
 
 func (a *Controller) initTreeContextMenu() {

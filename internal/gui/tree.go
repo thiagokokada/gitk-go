@@ -31,7 +31,7 @@ func (a *Controller) onTreeSelectionChanged() {
 	if a.ui.treeView == nil {
 		return
 	}
-	a.scheduleGraphCanvasRedraw()
+	a.scheduleGraphCanvasDraw()
 	sel := a.ui.treeView.Selection("")
 	if len(sel) == 0 {
 		return
