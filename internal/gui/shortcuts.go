@@ -12,9 +12,6 @@ import (
 )
 
 func (a *Controller) bindShortcuts() {
-	if a.ui.treeView == nil {
-		return
-	}
 	bindNav := func(sequence string, handler func()) {
 		Bind(App, sequence, Command(func() {
 			if a.filterHasFocus() {
@@ -209,9 +206,6 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 }
 
 func (a *Controller) filterHasFocus() bool {
-	if a.ui.filterEntry == nil {
-		return false
-	}
 	return Focus() == a.ui.filterEntry.String()
 }
 
@@ -252,9 +246,6 @@ func (a *Controller) showShortcutsDialog() {
 }
 
 func (a *Controller) moveSelection(delta int) {
-	if a.ui.treeView == nil {
-		return
-	}
 	sel := a.ui.treeView.Selection("")
 	if len(sel) > 0 {
 		if a.handleSpecialRowNav(sel[0], delta) {
@@ -297,9 +288,6 @@ func (a *Controller) selectLast() {
 }
 
 func (a *Controller) selectSpecialRow(id string) {
-	if a.ui.treeView == nil {
-		return
-	}
 	a.ui.treeView.Selection("set", id)
 	a.ui.treeView.Focus(id)
 	a.ui.treeView.See(id)
@@ -313,9 +301,6 @@ func (a *Controller) selectSpecialRow(id string) {
 }
 
 func (a *Controller) currentSelectionIndex() int {
-	if a.ui.treeView == nil {
-		return 0
-	}
 	sel := a.ui.treeView.Selection("")
 	if len(sel) == 0 || sel[0] == moreIndicatorID {
 		return 0
@@ -327,7 +312,7 @@ func (a *Controller) currentSelectionIndex() int {
 }
 
 func (a *Controller) selectTreeIndex(idx int) {
-	if a.ui.treeView == nil || idx < 0 || idx >= len(a.data.visible) {
+	if idx < 0 || idx >= len(a.data.visible) {
 		return
 	}
 	id := strconv.Itoa(idx)
@@ -371,7 +356,7 @@ func (a *Controller) handleSpecialRowNav(id string, delta int) bool {
 }
 
 func (a *Controller) scrollTreePages(delta int) {
-	if a.ui.treeView == nil || delta == 0 {
+	if delta == 0 {
 		return
 	}
 	if _, err := tkutil.Eval("%s yview scroll %d pages", a.ui.treeView, delta); err != nil {
@@ -388,7 +373,7 @@ func (a *Controller) scrollDetailLines(delta int) {
 }
 
 func (a *Controller) scrollDetail(delta int, unit string) {
-	if a.ui.diffDetail == nil || delta == 0 {
+	if delta == 0 {
 		return
 	}
 	if _, err := tkutil.Eval("%s yview scroll %d %s", a.ui.diffDetail, delta, unit); err != nil {
@@ -397,7 +382,7 @@ func (a *Controller) scrollDetail(delta int, unit string) {
 }
 
 func (a *Controller) focusFilterEntry() {
-	if a.ui.filterEntry == nil || a.filterHasFocus() {
+	if a.filterHasFocus() {
 		return
 	}
 	if _, err := tkutil.Eval("focus %s", a.ui.filterEntry); err != nil {
@@ -415,9 +400,9 @@ func (a *Controller) blurFilterEntry() {
 	if !a.filterHasFocus() {
 		return
 	}
-	target := App.String()
-	if a.ui.treeView != nil {
-		target = a.ui.treeView.String()
+	target := a.ui.treeView.String()
+	if target == "" {
+		target = App.String()
 	}
 	if target == "" {
 		target = "."

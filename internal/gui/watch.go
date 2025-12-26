@@ -157,9 +157,6 @@ func shouldIgnoreWatchPath(name string) bool {
 }
 
 func (a *Controller) updateReloadButtonLabel() {
-	if a.ui.reloadButton == nil {
-		return
-	}
 	label := "Reload"
 	a.state.watch.mu.Lock()
 	configured := a.state.watch.configured

@@ -12,11 +12,15 @@ import (
 )
 
 func (a *Controller) applyFilter(raw string) {
-	if a.ui.filterEntry != nil && a.ui.filterEntry.Textvariable() != raw {
+	if a.ui.filterEntry.Textvariable() != raw {
 		return
 	}
-	a.state.filter.value = raw
 	a.applyFilterContent(raw)
+}
+
+func (a *Controller) applyFilterState(raw string) {
+	a.state.filter.value = raw
+	a.data.visible = filterEntries(a.data.commits, raw)
 }
 
 func (a *Controller) applyFilterImmediate(raw string) {
@@ -25,11 +29,7 @@ func (a *Controller) applyFilterImmediate(raw string) {
 }
 
 func (a *Controller) applyFilterContent(raw string) {
-	a.data.visible = filterEntries(a.data.commits, raw)
-	if a.ui.treeView == nil {
-		return
-	}
-
+	a.applyFilterState(raw)
 	a.storeScrollState()
 	a.clearTreeRows()
 	a.insertLocalRows()
@@ -85,9 +85,6 @@ func (a *Controller) storeScrollState() {
 }
 
 func (a *Controller) restoreScrollState() {
-	if a.ui.treeView == nil {
-		return
-	}
 	newTotal := a.treeChildCount()
 	target, ok := a.state.scroll.restoreTarget(newTotal)
 	if !ok {
@@ -97,9 +94,6 @@ func (a *Controller) restoreScrollState() {
 }
 
 func (a *Controller) treeChildCount() int {
-	if a.ui.treeView == nil {
-		return 0
-	}
 	path := a.ui.treeView.String()
 	if path == "" {
 		return 0
@@ -137,15 +131,26 @@ func (a *Controller) scheduleFilterApply(raw string) {
 		return
 	}
 	slog.Debug("scheduleFilterApply", slog.String("value", raw))
-	debouncer := func() *debounce.Debouncer {
-		a.state.filter.mu.Lock()
-		defer a.state.filter.mu.Unlock()
-		a.state.filter.pending = raw
-		return debounce.Ensure(&a.state.filter.debouncer, filterDebounceDelay, func() {
-			a.flushFilterDebounce()
-		})
-	}()
+	debouncer := a.ensureFilterDebouncer(raw)
 	debouncer.Trigger()
+}
+
+func (a *Controller) scheduleFilterApplyState(raw string) {
+	if raw == "" {
+		a.stopFilterDebounce()
+		a.applyFilterState("")
+		return
+	}
+	_ = a.ensureFilterDebouncer(raw)
+}
+
+func (a *Controller) ensureFilterDebouncer(raw string) *debounce.Debouncer {
+	a.state.filter.mu.Lock()
+	defer a.state.filter.mu.Unlock()
+	a.state.filter.pending = raw
+	return debounce.Ensure(&a.state.filter.debouncer, filterDebounceDelay, func() {
+		a.flushFilterDebounce()
+	})
 }
 
 func (a *Controller) flushFilterDebounce() {

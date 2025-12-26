@@ -12,7 +12,7 @@ import (
 )
 
 func (a *Controller) applySyntaxHighlight(content string) {
-	if a.ui.diffDetail == nil || content == "" {
+	if content == "" {
 		return
 	}
 	a.clearSyntaxHighlight()
@@ -46,16 +46,13 @@ func (a *Controller) applySyntaxHighlight(content string) {
 }
 
 func (a *Controller) clearSyntaxHighlight() {
-	if a.ui.diffDetail == nil {
-		return
-	}
 	for _, tag := range a.state.diff.syntaxTags {
 		a.ui.diffDetail.TagRemove(tag, "1.0", END)
 	}
 }
 
 func (a *Controller) syntaxTagForColor(color string) string {
-	if color == "" || a.ui.diffDetail == nil {
+	if color == "" {
 		return ""
 	}
 	if a.state.diff.syntaxTags == nil {
@@ -71,7 +68,7 @@ func (a *Controller) syntaxTagForColor(color string) string {
 }
 
 func (a *Controller) highlightCodeLine(lexer chroma.Lexer, style *chroma.Style, code string, lineNo, offset int) {
-	if a.ui.diffDetail == nil || lexer == nil || style == nil || code == "" {
+	if lexer == nil || style == nil || code == "" {
 		return
 	}
 	iterator, err := lexer.Tokenise(nil, code)

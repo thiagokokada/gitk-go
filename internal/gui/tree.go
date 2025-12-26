@@ -12,9 +12,6 @@ import (
 )
 
 func (a *Controller) insertLocalRows() {
-	if a.ui.treeView == nil {
-		return
-	}
 	index := 0
 	if a.state.tree.showLocalUnstaged {
 		vals := []string{"", localUnstagedLabel, "", ""}
@@ -28,9 +25,6 @@ func (a *Controller) insertLocalRows() {
 }
 
 func (a *Controller) onTreeSelectionChanged() {
-	if a.ui.treeView == nil {
-		return
-	}
 	a.scheduleGraphCanvasDraw()
 	sel := a.ui.treeView.Selection("")
 	if len(sel) == 0 {
@@ -68,9 +62,6 @@ func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
 	} else {
 		a.state.tree.showLocalUnstaged = show
 	}
-	if a.ui.treeView == nil {
-		return
-	}
 	id := localRowID(staged)
 	if show {
 		if !a.treeItemExists(id) {
@@ -84,9 +75,6 @@ func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
 }
 
 func (a *Controller) insertSingleLocalRow(staged bool) {
-	if a.ui.treeView == nil {
-		return
-	}
 	label := localRowLabel(staged)
 	tag := localRowTag(staged)
 	index := 0
@@ -119,7 +107,7 @@ func localRowTag(staged bool) string {
 }
 
 func (a *Controller) treeItemExists(id string) bool {
-	if a.ui.treeView == nil || id == "" {
+	if id == "" {
 		return false
 	}
 	out, err := tkutil.Eval("%s exists %s", a.ui.treeView, id)
@@ -131,9 +119,6 @@ func (a *Controller) treeItemExists(id string) bool {
 }
 
 func (a *Controller) clearTreeRows() {
-	if a.ui.treeView == nil {
-		return
-	}
 	children := a.ui.treeView.Children("")
 	if len(children) == 0 {
 		return
@@ -146,7 +131,7 @@ func (a *Controller) clearTreeRows() {
 }
 
 func (a *Controller) scheduleAutoLoadCheck() {
-	if a.ui.treeView == nil || a.state.filter.value == "" || !a.state.tree.hasMore {
+	if a.state.filter.value == "" || !a.state.tree.hasMore {
 		return
 	}
 	slog.Debug("scheduleAutoLoadCheck",
@@ -160,7 +145,7 @@ func (a *Controller) scheduleAutoLoadCheck() {
 }
 
 func (a *Controller) maybeLoadMoreOnScroll() {
-	if a.ui.treeView == nil || a.state.tree.loadingBatch || !a.state.tree.hasMore {
+	if a.state.tree.loadingBatch || !a.state.tree.hasMore {
 		return
 	}
 	start, end, err := a.treeYviewRange()
@@ -174,9 +159,6 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 }
 
 func (a *Controller) treeYviewRange() (start float64, end float64, err error) {
-	if a.ui.treeView == nil {
-		return 0, 0, fmt.Errorf("tree widget not ready")
-	}
 	path := a.ui.treeView.String()
 	if path == "" {
 		return 0, 0, fmt.Errorf("tree widget has empty path")

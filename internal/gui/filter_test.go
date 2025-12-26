@@ -47,7 +47,7 @@ func TestApplyFilterDoesNotStopDebounce(t *testing.T) {
 	a.state.filter.debouncer = debounce.New(time.Hour, func() {})
 	a.state.filter.pending = "stale"
 
-	a.applyFilter("foo")
+	a.applyFilterState("foo")
 
 	if a.state.filter.debouncer == nil {
 		t.Fatalf("expected debouncer to remain set")
@@ -63,7 +63,7 @@ func TestScheduleFilterApplyEmptyStopsDebounce(t *testing.T) {
 	a.state.filter.pending = "foo"
 	a.state.filter.value = "foo"
 
-	a.scheduleFilterApply("")
+	a.scheduleFilterApplyState("")
 
 	if a.state.filter.debouncer != nil {
 		t.Fatalf("expected debouncer to be stopped")

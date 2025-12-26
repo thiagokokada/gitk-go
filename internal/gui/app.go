@@ -288,9 +288,6 @@ func (a *Controller) onLocalDiffLoaded(staged bool) {
 		}
 	}
 	targetID := localRowID(staged)
-	if a.ui.treeView == nil {
-		return
-	}
 	sel := a.ui.treeView.Selection("")
 	if len(sel) == 0 || sel[0] != targetID {
 		return
@@ -447,17 +444,11 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 }
 
 func (a *Controller) clearDetailText(msg string) {
-	if a.ui.diffDetail == nil {
-		return
-	}
 	a.writeDetailText(msg, false)
 	a.setFileSections(nil)
 }
 
 func (a *Controller) writeDetailText(content string, highlightDiff bool) {
-	if a.ui.diffDetail == nil {
-		return
-	}
 	a.ui.diffDetail.Configure(State(NORMAL))
 	a.ui.diffDetail.Delete("1.0", END)
 	a.ui.diffDetail.Insert("1.0", content)
@@ -477,9 +468,6 @@ func (a *Controller) writeDetailText(content string, highlightDiff bool) {
 }
 
 func (a *Controller) highlightDiffLines(content string) {
-	if a.ui.diffDetail == nil {
-		return
-	}
 	a.ui.diffDetail.TagRemove("diffAdd", "1.0", END)
 	a.ui.diffDetail.TagRemove("diffDel", "1.0", END)
 	a.ui.diffDetail.TagRemove("diffHeader", "1.0", END)
@@ -503,9 +491,6 @@ func (a *Controller) highlightDiffLines(content string) {
 }
 
 func (a *Controller) copyDetailSelection(stripMarkers bool) {
-	if a.ui.diffDetail == nil {
-		return
-	}
 	text, err := tkutil.Eval("%s get sel.first sel.last", a.ui.diffDetail)
 	if err != nil || text == "" {
 		return
@@ -539,9 +524,6 @@ func (a *Controller) setFileSections(sections []git.FileSection) {
 	augmented = append(augmented, git.FileSection{Path: "Commit", Line: 1})
 	augmented = append(augmented, sections...)
 	a.state.diff.fileSections = augmented
-	if a.ui.diffFileList == nil {
-		return
-	}
 	a.ui.diffFileList.Configure(State("normal"))
 	a.ui.diffFileList.Delete(0, END)
 	if len(augmented) == 0 {
@@ -562,7 +544,7 @@ func (a *Controller) onFileSelectionChanged() {
 	if a.state.diff.suppressFileSelection {
 		return
 	}
-	if len(a.state.diff.fileSections) == 0 || a.ui.diffFileList == nil {
+	if len(a.state.diff.fileSections) == 0 {
 		return
 	}
 	selection := a.ui.diffFileList.Curselection()
@@ -578,7 +560,7 @@ func (a *Controller) onFileSelectionChanged() {
 }
 
 func (a *Controller) scrollDiffToLine(line int) {
-	if a.ui.diffDetail == nil || line <= 0 {
+	if line <= 0 {
 		return
 	}
 	totalLines := a.textLineCount()
@@ -597,9 +579,6 @@ func (a *Controller) scrollDiffToLine(line int) {
 }
 
 func (a *Controller) textLineCount() int {
-	if a.ui.diffDetail == nil {
-		return 0
-	}
 	index := a.ui.diffDetail.Index(END)
 	parts := strings.SplitN(index, ".", 2)
 	if len(parts) == 0 {
@@ -629,10 +608,6 @@ func (a *Controller) currentSelection() string {
 }
 
 func (a *Controller) setStatus(msg string) {
-	if a.ui.status == nil {
-		slog.Info(msg)
-		return
-	}
 	text := msg
 	PostEvent(func() {
 		a.ui.status.Configure(Txt(text))
@@ -662,16 +637,13 @@ func (a *Controller) statusSummary() string {
 }
 
 func (a *Controller) syncFileSelectionToDiff() {
-	if a.ui.diffFileList == nil || len(a.state.diff.fileSections) == 0 {
+	if len(a.state.diff.fileSections) == 0 {
 		return
 	}
 	if a.state.diff.skipNextSync {
 		return
 	}
 	line := func() int {
-		if a.ui.diffDetail == nil {
-			return 0
-		}
 		index := a.ui.diffDetail.Index("@0,0")
 		parts := strings.SplitN(index, ".", 2)
 		if len(parts) == 0 {
@@ -690,7 +662,7 @@ func (a *Controller) syncFileSelectionToDiff() {
 }
 
 func (a *Controller) setFileListSelection(idx int) {
-	if a.ui.diffFileList == nil || idx < 0 || idx >= len(a.state.diff.fileSections) {
+	if idx < 0 || idx >= len(a.state.diff.fileSections) {
 		return
 	}
 	current := a.ui.diffFileList.Curselection()
