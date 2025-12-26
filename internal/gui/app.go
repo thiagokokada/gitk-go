@@ -158,15 +158,10 @@ func (a *Controller) applyLocalChangeStatus(status git.LocalChanges, repoReady b
 	}
 }
 
-func (a *Controller) showCommitDetails(index int) {
-	if index < 0 || index >= len(a.data.visible) {
-		a.clearDetailText("Commit index out of range.")
-		return
-	}
-	entry := a.data.visible[index]
+func (a *Controller) showCommitDetails(entry *git.Entry, index int) {
 	header := git.FormatCommitHeader(entry.Commit)
 	hash := entry.Commit.Hash
-	a.setSelectedHash(hash)
+	a.state.selection.SetCommit(entry, index)
 	a.setFileSections(nil)
 	a.writeDetailText(header+"\nLoading diff...", false)
 	a.scheduleDiffLoad(entry, hash)
@@ -174,6 +169,7 @@ func (a *Controller) showCommitDetails(index int) {
 
 func (a *Controller) showLocalChanges(staged bool) {
 	a.cancelPendingDiffLoad()
+	a.state.selection.SetLocal(staged)
 	a.renderLocalChanges(staged, true)
 }
 
@@ -199,7 +195,6 @@ func (a *Controller) renderLocalChanges(staged bool, requestReload bool) {
 }
 
 func (a *Controller) presentLocalDiff(header string, snap localDiffSnapshot) {
-	a.setSelectedHash("")
 	if !snap.ready {
 		a.clearDetailText(fmt.Sprintf("%s\nLoading local changes...", header))
 		return
@@ -594,17 +589,8 @@ func (a *Controller) textLineCount() int {
 	return lines
 }
 
-func (a *Controller) setSelectedHash(hash string) {
-	h := hash
-	a.state.selection.hash.Store(&h)
-}
-
 func (a *Controller) currentSelection() string {
-	ptr := a.state.selection.hash.Load()
-	if ptr == nil {
-		return ""
-	}
-	return *ptr
+	return a.state.selection.CommitHash()
 }
 
 func (a *Controller) setStatus(msg string) {

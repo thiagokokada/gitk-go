@@ -315,11 +315,15 @@ func (a *Controller) selectTreeIndex(idx int) {
 	if idx < 0 || idx >= len(a.data.visible) {
 		return
 	}
+	entry, ok := a.commitEntryAt(idx)
+	if !ok {
+		return
+	}
 	id := strconv.Itoa(idx)
 	a.ui.treeView.Selection("set", id)
 	a.ui.treeView.Focus(id)
 	a.ui.treeView.See(id)
-	a.showCommitDetails(idx)
+	a.showCommitDetails(entry, idx)
 }
 
 func (a *Controller) handleSpecialRowNav(id string, delta int) bool {

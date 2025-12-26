@@ -2,7 +2,6 @@ package gui
 
 import (
 	"sync"
-	"sync/atomic"
 
 	"github.com/thiagokokada/gitk-go/internal/debounce"
 	"github.com/thiagokokada/gitk-go/internal/git"
@@ -38,10 +37,6 @@ type filterState struct {
 	mu        sync.Mutex
 	debouncer *debounce.Debouncer
 	pending   string
-}
-
-type selectionState struct {
-	hash atomic.Pointer[string]
 }
 
 type scrollState struct {

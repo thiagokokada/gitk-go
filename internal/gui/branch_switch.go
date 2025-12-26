@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/thiagokokada/gitk-go/internal/gui/selection"
 	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 	. "modernc.org/tk9.0"
 )
@@ -248,13 +249,12 @@ func (a *Controller) switchBranchAsync(branch string) {
 			a.data.visible = nil
 			a.state.tree = treeState{}
 			a.state.localDiff = localDiffCache{}
-			a.state.selection = selectionState{}
+			a.state.selection = selection.State{}
 
 			if a.ui.diffFileList != nil {
 				a.ui.diffFileList.Delete(0, END)
 			}
 			a.setFileSections(nil)
-			a.setSelectedHash("")
 			a.setLocalRowVisibility(false, false)
 			a.setLocalRowVisibility(true, false)
 

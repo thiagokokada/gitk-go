@@ -8,6 +8,7 @@ import (
 
 	. "modernc.org/tk9.0"
 
+	"github.com/thiagokokada/gitk-go/internal/git"
 	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 )
 
@@ -28,23 +29,28 @@ func (a *Controller) onTreeSelectionChanged() {
 	a.scheduleGraphCanvasDraw()
 	sel := a.ui.treeView.Selection("")
 	if len(sel) == 0 {
+		a.state.selection.Clear()
 		return
 	}
 	switch sel[0] {
 	case moreIndicatorID, loadingIndicatorID:
+		a.state.selection.Clear()
 		return
 	case localUnstagedRowID:
+		a.state.selection.SetLocal(false)
 		a.showLocalChanges(false)
 		return
 	case localStagedRowID:
+		a.state.selection.SetLocal(true)
 		a.showLocalChanges(true)
 		return
 	}
-	idx, err := strconv.Atoi(sel[0])
-	if err != nil || idx < 0 || idx >= len(a.data.visible) {
+	entry, idx, ok := a.commitEntryForTreeID(sel[0])
+	if !ok {
+		a.state.selection.Clear()
 		return
 	}
-	a.showCommitDetails(idx)
+	a.showCommitDetails(entry, idx)
 }
 
 func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
@@ -199,4 +205,31 @@ func (t treeState) shouldLoadMoreOnScroll(
 		return false
 	}
 	return yEnd >= autoLoadThreshold
+}
+
+func (a *Controller) commitEntryAt(idx int) (*git.Entry, bool) {
+	if idx < 0 || idx >= len(a.data.visible) {
+		return nil, false
+	}
+	entry := a.data.visible[idx]
+	if entry == nil || entry.Commit == nil {
+		return nil, false
+	}
+	return entry, true
+}
+
+func (a *Controller) commitEntryForTreeID(id string) (*git.Entry, int, bool) {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return nil, 0, false
+	}
+	idx, err := strconv.Atoi(id)
+	if err != nil {
+		return nil, 0, false
+	}
+	entry, ok := a.commitEntryAt(idx)
+	if !ok {
+		return nil, 0, false
+	}
+	return entry, idx, true
 }

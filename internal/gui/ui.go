@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
@@ -367,12 +366,6 @@ func (a *Controller) requireUIBindings() {
 }
 
 func (a *Controller) treeCommitIndex(id string) (int, bool) {
-	if id == "" {
-		return 0, false
-	}
-	idx, err := strconv.Atoi(id)
-	if err != nil || idx < 0 || idx >= len(a.data.visible) {
-		return 0, false
-	}
-	return idx, true
+	_, idx, ok := a.commitEntryForTreeID(id)
+	return idx, ok
 }

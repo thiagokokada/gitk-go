@@ -191,11 +191,11 @@ func TestVisibleSelectionIndex(t *testing.T) {
 		{Commit: &git.Commit{Hash: h1}},
 		{Commit: &git.Commit{Hash: h2}},
 	}
-	ctrl.setSelectedHash(h2)
+	ctrl.state.selection.SetCommit(ctrl.data.visible[1], 1)
 	if idx := ctrl.visibleSelectionIndex(); idx != 1 {
 		t.Fatalf("expected selection index 1, got %d", idx)
 	}
-	ctrl.setSelectedHash(strings.Repeat("c", 40))
+	ctrl.state.selection.SetCommit(&git.Entry{Commit: &git.Commit{Hash: strings.Repeat("c", 40)}}, 0)
 	if idx := ctrl.visibleSelectionIndex(); idx != -1 {
 		t.Fatalf("expected -1 for missing hash, got %d", idx)
 	}

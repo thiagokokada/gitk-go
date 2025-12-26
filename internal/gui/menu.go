@@ -8,6 +8,7 @@ import (
 
 	"github.com/thiagokokada/gitk-go/internal/buildinfo"
 	"github.com/thiagokokada/gitk-go/internal/git"
+	"github.com/thiagokokada/gitk-go/internal/gui/selection"
 	. "modernc.org/tk9.0"
 )
 
@@ -97,7 +98,7 @@ func (a *Controller) switchRepository(path string) {
 	a.state.tree = treeState{}
 	a.state.localDiff = localDiffCache{}
 	a.state.filter = filterState{}
-	a.state.selection = selectionState{}
+	a.state.selection = selection.State{}
 	a.stopFilterDebounce()
 	if a.ui.filterEntry != nil {
 		a.ui.filterEntry.Configure(Textvariable(""))

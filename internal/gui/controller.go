@@ -2,6 +2,7 @@ package gui
 
 import (
 	"github.com/thiagokokada/gitk-go/internal/git"
+	"github.com/thiagokokada/gitk-go/internal/gui/selection"
 )
 
 type Controller struct {
@@ -46,6 +47,6 @@ type controllerState struct {
 	filter    filterState
 	localDiff localDiffCache
 	scroll    scrollState
-	selection selectionState
+	selection selection.State
 	watch     autoReloadState
 }

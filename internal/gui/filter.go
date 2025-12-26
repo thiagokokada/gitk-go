@@ -67,7 +67,9 @@ func (a *Controller) applyFilterContent(raw string) {
 		a.ui.treeView.Selection("set", id)
 		a.ui.treeView.Focus(id)
 		a.ui.treeView.See(id)
-		a.showCommitDetails(index)
+		if entry, ok := a.commitEntryAt(index); ok {
+			a.showCommitDetails(entry, index)
+		}
 	}
 	a.setStatus(a.statusSummary())
 	a.scheduleAutoLoadCheck()
@@ -110,19 +112,7 @@ func (a *Controller) treeChildCount() int {
 }
 
 func (a *Controller) visibleSelectionIndex() int {
-	hash := a.currentSelection()
-	if hash == "" {
-		return -1
-	}
-	for i, entry := range a.data.visible {
-		if entry == nil || entry.Commit == nil {
-			continue
-		}
-		if entry.Commit.Hash == hash {
-			return i
-		}
-	}
-	return -1
+	return a.state.selection.CommitIndex(a.data.visible)
 }
 
 func (a *Controller) scheduleFilterApply(raw string) {
