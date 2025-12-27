@@ -1,7 +1,6 @@
 package gui
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"runtime"
@@ -30,7 +29,6 @@ func (a *Controller) buildUI() {
 
 	a.clearDetailText("Select a commit to view its details.")
 	a.bindShortcuts()
-	a.requireUIBindings()
 }
 
 func (a *Controller) buildControls() *TFrameWidget {
@@ -326,43 +324,6 @@ func (a *Controller) showDiffContextMenu(e *Event) {
 		return
 	}
 	Popup(a.ui.diffContextMenu.Window, e.XRoot, e.YRoot, nil)
-}
-
-func (a *Controller) requireUIBindings() {
-	var err error
-	if a.ui.status == nil {
-		err = errors.Join(err, fmt.Errorf("ui binding missing: status"))
-	}
-	if a.ui.repoLabel == nil {
-		err = errors.Join(err, fmt.Errorf("ui binding missing: repoLabel"))
-	}
-	if a.ui.filterEntry == nil {
-		err = errors.Join(err, fmt.Errorf("ui binding missing: filterEntry"))
-	}
-	if a.ui.reloadButton == nil {
-		err = errors.Join(err, fmt.Errorf("ui binding missing: reloadButton"))
-	}
-	if a.ui.treeView == nil {
-		err = errors.Join(err, fmt.Errorf("ui binding missing: treeView"))
-	}
-	if a.ui.diffDetail == nil {
-		err = errors.Join(err, fmt.Errorf("ui binding missing: diffDetail"))
-	}
-	if a.ui.diffFileList == nil {
-		err = errors.Join(err, fmt.Errorf("ui binding missing: diffFileList"))
-	}
-	if a.ui.treeContextMenu == nil {
-		err = errors.Join(err, fmt.Errorf("ui binding missing: treeContextMenu"))
-	}
-	if a.ui.diffContextMenu == nil {
-		err = errors.Join(err, fmt.Errorf("ui binding missing: diffContextMenu"))
-	}
-	if a.cfg.graphCanvas && a.state.tree.graphCanvas == nil {
-		err = errors.Join(err, fmt.Errorf("ui binding missing: graphCanvas"))
-	}
-	if err != nil {
-		panic(err)
-	}
 }
 
 func (a *Controller) treeCommitIndex(id string) (int, bool) {
