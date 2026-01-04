@@ -15,6 +15,10 @@ type treeRow struct {
 	Date   string
 }
 
+func (r treeRow) values() []string {
+	return []string{r.Graph, r.Commit, r.Author, r.Date}
+}
+
 func buildTreeRows(entries []*git.Entry, labels map[string][]string, graphCanvas bool) []treeRow {
 	if len(entries) == 0 {
 		return nil
@@ -44,16 +48,22 @@ func buildTreeRows(entries []*git.Entry, labels map[string][]string, graphCanvas
 	return rows
 }
 
-func treeRowValues(entry *git.Entry, labels map[string][]string, graphCanvas bool) []string {
+func treeRowData(entry *git.Entry, labels map[string][]string, graphCanvas bool) (treeRow, bool) {
 	if entry == nil || entry.Commit == nil {
-		return nil
+		return treeRow{}, false
 	}
 	graph := ""
 	if !graphCanvas {
 		graph = formatGraphValue(entry, labels[entry.Commit.Hash], graphCanvas)
 	}
 	msg, author, when := entry.ListColumns()
-	return []string{graph, msg, author, when}
+	return treeRow{
+		ID:     entry.Commit.Hash,
+		Graph:  graph,
+		Commit: msg,
+		Author: author,
+		Date:   when,
+	}, true
 }
 
 func formatGraphValue(entry *git.Entry, labels []string, graphCanvas bool) string {

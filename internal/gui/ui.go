@@ -241,11 +241,10 @@ func (a *Controller) showInitialLoadingRow() {
 	if len(a.data.commits) != 0 || len(a.data.visible) != 0 {
 		return
 	}
-	if a.treeItemExists(loadingIndicatorID) {
+	if a.state.tree.rows.hasSpecialItem(loadingIndicatorID) {
 		return
 	}
-	vals := []string{"", "Loading commits...", "", ""}
-	a.ui.treeView.Insert("", "end", Id(loadingIndicatorID), Values(vals))
+	a.ensureLoadingIndicatorRow()
 	a.scheduleGraphCanvasDraw()
 }
 

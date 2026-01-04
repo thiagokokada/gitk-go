@@ -53,3 +53,34 @@ func TestTreeRowStateSetCommitIDsEmpty(t *testing.T) {
 		t.Fatalf("expected empty commitIDs map, got %d", len(state.commitIDs))
 	}
 }
+
+func TestTreeRowStateItemValueChanged(t *testing.T) {
+	var state treeRowState
+	row := treeRow{Graph: "*", Commit: "c1", Author: "a1", Date: "d1"}
+	if !state.itemValueChanged("id", row) {
+		t.Fatalf("expected itemValueChanged to be true for missing entry")
+	}
+	state.setItemValue("id", row)
+	if state.itemValueChanged("id", row) {
+		t.Fatalf("expected itemValueChanged to be false for unchanged entry")
+	}
+	changed := treeRow{Graph: "*", Commit: "c1", Author: "a2", Date: "d1"}
+	if !state.itemValueChanged("id", changed) {
+		t.Fatalf("expected itemValueChanged to be true for changed entry")
+	}
+}
+
+func TestTreeRowStateSpecialItems(t *testing.T) {
+	var state treeRowState
+	if state.hasSpecialItem("row") {
+		t.Fatalf("expected no special items initially")
+	}
+	state.addSpecialItem("row")
+	if !state.hasSpecialItem("row") {
+		t.Fatalf("expected special item to be present")
+	}
+	state.removeSpecialItem("row")
+	if state.hasSpecialItem("row") {
+		t.Fatalf("expected special item to be removed")
+	}
+}

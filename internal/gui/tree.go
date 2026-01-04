@@ -57,13 +57,14 @@ func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
 	}
 	id := localRowID(staged)
 	if show {
-		if !a.treeItemExists(id) {
+		if !a.state.tree.rows.hasSpecialItem(id) {
 			a.insertSingleLocalRow(staged)
 		}
 		return
 	}
-	if a.treeItemExists(id) {
+	if a.state.tree.rows.hasSpecialItem(id) {
 		a.ui.treeView.Delete(id)
+		a.state.tree.rows.removeSpecialItem(id)
 	}
 }
 
@@ -76,6 +77,7 @@ func (a *Controller) insertSingleLocalRow(staged bool) {
 	}
 	vals := []string{"", label, "", ""}
 	a.ui.treeView.Insert("", index, Id(localRowID(staged)), Values(vals), Tags(tag))
+	a.state.tree.rows.addSpecialItem(localRowID(staged))
 }
 
 func localRowID(staged bool) string {
@@ -99,18 +101,6 @@ func localRowTag(staged bool) string {
 	return "localUnstaged"
 }
 
-func (a *Controller) treeItemExists(id string) bool {
-	if id == "" {
-		return false
-	}
-	out, err := tkutil.Eval("%s exists %s", a.ui.treeView, id)
-	if err != nil {
-		slog.Error("tree exists", slog.String("id", id), slog.Any("error", err))
-		return false
-	}
-	return strings.TrimSpace(out) == "1"
-}
-
 func (a *Controller) clearTreeRows() {
 	children := a.ui.treeView.Children("")
 	attached := make(map[string]struct{}, len(children))
@@ -125,9 +115,6 @@ func (a *Controller) clearTreeRows() {
 		}
 		a.ui.treeView.Delete(args...)
 	}
-	if len(a.state.tree.rows.items) == 0 {
-		return
-	}
 	for id := range a.state.tree.rows.items {
 		if _, ok := attached[id]; ok {
 			continue
@@ -135,6 +122,8 @@ func (a *Controller) clearTreeRows() {
 		a.ui.treeView.Delete(id)
 	}
 	a.state.tree.rows.items = nil
+	a.state.tree.rows.values = nil
+	a.state.tree.rows.specialItems = nil
 }
 
 func (a *Controller) syncTreeRows() {
@@ -169,14 +158,11 @@ func (a *Controller) syncTreeRows() {
 	if a.state.tree.hasMore && len(a.data.visible) > 0 {
 		a.ensureMoreIndicatorRow()
 		ordered = append(ordered, moreIndicatorID)
-	} else if a.treeItemExists(moreIndicatorID) {
-		a.ui.treeView.Delete(moreIndicatorID)
 	}
 
-	if a.state.tree.loadingBatch && len(a.data.visible) == 0 && a.treeItemExists(loadingIndicatorID) {
+	if a.state.tree.loadingBatch && len(a.data.visible) == 0 {
+		a.ensureLoadingIndicatorRow()
 		ordered = append(ordered, loadingIndicatorID)
-	} else if a.treeItemExists(loadingIndicatorID) {
-		a.ui.treeView.Delete(loadingIndicatorID)
 	}
 
 	a.setTreeChildren(ordered)
@@ -185,32 +171,42 @@ func (a *Controller) syncTreeRows() {
 
 func (a *Controller) ensureLocalRows() {
 	if a.state.tree.showLocalUnstaged {
-		if !a.treeItemExists(localUnstagedRowID) {
+		if !a.state.tree.rows.hasSpecialItem(localUnstagedRowID) {
 			a.insertSingleLocalRow(false)
 		}
-	} else if a.treeItemExists(localUnstagedRowID) {
-		a.ui.treeView.Delete(localUnstagedRowID)
 	}
 	if a.state.tree.showLocalStaged {
-		if !a.treeItemExists(localStagedRowID) {
+		if !a.state.tree.rows.hasSpecialItem(localStagedRowID) {
 			a.insertSingleLocalRow(true)
 		}
-	} else if a.treeItemExists(localStagedRowID) {
-		a.ui.treeView.Delete(localStagedRowID)
 	}
 }
 
 func (a *Controller) ensureMoreIndicatorRow() {
-	if a.treeItemExists(moreIndicatorID) {
+	if a.state.tree.rows.hasSpecialItem(moreIndicatorID) {
 		return
 	}
 	vals := []string{"", "There are more commits...", "", ""}
 	a.ui.treeView.Insert("", "end", Id(moreIndicatorID), Values(vals))
+	a.state.tree.rows.addSpecialItem(moreIndicatorID)
+}
+
+func (a *Controller) ensureLoadingIndicatorRow() {
+	if a.state.tree.rows.hasSpecialItem(loadingIndicatorID) {
+		return
+	}
+	vals := []string{"", "Loading commits...", "", ""}
+	a.ui.treeView.Insert("", "end", Id(loadingIndicatorID), Values(vals))
+	a.state.tree.rows.addSpecialItem(loadingIndicatorID)
 }
 
 func (a *Controller) insertCommitRow(id string, entry *git.Entry) {
-	vals := treeRowValues(entry, a.state.tree.branchLabels, a.cfg.graphCanvas)
-	a.ui.treeView.Insert("", "end", Id(id), Values(vals))
+	row, ok := treeRowData(entry, a.state.tree.branchLabels, a.cfg.graphCanvas)
+	if !ok {
+		return
+	}
+	a.ui.treeView.Insert("", "end", Id(id), Values(row.values()))
+	a.state.tree.rows.setItemValue(id, row)
 }
 
 func (a *Controller) updateCommitRow(id string, entry *git.Entry) {
@@ -218,10 +214,18 @@ func (a *Controller) updateCommitRow(id string, entry *git.Entry) {
 	if treePath == "" {
 		return
 	}
-	vals := treeRowValues(entry, a.state.tree.branchLabels, a.cfg.graphCanvas)
-	if _, err := tkutil.Eval("%s item {%s} %s", treePath, id, Values(vals)); err != nil {
-		slog.Debug("tree item update", slog.Any("error", err))
+	row, ok := treeRowData(entry, a.state.tree.branchLabels, a.cfg.graphCanvas)
+	if !ok {
+		return
 	}
+	if !a.state.tree.rows.itemValueChanged(id, row) {
+		return
+	}
+	if _, err := tkutil.Eval("%s item {%s} %s", treePath, id, Values(row.values())); err != nil {
+		slog.Debug("tree item update", slog.Any("error", err))
+		return
+	}
+	a.state.tree.rows.setItemValue(id, row)
 }
 
 func (a *Controller) setTreeChildren(ids []string) {
@@ -251,6 +255,7 @@ func (a *Controller) pruneCommitRows() {
 		}
 		a.ui.treeView.Delete(id)
 		delete(a.state.tree.rows.items, id)
+		delete(a.state.tree.rows.values, id)
 	}
 }
 
@@ -433,4 +438,57 @@ func (s *treeRowState) addItem(id string) {
 		s.items = make(map[string]struct{})
 	}
 	s.items[id] = struct{}{}
+}
+
+func (s *treeRowState) itemValueChanged(id string, row treeRow) bool {
+	if s.values == nil {
+		return true
+	}
+	prev, ok := s.values[id]
+	if !ok {
+		return true
+	}
+	return !treeRowEqual(prev, row)
+}
+
+func (s *treeRowState) setItemValue(id string, row treeRow) {
+	if id == "" {
+		return
+	}
+	if s.values == nil {
+		s.values = make(map[string]treeRow)
+	}
+	s.values[id] = row
+}
+
+func (s *treeRowState) hasSpecialItem(id string) bool {
+	if s.specialItems == nil {
+		return false
+	}
+	_, ok := s.specialItems[id]
+	return ok
+}
+
+func (s *treeRowState) addSpecialItem(id string) {
+	if id == "" {
+		return
+	}
+	if s.specialItems == nil {
+		s.specialItems = make(map[string]struct{})
+	}
+	s.specialItems[id] = struct{}{}
+}
+
+func (s *treeRowState) removeSpecialItem(id string) {
+	if s.specialItems == nil {
+		return
+	}
+	delete(s.specialItems, id)
+}
+
+func treeRowEqual(a treeRow, b treeRow) bool {
+	return a.Graph == b.Graph &&
+		a.Commit == b.Commit &&
+		a.Author == b.Author &&
+		a.Date == b.Date
 }

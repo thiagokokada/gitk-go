@@ -37,6 +37,8 @@ type treeRowState struct {
 	commitIDs     map[string]struct{}
 	visibleByID   map[string]int
 	items         map[string]struct{}
+	values        map[string]treeRow
+	specialItems  map[string]struct{}
 	refreshValues bool
 }
 
