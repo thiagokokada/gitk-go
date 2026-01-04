@@ -87,6 +87,7 @@ buildGoModule {
   ldflags = [
     "-s"
     "-w"
+    "-X github.com/thiagokokada/gitk-go/internal/buildinfo.version=${version}"
   ];
 
   meta = with lib; {

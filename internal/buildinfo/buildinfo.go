@@ -5,17 +5,29 @@ import (
 	"runtime/debug"
 )
 
+// version is set via -ldflags in custom builds.
+var version string
+
 // Version returns the module version or "dev" when unset.
 func Version() string {
 	info, ok := debug.ReadBuildInfo()
-	if !ok || info == nil {
-		return "dev"
+	if !ok {
+		info = nil
 	}
-	version := info.Main.Version
-	if version == "" || version == "(devel)" {
-		return "dev"
+	return versionFromBuildInfo(info)
+}
+
+func versionFromBuildInfo(info *debug.BuildInfo) string {
+	if info != nil {
+		version := info.Main.Version
+		if version != "" && version != "(devel)" {
+			return version
+		}
 	}
-	return version
+	if version != "" {
+		return version
+	}
+	return "dev"
 }
 
 // Tags returns the GOFLAGS build tags recorded at compile time.

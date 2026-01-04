@@ -13,7 +13,7 @@
         "x86_64-linux"
       ];
       nixpkgsFor = forAllSystems (system: import nixpkgs { inherit system; });
-      version = "nix-${self.shortRev or self.dirtyShortRev or "unknown-dirty"}";
+      version = "nix-${self.shortRev or self.dirtyShortRev or "unknown"}";
     in
     {
       packages = forAllSystems (
