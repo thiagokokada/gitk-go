@@ -51,7 +51,8 @@ func (a *Controller) enableAutoReload() error {
 		return nil
 	}
 	options := []fswatcher.WatcherOpt{
-		fswatcher.WithCooldown(100 * time.Millisecond),
+		fswatcher.WithCooldown(0),
+		fswatcher.WithSeverity(fswatcher.SeverityError),
 	}
 	slog.Debug("adding path to FS watcher", slog.String("path", a.repo.path))
 	options = append(options, fswatcher.WithPath(a.repo.path))
