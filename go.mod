@@ -3,7 +3,7 @@ module github.com/thiagokokada/gitk-go
 go 1.25.4
 
 require (
-	github.com/alecthomas/chroma/v2 v2.20.0
+	github.com/alecthomas/chroma/v2 v2.21.1
 	github.com/sgtdi/fswatcher v1.1.1
 	github.com/thiagokokada/dark-mode-go v0.0.1
 	modernc.org/tk9.0 v1.73.0
