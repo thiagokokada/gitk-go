@@ -1,6 +1,7 @@
 .cache
-.gomodcache
+.gobin
 .gocache
+.gomodcache
 .gotmp
 
 dist/
@@ -19,6 +20,9 @@ gitk-go
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+# Heap files from pprof
+*.heap
 
 # Nix
 result*

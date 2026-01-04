@@ -3,6 +3,7 @@ package cmd
 import (
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/thiagokokada/gitk-go/internal/buildinfo"
@@ -32,6 +33,7 @@ func run(args []string) error {
 	noSyntax := fs.Bool("nosyntax", false, "disable syntax highlighting in the diff viewer")
 	verbose := fs.Bool("verbose", false, "enable verbose logging")
 	showVersion := fs.Bool("version", false, "print version information and exit")
+	profFlags := registerProfileFlags(fs)
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
 			return nil
@@ -49,6 +51,17 @@ func run(args []string) error {
 			fmt.Fprintf(os.Stderr, "git version unavailable: %v\n", err)
 		}
 		return nil
+	}
+	prof, err := startProfilerFromFlags(profFlags)
+	if err != nil {
+		return err
+	}
+	if prof != nil {
+		defer func() {
+			if err := prof.stop(); err != nil {
+				slog.Error("profile cleanup", slog.Any("error", err))
+			}
+		}()
 	}
 	limitU := *limit
 	if limitU == 0 {
