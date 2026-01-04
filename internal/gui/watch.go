@@ -1,18 +1,16 @@
 package gui
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"iter"
 	"log/slog"
-	"maps"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
+	"github.com/sgtdi/fswatcher"
 	"github.com/thiagokokada/gitk-go/internal/debounce"
 	. "modernc.org/tk9.0"
 )
@@ -23,7 +21,8 @@ type autoReloadState struct {
 	mu         sync.Mutex
 	configured bool
 	enabled    bool
-	watcher    *fsnotify.Watcher
+	watcher    fswatcher.Watcher
+	cancel     context.CancelFunc
 	debounce   *debounce.Debouncer
 }
 
@@ -51,16 +50,14 @@ func (a *Controller) enableAutoReload() error {
 	if a.state.watch.enabled {
 		return nil
 	}
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return fmt.Errorf("fsnotify: %w", err)
+	options := []fswatcher.WatcherOpt{
+		fswatcher.WithCooldown(100 * time.Millisecond),
 	}
-	for path := range watchPaths(a.repo.path) {
-		slog.Debug("adding path to FS watcher", slog.String("path", path))
-		if err := watcher.Add(path); err != nil {
-			err := errors.Join(err, watcher.Close())
-			return fmt.Errorf("watch %s: %w", path, err)
-		}
+	slog.Debug("adding path to FS watcher", slog.String("path", a.repo.path))
+	options = append(options, fswatcher.WithPath(a.repo.path))
+	watcher, err := fswatcher.New(options...)
+	if err != nil {
+		return fmt.Errorf("fswatcher: %w", err)
 	}
 	if a.state.watch.debounce == nil {
 		a.state.watch.debounce = debounce.New(autoReloadDebounceDelay, func() {
@@ -69,9 +66,11 @@ func (a *Controller) enableAutoReload() error {
 			}, false)
 		})
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	a.state.watch.watcher = watcher
+	a.state.watch.cancel = cancel
 	a.state.watch.enabled = true
-	go a.watchLoop(watcher)
+	go a.watchLoop(ctx, watcher)
 	return nil
 }
 
@@ -82,11 +81,12 @@ func (a *Controller) disableAutoReload() {
 		a.state.watch.debounce.Stop()
 		a.state.watch.debounce = nil
 	}
+	if a.state.watch.cancel != nil {
+		a.state.watch.cancel()
+		a.state.watch.cancel = nil
+	}
 	if a.state.watch.watcher != nil {
-		err := a.state.watch.watcher.Close()
-		if err != nil {
-			slog.Error("watcher close", slog.Any("error", err))
-		}
+		a.state.watch.watcher.Close()
 		a.state.watch.watcher = nil
 	}
 	a.state.watch.enabled = false
@@ -96,29 +96,35 @@ func (a *Controller) shutdown() {
 	a.disableAutoReload()
 }
 
-func (a *Controller) watchLoop(w *fsnotify.Watcher) {
+func (a *Controller) watchLoop(ctx context.Context, w fswatcher.Watcher) {
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- w.Watch(ctx)
+	}()
 	for {
 		select {
-		case ev, ok := <-w.Events:
+		case <-ctx.Done():
+			return
+		case err := <-errCh:
+			if err != nil && !errors.Is(err, context.Canceled) {
+				slog.Error("fswatcher error", slog.Any("error", err))
+			}
+			return
+		case ev, ok := <-w.Events():
 			if !ok {
 				return
 			}
-			if ev.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove|fsnotify.Rename) == 0 {
+			if !eventTriggersReload(ev) {
 				continue
 			}
-			if shouldIgnoreWatchPath(ev.Name) {
+			if shouldIgnoreWatchPath(ev.Path) {
 				continue
 			}
-			slog.Debug("fsnotify event",
-				slog.String("op", ev.Op.String()),
-				slog.String("path", ev.Name),
+			slog.Debug("fswatcher event",
+				slog.Any("types", eventTypeNames(ev.Types)),
+				slog.String("path", ev.Path),
 			)
 			a.scheduleAutoReload()
-		case err, ok := <-w.Errors:
-			if !ok {
-				return
-			}
-			slog.Error("fsnotify error", slog.Any("error", err))
 		}
 	}
 }
@@ -133,27 +139,38 @@ func (a *Controller) scheduleAutoReload() {
 	a.state.watch.debounce.Trigger()
 }
 
-func watchPaths(root string) iter.Seq[string] {
-	if root == "" {
-		return nil
-	}
-	uniquePaths := map[string]struct{}{}
-	appendUnique := func(p string) { uniquePaths[p] = struct{}{} }
-	gitDir := filepath.Join(root, ".git")
-	if info, err := os.Stat(gitDir); err == nil && info.IsDir() {
-		appendUnique(gitDir)
-		return maps.Keys(uniquePaths)
-	}
-	appendUnique(root)
-	return maps.Keys(uniquePaths)
-}
-
 func shouldIgnoreWatchPath(name string) bool {
 	ext := strings.ToLower(filepath.Ext(name))
 	if ext == ".lock" || ext == ".ipc" {
 		return true
 	}
 	return false
+}
+
+func eventTriggersReload(event fswatcher.WatchEvent) bool {
+	if len(event.Types) == 0 {
+		return true
+	}
+	for _, eventType := range event.Types {
+		switch eventType {
+		case fswatcher.EventCreate, fswatcher.EventRemove, fswatcher.EventMod,
+			fswatcher.EventRename, fswatcher.EventChmod, fswatcher.EventUnknown:
+			return true
+		default:
+		}
+	}
+	return false
+}
+
+func eventTypeNames(types []fswatcher.EventType) []string {
+	if len(types) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(types))
+	for _, eventType := range types {
+		names = append(names, eventType.String())
+	}
+	return names
 }
 
 func (a *Controller) updateReloadButtonLabel() {

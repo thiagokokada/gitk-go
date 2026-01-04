@@ -1,10 +1,10 @@
 module github.com/thiagokokada/gitk-go
 
-go 1.25
+go 1.25.4
 
 require (
 	github.com/alecthomas/chroma/v2 v2.20.0
-	github.com/fsnotify/fsnotify v1.9.0
+	github.com/sgtdi/fswatcher v1.1.1
 	github.com/thiagokokada/dark-mode-go v0.0.1
 	modernc.org/tk9.0 v1.73.0
 )
@@ -22,11 +22,10 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/stretchr/testify v1.10.0 // indirect
 	golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/image v0.26.0 // indirect
 	golang.org/x/net v0.39.0 // indirect
-	golang.org/x/sys v0.36.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
 	modernc.org/fileutil v1.3.40 // indirect
 	modernc.org/fsm v1.3.2 // indirect
 	modernc.org/gc/v3 v3.1.1 // indirect
