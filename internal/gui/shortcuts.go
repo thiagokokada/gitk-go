@@ -3,7 +3,6 @@ package gui
 import (
 	"fmt"
 	"log/slog"
-	"strconv"
 	"strings"
 
 	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
@@ -305,7 +304,7 @@ func (a *Controller) currentSelectionIndex() int {
 	if len(sel) == 0 || sel[0] == moreIndicatorID {
 		return 0
 	}
-	if idx, err := strconv.Atoi(sel[0]); err == nil {
+	if _, idx, ok := a.commitEntryForTreeID(sel[0]); ok {
 		return idx
 	}
 	return 0
@@ -319,7 +318,10 @@ func (a *Controller) selectTreeIndex(idx int) {
 	if !ok {
 		return
 	}
-	id := strconv.Itoa(idx)
+	id := commitRowID(entry)
+	if id == "" {
+		return
+	}
 	a.ui.treeView.Selection("set", id)
 	a.ui.treeView.Focus(id)
 	a.ui.treeView.See(id)

@@ -9,6 +9,34 @@ import (
 	evalext "modernc.org/tk9.0/extensions/eval"
 )
 
+// Mirrors modernc.org/tk9.0 tclSafeString escaping rules.
+var badChars = [...]bool{
+	' ':  true,
+	'"':  true,
+	'$':  true,
+	'&':  true,
+	'(':  true,
+	')':  true,
+	'*':  true,
+	';':  true,
+	'<':  true,
+	'>':  true,
+	'?':  true,
+	'[':  true,
+	'\'': true,
+	'\\': true,
+	'\n': true,
+	'\r': true,
+	'\t': true,
+	']':  true,
+	'^':  true,
+	'`':  true,
+	'{':  true,
+	'|':  true,
+	'}':  true,
+	'~':  true,
+}
+
 func Eval(format string, a ...any) (string, error) {
 	eval := fmt.Sprintf(format, a...)
 	r, err := evalext.Eval(eval)
@@ -48,4 +76,38 @@ func Atoi(raw string) int {
 		return 0
 	}
 	return v
+}
+
+// TclSafeString returns a Tcl-safe string; empty input returns "{}".
+func TclSafeString(s string) string {
+	if s == "" {
+		return "{}"
+	}
+
+	const badString = "&;`'\"|*?~<>^()[]{}$\\\n\r\t "
+	if strings.ContainsAny(s, badString) {
+		var b strings.Builder
+		for _, c := range s {
+			switch {
+			case int(c) < len(badChars) && badChars[c]:
+				fmt.Fprintf(&b, "\\x%02x", c)
+			default:
+				b.WriteRune(c)
+			}
+		}
+		s = b.String()
+	}
+	return s
+}
+
+// TclSafeStrings returns a space-separated list of Tcl-safe strings.
+func TclSafeStrings(s ...string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	out := make([]string, len(s))
+	for i, v := range s {
+		out[i] = TclSafeString(v)
+	}
+	return strings.Join(out, " ")
 }

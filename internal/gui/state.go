@@ -28,7 +28,16 @@ type treeState struct {
 	showLocalUnstaged bool
 	showLocalStaged   bool
 
+	rows treeRowState
+
 	graphCanvas *widgets.GraphCanvas
+}
+
+type treeRowState struct {
+	commitIDs     map[string]struct{}
+	visibleByID   map[string]int
+	items         map[string]struct{}
+	refreshValues bool
 }
 
 type filterState struct {

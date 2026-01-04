@@ -27,39 +27,60 @@ func TestGraphRowMidY(t *testing.T) {
 }
 
 func TestResolveFirstCommitIndex(t *testing.T) {
-	t.Run("numeric", func(t *testing.T) {
-		idx, skipped, ok := resolveFirstCommitIndex("10", func(string) string { return "" })
+	t.Run("numeric-fallback", func(t *testing.T) {
+		idx, skipped, ok := resolveFirstCommitIndex("10", nil, func(string) string { return "" })
 		if !ok || idx != 10 || skipped != 0 {
 			t.Fatalf("expected ok idx=10 skipped=0, got ok=%v idx=%d skipped=%d", ok, idx, skipped)
 		}
 	})
 
+	t.Run("mapped", func(t *testing.T) {
+		index := func(item string) (int, bool) {
+			if item == "hash" {
+				return 12, true
+			}
+			return 0, false
+		}
+		idx, skipped, ok := resolveFirstCommitIndex("hash", index, func(string) string { return "" })
+		if !ok || idx != 12 || skipped != 0 {
+			t.Fatalf("expected ok idx=12 skipped=0, got ok=%v idx=%d skipped=%d", ok, idx, skipped)
+		}
+	})
+
 	t.Run("skip-local-rows", func(t *testing.T) {
+		index := func(item string) (int, bool) {
+			if item == "hash" {
+				return 0, true
+			}
+			return 0, false
+		}
 		next := func(item string) string {
 			switch item {
 			case "localUnstagedRow":
 				return "localStagedRow"
 			case "localStagedRow":
-				return "0"
+				return "hash"
 			default:
 				return ""
 			}
 		}
-		idx, skipped, ok := resolveFirstCommitIndex("localUnstagedRow", next)
+		idx, skipped, ok := resolveFirstCommitIndex("localUnstagedRow", index, next)
 		if !ok || idx != 0 || skipped != 2 {
 			t.Fatalf("expected ok idx=0 skipped=2, got ok=%v idx=%d skipped=%d", ok, idx, skipped)
 		}
 	})
 
 	t.Run("no-commit-found", func(t *testing.T) {
-		idx, skipped, ok := resolveFirstCommitIndex("moreIndicatorID", func(string) string { return "" })
+		index := func(string) (int, bool) { return 0, false }
+		idx, skipped, ok := resolveFirstCommitIndex("moreIndicatorID", index, func(string) string { return "" })
 		if ok {
 			t.Fatalf("expected ok=false, got ok=true idx=%d skipped=%d", idx, skipped)
 		}
 	})
 
 	t.Run("max-skip-limit", func(t *testing.T) {
-		idx, skipped, ok := resolveFirstCommitIndex("x", func(string) string { return "x" })
+		index := func(string) (int, bool) { return 0, false }
+		idx, skipped, ok := resolveFirstCommitIndex("x", index, func(string) string { return "x" })
 		if ok {
 			t.Fatalf("expected ok=false, got ok=true idx=%d skipped=%d", idx, skipped)
 		}

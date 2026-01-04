@@ -247,6 +247,7 @@ func (a *Controller) switchBranchAsync(branch string) {
 			a.repo.headRef = ""
 			a.data.commits = nil
 			a.data.visible = nil
+			a.clearTreeRows()
 			a.state.tree = treeState{}
 			a.state.localDiff = localDiffCache{}
 			a.state.selection = selection.State{}
@@ -257,8 +258,6 @@ func (a *Controller) switchBranchAsync(branch string) {
 			a.setFileSections(nil)
 			a.setLocalRowVisibility(false, false)
 			a.setLocalRowVisibility(true, false)
-
-			a.clearTreeRows()
 			a.clearDetailText("Select a commit to view its details.")
 			a.showInitialLoadingRow()
 			a.setStatus("Loading commits...")

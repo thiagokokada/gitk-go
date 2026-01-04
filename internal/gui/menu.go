@@ -95,6 +95,7 @@ func (a *Controller) switchRepository(path string) {
 	a.repo.headRef = ""
 	a.data.commits = nil
 	a.data.visible = nil
+	a.clearTreeRows()
 	a.state.tree = treeState{}
 	a.state.localDiff = localDiffCache{}
 	a.state.filter = filterState{}
@@ -109,8 +110,6 @@ func (a *Controller) switchRepository(path string) {
 
 	a.setLocalRowVisibility(false, false)
 	a.setLocalRowVisibility(true, false)
-
-	a.clearTreeRows()
 	a.updateRepoLabel()
 	a.clearDetailText("Select a commit to view its details.")
 	a.showInitialLoadingRow()

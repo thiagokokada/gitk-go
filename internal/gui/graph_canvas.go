@@ -22,8 +22,9 @@ func (a *Controller) drawGraphCanvas() {
 		return
 	}
 	a.state.tree.graphCanvas.Draw(widgets.GraphCanvasDrawInput{
-		Visible: a.data.visible,
-		Labels:  a.state.tree.branchLabels,
-		Dark:    a.theme.palette.isDark(),
+		Visible:   a.data.visible,
+		Labels:    a.state.tree.branchLabels,
+		Dark:      a.theme.palette.isDark(),
+		IndexByID: a.state.tree.rows.visibleByID,
 	})
 }

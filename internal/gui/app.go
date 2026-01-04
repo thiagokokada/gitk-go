@@ -373,6 +373,8 @@ func (a *Controller) reloadCommitsAsync() {
 			a.data.visible = entries
 			a.repo.headRef = head
 			a.state.tree.hasMore = hasMore
+			a.state.tree.rows.setCommitIDs(entries)
+			a.state.tree.rows.refreshValues = true
 			slog.Debug("reloadCommitsAsync loaded",
 				slog.Int("count", len(entries)),
 				slog.String("head", head),
@@ -419,6 +421,8 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 			}
 			a.data.commits = append(a.data.commits, entries...)
 			a.state.tree.hasMore = hasMore
+			a.state.tree.rows.addCommitIDs(entries)
+			a.state.tree.rows.refreshValues = true
 			slog.Debug("loadMoreCommitsAsync loaded",
 				slog.Int("added", len(entries)),
 				slog.Int("total", len(a.data.commits)),

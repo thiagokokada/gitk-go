@@ -52,9 +52,10 @@ type GraphCanvas struct {
 }
 
 type GraphCanvasDrawInput struct {
-	Visible []*git.Entry
-	Labels  map[string][]string
-	Dark    bool
+	Visible   []*git.Entry
+	Labels    map[string][]string
+	Dark      bool
+	IndexByID map[string]int
 }
 
 type graphOverlayState struct {
@@ -175,13 +176,13 @@ func (g *GraphCanvas) planGraphCanvasDraw() (graphCanvasDrawPlan, bool) {
 
 	selectedIdx := -1
 	if sel := g.treeView.Selection(""); len(sel) > 0 {
-		if idx, err := strconv.Atoi(sel[0]); err == nil && idx >= 0 {
+		if idx, ok := indexForTreeItem(sel[0], input.IndexByID); ok && idx >= 0 {
 			selectedIdx = idx
 		}
 	}
 
 	// Treeview items can include non-commit rows (local changes, "more...", loading); resolve the
-	// first visible commit row and account for any leading non-numeric rows.
+	// first visible commit row and account for any leading non-commit rows.
 	bbox := strings.Fields(tkutil.EvalOrEmpty("%s bbox {%s} #1", treePath, first))
 	if len(bbox) < 4 {
 		return graphCanvasDrawPlan{}, false
@@ -191,7 +192,10 @@ func (g *GraphCanvas) planGraphCanvasDraw() (graphCanvasDrawPlan, bool) {
 	if rowHeight <= 0 {
 		return graphCanvasDrawPlan{}, false
 	}
-	firstIdx, skippedRows, ok := resolveFirstCommitIndex(first, func(item string) string {
+	indexForItem := func(item string) (int, bool) {
+		return indexForTreeItem(item, input.IndexByID)
+	}
+	firstIdx, skippedRows, ok := resolveFirstCommitIndex(first, indexForItem, func(item string) string {
 		return strings.TrimSpace(tkutil.EvalOrEmpty("%s next {%s}", treePath, item))
 	})
 	if !ok || firstIdx >= len(input.Visible) {
@@ -404,11 +408,18 @@ func graphContentCellGeometry(treePath string, treeHeight int) (xOffset int, yOf
 	return tkutil.Atoi(bbox[0]), tkutil.Atoi(bbox[1]), tkutil.Atoi(bbox[2])
 }
 
-func resolveFirstCommitIndex(firstItem string, next func(string) string) (idx int, skipped int, ok bool) {
+func resolveFirstCommitIndex(
+	firstItem string,
+	indexForItem func(string) (int, bool),
+	next func(string) string,
+) (idx int, skipped int, ok bool) {
 	item := strings.TrimSpace(firstItem)
 	for item != "" && skipped <= maxNonCommitRowSkips {
-		parsed, err := strconv.Atoi(item)
-		if err == nil && parsed >= 0 {
+		if indexForItem != nil {
+			if idx, ok := indexForItem(item); ok {
+				return idx, skipped, true
+			}
+		} else if parsed, err := strconv.Atoi(item); err == nil && parsed >= 0 {
 			return parsed, skipped, true
 		}
 		if next == nil {
@@ -418,6 +429,15 @@ func resolveFirstCommitIndex(firstItem string, next func(string) string) (idx in
 		skipped++
 	}
 	return 0, skipped, false
+}
+
+func indexForTreeItem(id string, indexByID map[string]int) (int, bool) {
+	id = strings.TrimSpace(id)
+	if id == "" || indexByID == nil {
+		return 0, false
+	}
+	idx, ok := indexByID[id]
+	return idx, ok
 }
 
 type graphLabelStyle struct {

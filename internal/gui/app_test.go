@@ -104,7 +104,7 @@ func TestBuildTreeRows(t *testing.T) {
 	if len(rows) != 2 {
 		t.Fatalf("expected two rows, got %d", len(rows))
 	}
-	if rows[0].ID != "0" || rows[1].ID != "1" {
+	if rows[0].ID != entry1.Commit.Hash || rows[1].ID != entry2.Commit.Hash {
 		t.Fatalf("unexpected row ids: %#v", rows)
 	}
 	if rows[0].Graph != "* | [HEAD -> main]" {

@@ -21,6 +21,7 @@ func (a *Controller) applyFilter(raw string) {
 func (a *Controller) applyFilterState(raw string) {
 	a.state.filter.value = raw
 	a.data.visible = filterEntries(a.data.commits, raw)
+	a.state.tree.rows.setVisibleIndex(a.data.visible)
 }
 
 func (a *Controller) applyFilterImmediate(raw string) {
@@ -31,22 +32,7 @@ func (a *Controller) applyFilterImmediate(raw string) {
 func (a *Controller) applyFilterContent(raw string) {
 	a.applyFilterState(raw)
 	a.storeScrollState()
-	a.clearTreeRows()
-	a.insertLocalRows()
-	rows := buildTreeRows(a.data.visible, a.state.tree.branchLabels, a.cfg.graphCanvas)
-	for _, row := range rows {
-		graph := row.Graph
-		if a.cfg.graphCanvas {
-			// Keep the graph column data-less; the canvas overlay renders the graph.
-			graph = ""
-		}
-		vals := []string{graph, row.Commit, row.Author, row.Date}
-		a.ui.treeView.Insert("", "end", Id(row.ID), Values(vals))
-	}
-	if a.state.tree.hasMore && len(a.data.visible) > 0 {
-		vals := []string{"", "There are more commits...", "", ""}
-		a.ui.treeView.Insert("", "end", Id(moreIndicatorID), Values(vals))
-	}
+	a.syncTreeRows()
 
 	if len(a.data.visible) == 0 {
 		if len(a.data.commits) == 0 {
@@ -63,11 +49,13 @@ func (a *Controller) applyFilterContent(raw string) {
 		index = 0
 	}
 	if index >= 0 {
-		id := strconv.Itoa(index)
-		a.ui.treeView.Selection("set", id)
-		a.ui.treeView.Focus(id)
-		a.ui.treeView.See(id)
 		if entry, ok := a.commitEntryAt(index); ok {
+			id := commitRowID(entry)
+			if id != "" {
+				a.ui.treeView.Selection("set", id)
+				a.ui.treeView.Focus(id)
+				a.ui.treeView.See(id)
+			}
 			a.showCommitDetails(entry, index)
 		}
 	}

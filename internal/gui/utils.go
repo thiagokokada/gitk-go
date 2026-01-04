@@ -2,7 +2,6 @@ package gui
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/thiagokokada/gitk-go/internal/git"
@@ -21,14 +20,21 @@ func buildTreeRows(entries []*git.Entry, labels map[string][]string, graphCanvas
 		return nil
 	}
 	rows := make([]treeRow, 0, len(entries))
-	for i, entry := range entries {
+	for _, entry := range entries {
 		if entry == nil || entry.Commit == nil {
+			continue
+		}
+		id := commitRowID(entry)
+		if id == "" {
 			continue
 		}
 		msg, author, when := entry.ListColumns()
 		graph := formatGraphValue(entry, labels[entry.Commit.Hash], graphCanvas)
+		if graphCanvas {
+			graph = ""
+		}
 		rows = append(rows, treeRow{
-			ID:     strconv.Itoa(i),
+			ID:     id,
 			Graph:  graph,
 			Commit: msg,
 			Author: author,
@@ -36,6 +42,18 @@ func buildTreeRows(entries []*git.Entry, labels map[string][]string, graphCanvas
 		})
 	}
 	return rows
+}
+
+func treeRowValues(entry *git.Entry, labels map[string][]string, graphCanvas bool) []string {
+	if entry == nil || entry.Commit == nil {
+		return nil
+	}
+	graph := ""
+	if !graphCanvas {
+		graph = formatGraphValue(entry, labels[entry.Commit.Hash], graphCanvas)
+	}
+	msg, author, when := entry.ListColumns()
+	return []string{graph, msg, author, when}
 }
 
 func formatGraphValue(entry *git.Entry, labels []string, graphCanvas bool) string {
