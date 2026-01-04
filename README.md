@@ -29,7 +29,7 @@ much of `gitk` using
 
 ### Usage
 
-```bash
+```console
 $ gitk-go -h
 Usage of gitk-go:
   -graph-cols uint
@@ -55,7 +55,7 @@ Usage of gitk-go:
 macOS may set the quarantine (security) attribute on downloaded release
 binaries. If the app refuses to launch, clear it:
 
-```bash
+```console
 xattr -d com.apple.quarantine /path/to/gitk-go
 ```
 
@@ -68,7 +68,7 @@ xattr -d com.apple.quarantine /path/to/gitk-go
 
 ### Development
 
-```bash
+```console
 go test ./...
 go build ./...
 ```
