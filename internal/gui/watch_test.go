@@ -3,30 +3,28 @@ package gui
 import (
 	"testing"
 
-	"github.com/sgtdi/fswatcher"
+	"github.com/rjeczalik/notify"
 )
 
 func TestEventTriggersReload(t *testing.T) {
 	tests := []struct {
 		name  string
-		types []fswatcher.EventType
+		event notify.Event
 		want  bool
 	}{
-		{name: "empty", types: nil, want: true},
-		{name: "unknown", types: []fswatcher.EventType{fswatcher.EventUnknown}, want: true},
-		{name: "create", types: []fswatcher.EventType{fswatcher.EventCreate}, want: true},
-		{name: "remove", types: []fswatcher.EventType{fswatcher.EventRemove}, want: true},
-		{name: "mod", types: []fswatcher.EventType{fswatcher.EventMod}, want: true},
-		{name: "rename", types: []fswatcher.EventType{fswatcher.EventRename}, want: true},
-		{name: "chmod", types: []fswatcher.EventType{fswatcher.EventChmod}, want: true},
-		{name: "invalid", types: []fswatcher.EventType{fswatcher.EventType(99)}, want: false},
+		{name: "empty", event: 0, want: false},
+		{name: "create", event: notify.Create, want: true},
+		{name: "remove", event: notify.Remove, want: true},
+		{name: "write", event: notify.Write, want: true},
+		{name: "rename", event: notify.Rename, want: true},
+		{name: "all", event: notify.All, want: true},
+		{name: "unknown", event: notify.Event(1 << 30), want: false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			event := fswatcher.WatchEvent{Types: tt.types}
-			if got := eventTriggersReload(event); got != tt.want {
-				t.Fatalf("eventTriggersReload(%v) = %v, want %v", tt.types, got, tt.want)
+			if got := eventTriggersReload(tt.event); got != tt.want {
+				t.Fatalf("eventTriggersReload(%v) = %v, want %v", tt.event, got, tt.want)
 			}
 		})
 	}

@@ -1,8 +1,6 @@
 package gui
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -10,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sgtdi/fswatcher"
+	"github.com/rjeczalik/notify"
 	"github.com/thiagokokada/gitk-go/internal/debounce"
 	. "modernc.org/tk9.0"
 )
@@ -21,8 +19,7 @@ type autoReloadState struct {
 	mu         sync.Mutex
 	configured bool
 	enabled    bool
-	watcher    fswatcher.Watcher
-	cancel     context.CancelFunc
+	watcher    chan notify.EventInfo
 	debounce   *debounce.Debouncer
 }
 
@@ -50,15 +47,11 @@ func (a *Controller) enableAutoReload() error {
 	if a.state.watch.enabled {
 		return nil
 	}
-	options := []fswatcher.WatcherOpt{
-		fswatcher.WithCooldown(0),
-		fswatcher.WithSeverity(fswatcher.SeverityError),
-	}
-	slog.Debug("adding path to FS watcher", slog.String("path", a.repo.path))
-	options = append(options, fswatcher.WithPath(a.repo.path))
-	watcher, err := fswatcher.New(options...)
-	if err != nil {
-		return fmt.Errorf("fswatcher: %w", err)
+	watcher := make(chan notify.EventInfo, 64)
+	slog.Debug("adding path to notify watcher", slog.String("path", a.repo.path))
+	if err := notify.Watch(a.repo.path, watcher, notify.All); err != nil {
+		notify.Stop(watcher)
+		return fmt.Errorf("watch %s: %w", a.repo.path, err)
 	}
 	if a.state.watch.debounce == nil {
 		a.state.watch.debounce = debounce.New(autoReloadDebounceDelay, func() {
@@ -67,11 +60,9 @@ func (a *Controller) enableAutoReload() error {
 			}, false)
 		})
 	}
-	ctx, cancel := context.WithCancel(context.Background())
 	a.state.watch.watcher = watcher
-	a.state.watch.cancel = cancel
 	a.state.watch.enabled = true
-	go a.watchLoop(ctx, watcher)
+	go a.watchLoop(watcher)
 	return nil
 }
 
@@ -82,12 +73,9 @@ func (a *Controller) disableAutoReload() {
 		a.state.watch.debounce.Stop()
 		a.state.watch.debounce = nil
 	}
-	if a.state.watch.cancel != nil {
-		a.state.watch.cancel()
-		a.state.watch.cancel = nil
-	}
 	if a.state.watch.watcher != nil {
-		a.state.watch.watcher.Close()
+		notify.Stop(a.state.watch.watcher)
+		close(a.state.watch.watcher)
 		a.state.watch.watcher = nil
 	}
 	a.state.watch.enabled = false
@@ -97,36 +85,18 @@ func (a *Controller) shutdown() {
 	a.disableAutoReload()
 }
 
-func (a *Controller) watchLoop(ctx context.Context, w fswatcher.Watcher) {
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- w.Watch(ctx)
-	}()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case err := <-errCh:
-			if err != nil && !errors.Is(err, context.Canceled) {
-				slog.Error("fswatcher error", slog.Any("error", err))
-			}
-			return
-		case ev, ok := <-w.Events():
-			if !ok {
-				return
-			}
-			if !eventTriggersReload(ev) {
-				continue
-			}
-			if shouldIgnoreWatchPath(ev.Path) {
-				continue
-			}
-			slog.Debug("fswatcher event",
-				slog.Any("types", eventTypeNames(ev.Types)),
-				slog.String("path", ev.Path),
-			)
-			a.scheduleAutoReload()
+func (a *Controller) watchLoop(w <-chan notify.EventInfo) {
+	for ev := range w {
+		event := ev.Event()
+		path := ev.Path()
+		if !eventTriggersReload(event) {
+			continue
 		}
+		if shouldIgnoreWatchPath(path) {
+			continue
+		}
+		slog.Debug("notify event", slog.String("event", event.String()), slog.String("path", path))
+		a.scheduleAutoReload()
 	}
 }
 
@@ -148,30 +118,8 @@ func shouldIgnoreWatchPath(name string) bool {
 	return false
 }
 
-func eventTriggersReload(event fswatcher.WatchEvent) bool {
-	if len(event.Types) == 0 {
-		return true
-	}
-	for _, eventType := range event.Types {
-		switch eventType {
-		case fswatcher.EventCreate, fswatcher.EventRemove, fswatcher.EventMod,
-			fswatcher.EventRename, fswatcher.EventChmod, fswatcher.EventUnknown:
-			return true
-		default:
-		}
-	}
-	return false
-}
-
-func eventTypeNames(types []fswatcher.EventType) []string {
-	if len(types) == 0 {
-		return nil
-	}
-	names := make([]string, 0, len(types))
-	for _, eventType := range types {
-		names = append(names, eventType.String())
-	}
-	return names
+func eventTriggersReload(event notify.Event) bool {
+	return event&notify.All != 0
 }
 
 func (a *Controller) updateReloadButtonLabel() {
