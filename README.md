@@ -50,6 +50,15 @@ Usage of gitk-go:
     	print version information and exit
 ```
 
+### macOS release binaries
+
+macOS may set the quarantine (security) attribute on downloaded release
+binaries. If the app refuses to launch, clear it:
+
+```bash
+xattr -d com.apple.quarantine /path/to/gitk-go
+```
+
 ### Known issues
 
 - Automatic reload doesn't work well with `core.fsmonitor` option from `git`
