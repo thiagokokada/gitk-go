@@ -26,10 +26,13 @@ type Service struct {
 }
 
 type Entry struct {
-	Commit     *Commit
-	Summary    string
-	SearchText string
-	Graph      string
+	Commit      *Commit
+	Summary     string
+	SearchText  string
+	Graph       string
+	ListMessage string
+	ListAuthor  string
+	ListDate    string
 }
 
 type FileSection struct {
@@ -224,6 +227,7 @@ func appendSignatureLine(b *strings.Builder, label string, sig Signature) {
 
 func newEntry(c *Commit) *Entry {
 	summary := formatSummary(c)
+	listMsg, listAuthor, listDate := formatListColumns(c)
 	var b strings.Builder
 	b.WriteString(strings.ToLower(c.Hash))
 	b.WriteByte(' ')
@@ -232,7 +236,42 @@ func newEntry(c *Commit) *Entry {
 	b.WriteString(strings.ToLower(c.Author.Email))
 	b.WriteByte(' ')
 	b.WriteString(strings.ToLower(c.Message))
-	return &Entry{Commit: c, Summary: summary, SearchText: b.String()}
+	return &Entry{
+		Commit:      c,
+		Summary:     summary,
+		SearchText:  b.String(),
+		ListMessage: listMsg,
+		ListAuthor:  listAuthor,
+		ListDate:    listDate,
+	}
+}
+
+func (e *Entry) ListColumns() (msg, author, when string) {
+	if e == nil || e.Commit == nil {
+		return "", "", ""
+	}
+	if e.ListMessage == "" && e.ListAuthor == "" && e.ListDate == "" {
+		return formatListColumns(e.Commit)
+	}
+	return e.ListMessage, e.ListAuthor, e.ListDate
+}
+
+func formatListColumns(c *Commit) (msg, author, when string) {
+	if c == nil {
+		return "", "", ""
+	}
+	firstLine := strings.SplitN(strings.TrimSpace(c.Message), "\n", 2)[0]
+	if len(firstLine) > 80 {
+		firstLine = firstLine[:77] + "..."
+	}
+	hash := c.Hash
+	if len(hash) > 7 {
+		hash = hash[:7]
+	}
+	msg = fmt.Sprintf("%s  %s", hash, firstLine)
+	author = fmt.Sprintf("%s <%s>", c.Author.Name, c.Author.Email)
+	when = c.Committer.When.Format("2006-01-02 15:04")
+	return msg, author, when
 }
 
 func formatSummary(c *Commit) string {

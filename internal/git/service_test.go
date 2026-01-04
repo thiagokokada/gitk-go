@@ -1,12 +1,12 @@
 package git
 
 import (
-	"slices"
 	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -76,6 +76,40 @@ func TestNewEntrySearchText(t *testing.T) {
 	lower := entry.SearchText
 	if !strings.Contains(lower, "bob@example.com") || !strings.Contains(lower, "hello world") {
 		t.Fatalf("search text not normalized: %s", lower)
+	}
+}
+
+func TestEntryListColumns(t *testing.T) {
+	commit := &Commit{
+		Hash: "abcdef1234567890abcdef1234567890abcdef12",
+		Author: Signature{
+			Name:  "Alice",
+			Email: "alice@example.com",
+			When:  time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC),
+		},
+		Committer: Signature{
+			Name:  "Alice",
+			Email: "alice@example.com",
+			When:  time.Date(2025, 1, 2, 9, 30, 0, 0, time.UTC),
+		},
+		Message: "Subject line\nSecond line",
+	}
+	entry := newEntry(commit)
+	msg, author, when := entry.ListColumns()
+	if !strings.Contains(msg, "abcdef1") || !strings.Contains(msg, "Subject line") {
+		t.Fatalf("unexpected commit column: %q", msg)
+	}
+	if author != "Alice <alice@example.com>" {
+		t.Fatalf("unexpected author column: %q", author)
+	}
+	if when != "2025-01-02 09:30" {
+		t.Fatalf("unexpected date column: %q", when)
+	}
+
+	manual := &Entry{Commit: commit}
+	msg2, author2, when2 := manual.ListColumns()
+	if msg2 != msg || author2 != author || when2 != when {
+		t.Fatalf("manual columns mismatch: %q/%q/%q", msg2, author2, when2)
 	}
 }
 

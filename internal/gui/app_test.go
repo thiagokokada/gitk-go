@@ -8,34 +8,6 @@ import (
 	"github.com/thiagokokada/gitk-go/internal/git"
 )
 
-func TestCommitListColumns(t *testing.T) {
-	commit := &git.Commit{
-		Hash: "abcdef1234567890abcdef1234567890abcdef12",
-		Author: git.Signature{
-			Name:  "Alice",
-			Email: "alice@example.com",
-			When:  time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC),
-		},
-		Committer: git.Signature{
-			Name:  "Alice",
-			Email: "alice@example.com",
-			When:  time.Date(2025, 1, 2, 9, 30, 0, 0, time.UTC),
-		},
-		Message: "Subject line\nSecond line",
-	}
-	entry := &git.Entry{Commit: commit}
-	msg, author, when := commitListColumns(entry)
-	if !strings.Contains(msg, "abcdef1") || !strings.Contains(msg, "Subject line") {
-		t.Fatalf("unexpected commit column: %q", msg)
-	}
-	if author != "Alice <alice@example.com>" {
-		t.Fatalf("unexpected author column: %q", author)
-	}
-	if when != "2025-01-02 09:30" {
-		t.Fatalf("unexpected date column: %q", when)
-	}
-}
-
 func TestFormatGraphValue(t *testing.T) {
 	entry := &git.Entry{Graph: "* |"}
 	graph := formatGraphValue(entry, []string{"HEAD -> main", "feature"}, false)
