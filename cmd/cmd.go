@@ -15,6 +15,12 @@ func Run() error {
 	return run(os.Args[1:])
 }
 
+var themeActivator func(string) error
+
+func SetThemeActivator(fn func(string) error) {
+	themeActivator = fn
+}
+
 func run(args []string) error {
 	fs := flag.NewFlagSet("gitk-go", flag.ContinueOnError)
 	limit := fs.Uint(
@@ -82,6 +88,7 @@ func run(args []string) error {
 		GraphMaxColumns: graphColsU,
 		GraphCanvas:     !*textGraph,
 		ThemePreference: gui.ThemePreferenceFromString(*mode),
+		ThemeActivator:  themeActivator,
 		AutoReload:      !*noWatch,
 		SyntaxHighlight: !*noSyntax,
 		Verbose:         *verbose,

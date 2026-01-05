@@ -46,6 +46,7 @@ var (
 		LocalStagedRow:   "#1f3b2a",
 	}
 	detectDarkMode = darkmode.IsDarkMode
+	watchDarkMode  = darkmode.WatchDarkMode
 )
 
 func ThemePreferenceFromString(raw string) ThemePreference {
@@ -59,6 +60,24 @@ func ThemePreferenceFromString(raw string) ThemePreference {
 	}
 }
 
+func paletteForDarkMode(dark bool) colorPalette {
+	if dark {
+		return darkPalette
+	}
+	return lightPalette
+}
+
+func paletteForThemeChange(pref ThemePreference, current colorPalette, dark bool) (colorPalette, bool) {
+	if pref != ThemeAuto {
+		return current, false
+	}
+	next := paletteForDarkMode(dark)
+	if next == current {
+		return current, false
+	}
+	return next, true
+}
+
 func paletteForPreference(pref ThemePreference) colorPalette {
 	switch pref {
 	case ThemeDark:
@@ -68,9 +87,7 @@ func paletteForPreference(pref ThemePreference) colorPalette {
 	default:
 		if detectDarkMode != nil {
 			if dark, err := detectDarkMode(); err == nil {
-				if !dark {
-					return lightPalette
-				}
+				return paletteForDarkMode(dark)
 			} else {
 				slog.Error("detect dark-mode", slog.Any("error", err))
 			}

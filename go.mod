@@ -5,7 +5,7 @@ go 1.25.4
 require (
 	github.com/alecthomas/chroma/v2 v2.21.1
 	github.com/rjeczalik/notify v0.9.3
-	github.com/thiagokokada/dark-mode-go v0.0.1
+	github.com/thiagokokada/dark-mode-go v0.0.2
 	modernc.org/tk9.0 v1.73.0
 )
 
@@ -16,7 +16,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/evilsocket/islazy v1.11.0 // indirect
-	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

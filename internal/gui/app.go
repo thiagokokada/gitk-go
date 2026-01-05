@@ -38,6 +38,7 @@ type RunConfig struct {
 	GraphMaxColumns uint
 	GraphCanvas     bool
 	ThemePreference ThemePreference
+	ThemeActivator  func(string) error
 	AutoReload      bool
 	SyntaxHighlight bool
 	Verbose         bool
@@ -72,7 +73,8 @@ func Run(cfg RunConfig) error {
 			path: svc.RepoPath(),
 		},
 		theme: controllerTheme{
-			pref: pref,
+			pref:     pref,
+			activate: cfg.ThemeActivator,
 		},
 	}
 	app.state.diff.syntaxTags = make(map[string]string)
@@ -81,17 +83,7 @@ func Run(cfg RunConfig) error {
 
 func (a *Controller) run() error {
 	defer a.shutdown()
-	a.theme.palette = paletteForPreference(a.theme.pref)
-	if a.theme.palette.ThemeName != "" {
-		err := ActivateTheme(a.theme.palette.ThemeName)
-		if err != nil {
-			slog.Error(
-				"activate theme",
-				slog.String("theme", a.theme.palette.ThemeName),
-				slog.Any("error", err),
-			)
-		}
-	}
+	a.applyThemePalette(paletteForPreference(a.theme.pref))
 	level := slog.LevelInfo
 	if a.cfg.verbose {
 		level = slog.LevelDebug
@@ -99,6 +91,7 @@ func (a *Controller) run() error {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
 	applyAppIcon()
 	a.buildUI()
+	a.startThemeWatch()
 	a.initAutoReload(a.cfg.autoReloadRequested)
 	a.showInitialLoadingRow()
 	a.setStatus("Loading commits...")

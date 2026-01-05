@@ -129,16 +129,7 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 	a.ui.treeView.Heading("commit", Txt("Commit"))
 	a.ui.treeView.Heading("author", Txt("Author"))
 	a.ui.treeView.Heading("date", Txt("Date"))
-	unstagedColor := a.theme.palette.LocalUnstagedRow
-	if unstagedColor == "" {
-		unstagedColor = "#fde2e1"
-	}
-	stagedColor := a.theme.palette.LocalStagedRow
-	if stagedColor == "" {
-		stagedColor = "#e2f7e1"
-	}
-	a.ui.treeView.TagConfigure("localUnstaged", Background(unstagedColor))
-	a.ui.treeView.TagConfigure("localStaged", Background(stagedColor))
+	a.applyTreeRowStyles()
 	Grid(a.ui.treeView, Row(0), Column(0), Sticky(NEWS))
 	Grid(treeScroll, Row(0), Column(1), Sticky(NS))
 	treeScroll.Configure(Command(func(e *Event) {
@@ -195,33 +186,7 @@ func (a *Controller) buildDiffPane(diffArea *TFrameWidget) {
 		a.onDiffScrolled()
 	}))
 	a.ui.diffDetail.Configure(Xscrollcommand(func(e *Event) { e.ScrollSet(detailXScroll) }))
-	addColor := a.theme.palette.DiffAdd
-	if addColor == "" {
-		addColor = lightPalette.DiffAdd
-	}
-	delColor := a.theme.palette.DiffDel
-	if delColor == "" {
-		delColor = lightPalette.DiffDel
-	}
-	headerColor := a.theme.palette.DiffHeader
-	if headerColor == "" {
-		headerColor = lightPalette.DiffHeader
-	}
-	selBg := a.ui.diffDetail.Selectbackground()
-	selFg := a.ui.diffDetail.Selectforeground()
-	tagOpts := func(bg string) []Opt {
-		opts := []Opt{Background(bg)}
-		if selBg != "" {
-			opts = append(opts, Selectbackground(selBg))
-		}
-		if selFg != "" {
-			opts = append(opts, Selectforeground(selFg))
-		}
-		return opts
-	}
-	a.ui.diffDetail.TagConfigure("diffAdd", tagOpts(addColor)...)
-	a.ui.diffDetail.TagConfigure("diffDel", tagOpts(delColor)...)
-	a.ui.diffDetail.TagConfigure("diffHeader", tagOpts(headerColor)...)
+	a.applyDiffTagStyles()
 	Grid(a.ui.diffDetail, Row(0), Column(0), Sticky(NEWS))
 	Grid(detailYScroll, Row(0), Column(1), Sticky(NS))
 	Grid(detailXScroll, Row(1), Column(0), Sticky(WE))
