@@ -3,6 +3,7 @@ package gui
 import (
 	"fmt"
 	"log/slog"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -48,10 +49,11 @@ func (a *Controller) enableAutoReload() error {
 		return nil
 	}
 	watcher := make(chan notify.EventInfo, 64)
-	slog.Debug("adding path to notify watcher", slog.String("path", a.repo.path))
-	if err := notify.Watch(a.repo.path, watcher, notify.All); err != nil {
+	recursivePath := path.Join(a.repo.path, "...")
+	slog.Debug("adding path to notify watcher", slog.String("path", recursivePath))
+	if err := notify.Watch(recursivePath, watcher, notify.All); err != nil {
 		notify.Stop(watcher)
-		return fmt.Errorf("watch %s: %w", a.repo.path, err)
+		return fmt.Errorf("watch %s: %w", recursivePath, err)
 	}
 	if a.state.watch.debounce == nil {
 		a.state.watch.debounce = debounce.New(autoReloadDebounceDelay, func() {
@@ -88,14 +90,14 @@ func (a *Controller) shutdown() {
 func (a *Controller) watchLoop(w <-chan notify.EventInfo) {
 	for ev := range w {
 		event := ev.Event()
-		path := ev.Path()
+		evPath := ev.Path()
 		if !eventTriggersReload(event) {
 			continue
 		}
-		if shouldIgnoreWatchPath(path) {
+		if shouldIgnoreWatchPath(evPath) {
 			continue
 		}
-		slog.Debug("notify event", slog.String("event", event.String()), slog.String("path", path))
+		slog.Debug("notify event", slog.String("event", event.String()), slog.String("path", evPath))
 		a.scheduleAutoReload()
 	}
 }
