@@ -145,7 +145,7 @@ func parseRefsFromShowRef(out string) ([]Ref, error) {
 	peeledByTagRef := map[string]string{}
 	var entries []refEntry
 
-	for _, rawLine := range strings.Split(out, "\n") {
+	for rawLine := range strings.SplitSeq(out, "\n") {
 		line := strings.TrimRight(rawLine, "\r")
 		if strings.TrimSpace(line) == "" {
 			continue
@@ -159,8 +159,7 @@ func parseRefsFromShowRef(out string) ([]Ref, error) {
 		if hash == "" || refName == "" {
 			return nil, fmt.Errorf("unexpected show-ref output line: %q", rawLine)
 		}
-		if strings.HasSuffix(refName, "^{}") {
-			base := strings.TrimSuffix(refName, "^{}")
+		if base, ok := strings.CutSuffix(refName, "^{}"); ok {
 			if base != "" {
 				peeledByTagRef[base] = hash
 			}

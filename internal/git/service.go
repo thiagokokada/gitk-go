@@ -338,7 +338,7 @@ func (g *graphBuilder) Line(c *Commit) string {
 	if cols > 0 {
 		b.Grow(cols*2 - 1)
 	}
-	for i := 0; i < cols; i++ {
+	for i := range cols {
 		if i == idx {
 			b.WriteString("*")
 		} else {
@@ -371,10 +371,7 @@ func (g *graphBuilder) advance(idx int, parents []string) {
 	for i := 1; i < len(parents); i++ {
 		parent := parents[i]
 		g.removeColumn(parent)
-		pos := idx + i
-		if pos > len(g.columns) {
-			pos = len(g.columns)
-		}
+		pos := min(idx+i, len(g.columns))
 		g.insertAt(pos, parent)
 	}
 	g.trim()

@@ -379,10 +379,7 @@ func firstVisibleTreeItemForRedraw(treePath string, xProbe int, yOffset int, tre
 	if xProbe <= 0 {
 		xProbe = defaultTreeIdentifyX
 	}
-	y := yOffset + 1
-	if y < 1 {
-		y = 1
-	}
+	y := max(yOffset+1, 1)
 	if y >= treeHeight {
 		y = treeHeight - 1
 	}
