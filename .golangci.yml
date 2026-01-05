@@ -23,20 +23,22 @@ linters:
             disabled: true
           - name: cyclomatic
             disabled: true
+          - name: dot-imports
+            arguments:
+              - allowed-packages: ["modernc.org/tk9.0"]
           - name: empty-block
             disabled: true
           - name: early-return
             disabled: true
           - name: exported
             disabled: true
-          - name: dot-imports
-            arguments:
-              - allowed-packages: ["modernc.org/tk9.0"]
           - name: flag-parameter
             disabled: true
           - name: function-length
             disabled: true
           - name: function-result-limit
+            disabled: true
+          - name: indent-error-flow
             disabled: true
           - name: package-comments
             disabled: true
