@@ -194,11 +194,7 @@ func (s *Service) headStateLocked() (hash string, headName string, ok bool, err 
 
 func FormatCommitHeader(c *Commit) string {
 	var b strings.Builder
-	message := strings.TrimRight(c.Message, "\n")
-	b.Grow(len(message) + 128)
-	b.WriteString("commit ")
-	b.WriteString(c.Hash)
-	b.WriteByte('\n')
+	fmt.Fprintf(&b, "commit %s\n", c.Hash)
 	appendSignatureLine(&b, "Author", c.Author)
 	committer := c.Committer
 	if committer.Name == "" && committer.Email == "" && committer.When.IsZero() {
@@ -206,6 +202,7 @@ func FormatCommitHeader(c *Commit) string {
 	}
 	appendSignatureLine(&b, "Committer", committer)
 	b.WriteString("\n")
+	message := strings.TrimRight(c.Message, "\n")
 	if message == "" {
 		b.WriteString("    (no commit message)\n")
 		return b.String()
@@ -215,23 +212,15 @@ func FormatCommitHeader(c *Commit) string {
 			b.WriteString("\n")
 			continue
 		}
-		b.WriteString("    ")
-		b.WriteString(line)
-		b.WriteByte('\n')
+		fmt.Fprintf(&b, "    %s\n", line)
 	}
 	return b.String()
 }
 
 func appendSignatureLine(b *strings.Builder, label string, sig Signature) {
-	b.WriteString(label)
-	b.WriteString(": ")
-	b.WriteString(sig.Name)
-	b.WriteString(" <")
-	b.WriteString(sig.Email)
-	b.WriteByte('>')
+	fmt.Fprintf(b, "%s: %s <%s>", label, sig.Name, sig.Email)
 	if !sig.When.IsZero() {
-		b.WriteString("  ")
-		b.WriteString(sig.When.Format("2006-01-02 15:04:05 -0700"))
+		fmt.Fprintf(b, "  %s", sig.When.Format("2006-01-02 15:04:05 -0700"))
 	}
 	b.WriteByte('\n')
 }
@@ -240,18 +229,13 @@ func newEntry(c *Commit) *Entry {
 	summary := formatSummary(c)
 	listMsg, listAuthor, listDate := formatListColumns(c)
 	var b strings.Builder
-	hash := strings.ToLower(c.Hash)
-	authorName := strings.ToLower(c.Author.Name)
-	authorEmail := strings.ToLower(c.Author.Email)
-	message := strings.ToLower(c.Message)
-	b.Grow(len(hash) + len(authorName) + len(authorEmail) + len(message) + 3)
-	b.WriteString(hash)
+	b.WriteString(strings.ToLower(c.Hash))
 	b.WriteByte(' ')
-	b.WriteString(authorName)
+	b.WriteString(strings.ToLower(c.Author.Name))
 	b.WriteByte(' ')
-	b.WriteString(authorEmail)
+	b.WriteString(strings.ToLower(c.Author.Email))
 	b.WriteByte(' ')
-	b.WriteString(message)
+	b.WriteString(strings.ToLower(c.Message))
 	return &Entry{
 		Commit:      c,
 		Summary:     summary,
