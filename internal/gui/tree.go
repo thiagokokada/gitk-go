@@ -365,10 +365,26 @@ func commitRowID(entry *git.Entry) string {
 }
 
 func buildVisibleIndex(entries []*git.Entry) map[string]int {
+	return buildVisibleIndexInto(entries, nil)
+}
+
+func buildVisibleIndexInto(entries []*git.Entry, index map[string]int) map[string]int {
 	if len(entries) == 0 {
-		return nil
+		if index == nil {
+			return nil
+		}
+		for k := range index {
+			delete(index, k)
+		}
+		return index
 	}
-	index := make(map[string]int, len(entries))
+	if index == nil {
+		index = make(map[string]int, len(entries))
+	} else {
+		for k := range index {
+			delete(index, k)
+		}
+	}
 	for i, entry := range entries {
 		id := commitRowID(entry)
 		if id == "" {
@@ -419,7 +435,7 @@ func (s *treeRowState) addCommitIDs(entries []*git.Entry) {
 }
 
 func (s *treeRowState) setVisibleIndex(entries []*git.Entry) {
-	s.visibleByID = buildVisibleIndex(entries)
+	s.visibleByID = buildVisibleIndexInto(entries, s.visibleByID)
 }
 
 func (s *treeRowState) hasItem(id string) bool {

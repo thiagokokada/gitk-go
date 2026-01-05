@@ -25,6 +25,28 @@ func TestBuildVisibleIndex(t *testing.T) {
 	}
 }
 
+func TestBuildVisibleIndexIntoReuse(t *testing.T) {
+	entries := []*git.Entry{
+		{Commit: &git.Commit{Hash: "a"}},
+		{Commit: &git.Commit{Hash: "b"}},
+	}
+	index := buildVisibleIndexInto(entries, nil)
+	if len(index) != 2 {
+		t.Fatalf("expected 2 entries in index, got %d", len(index))
+	}
+	next := []*git.Entry{{Commit: &git.Commit{Hash: "c"}}}
+	index = buildVisibleIndexInto(next, index)
+	if len(index) != 1 {
+		t.Fatalf("expected 1 entry in index, got %d", len(index))
+	}
+	if _, ok := index["a"]; ok {
+		t.Fatalf("expected index to drop old entry a")
+	}
+	if got := index["c"]; got != 0 {
+		t.Fatalf("expected index for c to be 0, got %d", got)
+	}
+}
+
 func TestBuildCommitIDSet(t *testing.T) {
 	entries := []*git.Entry{
 		{Commit: &git.Commit{Hash: "a"}},
