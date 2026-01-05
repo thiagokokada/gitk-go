@@ -31,6 +31,9 @@ func (a *Controller) applyFilterImmediate(raw string) {
 
 func (a *Controller) applyFilterContent(raw string) {
 	a.applyFilterState(raw)
+	if a.ui.treeView == nil || !tkutil.WidgetExists(a.ui.treeView.String()) {
+		return
+	}
 	autoLoad := shouldAutoLoadForFilter(
 		a.state.filter.value,
 		len(a.data.visible),

@@ -1,6 +1,9 @@
 package tkutil
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestTclSafeString(t *testing.T) {
 	tests := []struct {
@@ -28,5 +31,42 @@ func TestTclSafeStrings(t *testing.T) {
 	}
 	if got := TclSafeStrings("a", "b c"); got != "a b\\x20c" {
 		t.Fatalf("TclSafeStrings(...) = %q, want %q", got, "a b\\x20c")
+	}
+}
+
+func TestWidgetExists(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		out        string
+		err        error
+		want       bool
+		wantCalled bool
+	}{
+		{name: "empty path", path: "", want: false, wantCalled: false},
+		{name: "blank path", path: " ", want: false, wantCalled: false},
+		{name: "exists", path: ".tree", out: "1", want: true, wantCalled: true},
+		{name: "missing", path: ".tree", out: "0", want: false, wantCalled: true},
+		{name: "trimmed output", path: ".tree", out: " 1 ", want: true, wantCalled: true},
+		{name: "eval error", path: ".tree", err: errors.New("boom"), want: false, wantCalled: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			called := 0
+			eval := func(format string, a ...any) (string, error) {
+				called++
+				return tc.out, tc.err
+			}
+			got := widgetExistsWithEval(eval, tc.path)
+			if got != tc.want {
+				t.Fatalf("widgetExistsWithEval(%q) = %v, want %v", tc.path, got, tc.want)
+			}
+			if tc.wantCalled && called != 1 {
+				t.Fatalf("expected eval to be called once, got %d", called)
+			}
+			if !tc.wantCalled && called != 0 {
+				t.Fatalf("expected eval not to be called, got %d", called)
+			}
+		})
 	}
 }

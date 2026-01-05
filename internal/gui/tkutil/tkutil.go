@@ -111,3 +111,18 @@ func TclSafeStrings(s ...string) string {
 	}
 	return strings.Join(out, " ")
 }
+
+func WidgetExists(path string) bool {
+	return widgetExistsWithEval(Eval, path)
+}
+
+func widgetExistsWithEval(eval func(format string, a ...any) (string, error), path string) bool {
+	if strings.TrimSpace(path) == "" {
+		return false
+	}
+	out, err := eval("winfo exists %s", path)
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(out) == "1"
+}
