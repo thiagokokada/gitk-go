@@ -37,7 +37,7 @@ var badChars = [...]bool{
 	'~':  true,
 }
 
-func Eval(format string, a ...any) (string, error) {
+func Evalf(format string, a ...any) (string, error) {
 	eval := fmt.Sprintf(format, a...)
 	r, err := evalext.Eval(eval)
 	if err != nil {
@@ -46,8 +46,8 @@ func Eval(format string, a ...any) (string, error) {
 	return r, nil
 }
 
-func EvalOrEmpty(format string, a ...any) string {
-	out, err := Eval(format, a...)
+func EvalfOrEmpty(format string, a ...any) string {
+	out, err := Evalf(format, a...)
 	if err != nil {
 		slog.Debug("tk eval or empty", slog.Any("error", err))
 		return ""
@@ -55,8 +55,8 @@ func EvalOrEmpty(format string, a ...any) string {
 	return out
 }
 
-func MustEval(format string, a ...any) string {
-	r, err := Eval(format, a...)
+func MustEvalf(format string, a ...any) string {
+	r, err := Evalf(format, a...)
 	if err != nil {
 		panic(err)
 	}
@@ -113,7 +113,7 @@ func TclSafeStrings(s ...string) string {
 }
 
 func WidgetExists(path string) bool {
-	return widgetExistsWithEval(Eval, path)
+	return widgetExistsWithEval(Evalf, path)
 }
 
 func widgetExistsWithEval(eval func(format string, a ...any) (string, error), path string) bool {

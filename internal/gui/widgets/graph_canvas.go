@@ -146,7 +146,7 @@ func (g *GraphCanvas) planGraphCanvasDraw() (graphCanvasDrawPlan, bool) {
 	g.canvas.Delete("all")
 
 	treePath := g.treePath
-	treeHeight := tkutil.Atoi(tkutil.EvalOrEmpty("winfo height %s", treePath))
+	treeHeight := tkutil.Atoi(tkutil.EvalfOrEmpty("winfo height %s", treePath))
 	yOffset := g.overlay.y
 	contentHeight := g.overlay.h
 	first := firstVisibleTreeItemForRedraw(treePath, max(1, g.overlay.x+1), yOffset, treeHeight)
@@ -156,9 +156,9 @@ func (g *GraphCanvas) planGraphCanvasDraw() (graphCanvasDrawPlan, bool) {
 
 	canvasPath := g.canvasPath
 	// Prefer the Treeview column width since the overlay canvas size may lag behind `place`.
-	canvasWidth := tkutil.Atoi(tkutil.EvalOrEmpty("%s column graph -width", treePath))
+	canvasWidth := tkutil.Atoi(tkutil.EvalfOrEmpty("%s column graph -width", treePath))
 	if canvasWidth <= 0 {
-		canvasWidth = tkutil.Atoi(tkutil.EvalOrEmpty("winfo width %s", canvasPath))
+		canvasWidth = tkutil.Atoi(tkutil.EvalfOrEmpty("winfo width %s", canvasPath))
 	}
 	if canvasWidth <= 0 {
 		canvasWidth = defaultGraphColumnWidth
@@ -183,7 +183,7 @@ func (g *GraphCanvas) planGraphCanvasDraw() (graphCanvasDrawPlan, bool) {
 
 	// Treeview items can include non-commit rows (local changes, "more...", loading); resolve the
 	// first visible commit row and account for any leading non-commit rows.
-	bbox := strings.Fields(tkutil.EvalOrEmpty("%s bbox {%s} #1", treePath, first))
+	bbox := strings.Fields(tkutil.EvalfOrEmpty("%s bbox {%s} #1", treePath, first))
 	if len(bbox) < 4 {
 		return graphCanvasDrawPlan{}, false
 	}
@@ -196,7 +196,7 @@ func (g *GraphCanvas) planGraphCanvasDraw() (graphCanvasDrawPlan, bool) {
 		return indexForTreeItem(item, input.IndexByID)
 	}
 	firstIdx, skippedRows, ok := resolveFirstCommitIndex(first, indexForItem, func(item string) string {
-		return strings.TrimSpace(tkutil.EvalOrEmpty("%s next {%s}", treePath, item))
+		return strings.TrimSpace(tkutil.EvalfOrEmpty("%s next {%s}", treePath, item))
 	})
 	if !ok || firstIdx >= len(input.Visible) {
 		return graphCanvasDrawPlan{}, false
@@ -218,14 +218,14 @@ func (g *GraphCanvas) ensureOverlay() {
 	canvasPath := g.canvasPath
 	treePath := g.treePath
 
-	bg := strings.TrimSpace(tkutil.EvalOrEmpty("ttk::style lookup Treeview -background"))
+	bg := strings.TrimSpace(tkutil.EvalfOrEmpty("ttk::style lookup Treeview -background"))
 	if bg == "" {
-		bg = strings.TrimSpace(tkutil.EvalOrEmpty("ttk::style lookup Treeview -fieldbackground"))
+		bg = strings.TrimSpace(tkutil.EvalfOrEmpty("ttk::style lookup Treeview -fieldbackground"))
 	}
-	treeHeight := tkutil.Atoi(tkutil.EvalOrEmpty("winfo height %s", treePath))
-	treeWidth := tkutil.Atoi(tkutil.EvalOrEmpty("winfo width %s", treePath))
+	treeHeight := tkutil.Atoi(tkutil.EvalfOrEmpty("winfo height %s", treePath))
+	treeWidth := tkutil.Atoi(tkutil.EvalfOrEmpty("winfo width %s", treePath))
 
-	colWidth := tkutil.Atoi(tkutil.EvalOrEmpty("%s column graph -width", treePath))
+	colWidth := tkutil.Atoi(tkutil.EvalfOrEmpty("%s column graph -width", treePath))
 	xOffset := g.overlay.x
 	yOffset := g.overlay.y
 	if xOffset <= 0 || yOffset <= 0 {
@@ -264,7 +264,7 @@ func (g *GraphCanvas) ensureOverlay() {
 		canvas.Configure(Background(bg))
 	}
 	// Place the overlay only over the content area, not over the header.
-	tkutil.EvalOrEmpty(
+	tkutil.EvalfOrEmpty(
 		"place %s -in %s -x %d -y %d -width %d -height %d",
 		canvasPath,
 		treePath,
@@ -273,7 +273,7 @@ func (g *GraphCanvas) ensureOverlay() {
 		colWidth,
 		canvasHeight,
 	)
-	tkutil.EvalOrEmpty("raise %s", canvasPath)
+	tkutil.EvalfOrEmpty("raise %s", canvasPath)
 
 	if st.ready {
 		return
@@ -283,7 +283,7 @@ func (g *GraphCanvas) ensureOverlay() {
 	//
 	// Canvas event coordinates are relative to the canvas; convert to treeview
 	// coordinates using the widgets' root positions.
-	tkutil.EvalOrEmpty(`
+	tkutil.EvalfOrEmpty(`
 		bind %[1]s <Button-1> {
 			set rx [winfo rootx %%W]
 			set ry [winfo rooty %%W]
@@ -364,7 +364,7 @@ func firstVisibleTreeItem(treePath string, treeHeight int) string {
 	probeLimit := min(treeHeight-1, maxTreeIdentifyProbeRows)
 	x := defaultTreeIdentifyX
 	for y := 1; y <= probeLimit; y++ {
-		item := strings.TrimSpace(tkutil.EvalOrEmpty("%s identify item %d %d", treePath, x, y))
+		item := strings.TrimSpace(tkutil.EvalfOrEmpty("%s identify item %d %d", treePath, x, y))
 		if item != "" {
 			return item
 		}
@@ -386,7 +386,7 @@ func firstVisibleTreeItemForRedraw(treePath string, xProbe int, yOffset int, tre
 	if y >= treeHeight {
 		y = treeHeight - 1
 	}
-	item := strings.TrimSpace(tkutil.EvalOrEmpty("%s identify item %d %d", treePath, xProbe, y))
+	item := strings.TrimSpace(tkutil.EvalfOrEmpty("%s identify item %d %d", treePath, xProbe, y))
 	if item != "" {
 		return item
 	}
@@ -401,7 +401,7 @@ func graphContentCellGeometry(treePath string, treeHeight int) (xOffset int, yOf
 	if first == "" {
 		return 0, 0, 0
 	}
-	bbox := strings.Fields(tkutil.EvalOrEmpty("%s bbox {%s} #1", treePath, first))
+	bbox := strings.Fields(tkutil.EvalfOrEmpty("%s bbox {%s} #1", treePath, first))
 	if len(bbox) < 4 {
 		return 0, 0, 0
 	}
@@ -557,7 +557,7 @@ func (g *GraphCanvas) drawGraphLabels(
 			Outline(style.out),
 			Width(1),
 		)
-		tkutil.EvalOrEmpty("%s lower %s %s", canvasPath, rectID, textID)
+		tkutil.EvalfOrEmpty("%s lower %s %s", canvasPath, rectID, textID)
 		if !connected && x1 > nodeX+radius {
 			connected = true
 			g.draw.canvas.CreateLine(nodeX+radius, yMid, x1, yMid, Width(graphCanvasConnectorW), Fill(style.out))

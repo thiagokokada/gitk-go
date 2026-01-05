@@ -77,7 +77,7 @@ func (a *Controller) buildMainPane() *TPanedwindowWidget {
 				<-time.After(10 * time.Millisecond)
 			default:
 			}
-			tkutil.MustEval(`
+			tkutil.MustEvalf(`
 				bind %[1]s <Configure> {
 					set h [winfo height %[1]s]
 					if {$h > 1} {

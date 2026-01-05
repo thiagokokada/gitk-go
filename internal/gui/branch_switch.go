@@ -191,7 +191,7 @@ func (a *Controller) showBranchSwitchDialog(branches []string, current string) {
 		}
 	}))
 
-	if _, err := tkutil.Eval("focus %s", filter); err != nil {
+	if _, err := tkutil.Evalf("focus %s", filter); err != nil {
 		slog.Debug("focus branch filter", slog.Any("error", err))
 	}
 	dialog.Center()

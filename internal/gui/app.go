@@ -490,7 +490,7 @@ func (a *Controller) highlightDiffLines(content string) {
 }
 
 func (a *Controller) copyDetailSelection(stripMarkers bool) {
-	text, err := tkutil.Eval("%s get sel.first sel.last", a.ui.diffDetail)
+	text, err := tkutil.Evalf("%s get sel.first sel.last", a.ui.diffDetail)
 	if err != nil || text == "" {
 		return
 	}

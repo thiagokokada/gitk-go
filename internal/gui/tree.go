@@ -221,7 +221,7 @@ func (a *Controller) updateCommitRow(id string, entry *git.Entry) {
 	if !a.state.tree.rows.itemValueChanged(id, row) {
 		return
 	}
-	if _, err := tkutil.Eval("%s item {%s} %s", treePath, id, Values(row.values())); err != nil {
+	if _, err := tkutil.Evalf("%s item {%s} %s", treePath, id, Values(row.values())); err != nil {
 		slog.Debug("tree item update", slog.Any("error", err))
 		return
 	}
@@ -234,13 +234,13 @@ func (a *Controller) setTreeChildren(ids []string) {
 		return
 	}
 	if len(ids) == 0 {
-		if _, err := tkutil.Eval("%s children {} {}", treePath); err != nil {
+		if _, err := tkutil.Evalf("%s children {} {}", treePath); err != nil {
 			slog.Debug("tree children clear", slog.Any("error", err))
 		}
 		return
 	}
 	children := tkutil.TclSafeStrings(ids...)
-	if _, err := tkutil.Eval("%s children {} {%s}", treePath, children); err != nil {
+	if _, err := tkutil.Evalf("%s children {} {%s}", treePath, children); err != nil {
 		slog.Debug("tree children set", slog.Any("error", err))
 	}
 }
@@ -292,7 +292,7 @@ func (a *Controller) treeYviewRange() (start float64, end float64, err error) {
 	if path == "" {
 		return 0, 0, fmt.Errorf("tree widget has empty path")
 	}
-	out, err := tkutil.Eval("%s yview", path)
+	out, err := tkutil.Evalf("%s yview", path)
 	if err != nil {
 		return 0, 0, err
 	}

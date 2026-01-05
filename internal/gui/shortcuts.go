@@ -365,7 +365,7 @@ func (a *Controller) scrollTreePages(delta int) {
 	if delta == 0 {
 		return
 	}
-	if _, err := tkutil.Eval("%s yview scroll %d pages", a.ui.treeView, delta); err != nil {
+	if _, err := tkutil.Evalf("%s yview scroll %d pages", a.ui.treeView, delta); err != nil {
 		slog.Error("tree scroll", slog.Any("error", err))
 	}
 }
@@ -382,7 +382,7 @@ func (a *Controller) scrollDetail(delta int, unit string) {
 	if delta == 0 {
 		return
 	}
-	if _, err := tkutil.Eval("%s yview scroll %d %s", a.ui.diffDetail, delta, unit); err != nil {
+	if _, err := tkutil.Evalf("%s yview scroll %d %s", a.ui.diffDetail, delta, unit); err != nil {
 		slog.Error("detail scroll", slog.Any("error", err))
 	}
 }
@@ -391,13 +391,13 @@ func (a *Controller) focusFilterEntry() {
 	if a.filterHasFocus() {
 		return
 	}
-	if _, err := tkutil.Eval("focus %s", a.ui.filterEntry); err != nil {
+	if _, err := tkutil.Evalf("focus %s", a.ui.filterEntry); err != nil {
 		slog.Error("focus filter", slog.Any("error", err))
 	}
-	if _, err := tkutil.Eval("%s selection range 0 end", a.ui.filterEntry); err != nil {
+	if _, err := tkutil.Evalf("%s selection range 0 end", a.ui.filterEntry); err != nil {
 		slog.Error("select filter", slog.Any("error", err))
 	}
-	if _, err := tkutil.Eval("%s icursor end", a.ui.filterEntry); err != nil {
+	if _, err := tkutil.Evalf("%s icursor end", a.ui.filterEntry); err != nil {
 		slog.Error("cursor filter", slog.Any("error", err))
 	}
 }
@@ -413,7 +413,7 @@ func (a *Controller) blurFilterEntry() {
 	if target == "" {
 		target = "."
 	}
-	if _, err := tkutil.Eval("focus %s", target); err != nil {
+	if _, err := tkutil.Evalf("focus %s", target); err != nil {
 		slog.Error("blur filter", slog.Any("error", err))
 	}
 }

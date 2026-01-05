@@ -92,7 +92,7 @@ func (a *Controller) restoreScrollState() {
 	if !ok {
 		return
 	}
-	tkutil.MustEval("%s yview moveto %f", a.ui.treeView, target)
+	tkutil.MustEvalf("%s yview moveto %f", a.ui.treeView, target)
 }
 
 func (a *Controller) treeChildCount() int {
@@ -100,7 +100,7 @@ func (a *Controller) treeChildCount() int {
 	if path == "" {
 		return 0
 	}
-	out, err := tkutil.Eval("llength [%s children {}]", path)
+	out, err := tkutil.Evalf("llength [%s children {}]", path)
 	if err != nil {
 		return 0
 	}
