@@ -39,6 +39,7 @@ func prepareDiffDisplay(content string, sections []git.FileSection) (string, []g
 	}
 	lines := strings.Split(content, "\n")
 	var b strings.Builder
+	b.Grow(len(content) + len(lines))
 	newSections := make([]git.FileSection, len(sections))
 	copy(newSections, sections)
 	extraLines := 0

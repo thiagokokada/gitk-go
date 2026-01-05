@@ -21,6 +21,7 @@ func (s *Service) Diff(commit *Commit) (string, []FileSection, error) {
 		header += "\n"
 	}
 	var b strings.Builder
+	b.Grow(len(header) + len(diffText) + 1)
 	b.WriteString(header)
 	b.WriteString(diffText)
 	if !strings.HasSuffix(diffText, "\n") {
