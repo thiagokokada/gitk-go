@@ -75,3 +75,29 @@ func TestScheduleFilterApplyEmptyStopsDebounce(t *testing.T) {
 		t.Fatalf("expected filter value cleared, got %q", got)
 	}
 }
+
+func TestShouldAutoLoadForFilter(t *testing.T) {
+	tests := []struct {
+		name         string
+		filterValue  string
+		visibleLen   int
+		hasMore      bool
+		loadingBatch bool
+		want         bool
+	}{
+		{name: "empty filter", filterValue: "", visibleLen: 0, hasMore: true, want: false},
+		{name: "blank filter", filterValue: "   ", visibleLen: 0, hasMore: true, want: false},
+		{name: "has visible matches", filterValue: "feat", visibleLen: 1, hasMore: true, want: false},
+		{name: "no more commits", filterValue: "feat", visibleLen: 0, hasMore: false, want: false},
+		{name: "loading already", filterValue: "feat", visibleLen: 0, hasMore: true, loadingBatch: true, want: false},
+		{name: "needs load", filterValue: "feat", visibleLen: 0, hasMore: true, want: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := shouldAutoLoadForFilter(tc.filterValue, tc.visibleLen, tc.hasMore, tc.loadingBatch)
+			if got != tc.want {
+				t.Fatalf("expected auto load=%v, got %v", tc.want, got)
+			}
+		})
+	}
+}

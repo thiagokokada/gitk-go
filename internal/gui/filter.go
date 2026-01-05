@@ -31,7 +31,16 @@ func (a *Controller) applyFilterImmediate(raw string) {
 
 func (a *Controller) applyFilterContent(raw string) {
 	a.applyFilterState(raw)
+	autoLoad := shouldAutoLoadForFilter(
+		a.state.filter.value,
+		len(a.data.visible),
+		a.state.tree.hasMore,
+		a.state.tree.loadingBatch,
+	)
 	a.storeScrollState()
+	if autoLoad {
+		a.loadMoreCommitsAsync(false)
+	}
 	a.syncTreeRows()
 
 	if len(a.data.visible) == 0 {
@@ -155,6 +164,13 @@ func (a *Controller) stopFilterDebounce() {
 	}
 	a.state.filter.debouncer = nil
 	a.state.filter.pending = ""
+}
+
+func shouldAutoLoadForFilter(filterValue string, visibleLen int, hasMore bool, loadingBatch bool) bool {
+	if loadingBatch || !hasMore || visibleLen > 0 {
+		return false
+	}
+	return strings.TrimSpace(filterValue) != ""
 }
 
 func (s scrollState) restoreTarget(newTotal int) (float64, bool) {
