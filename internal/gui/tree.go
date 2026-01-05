@@ -239,6 +239,7 @@ func (a *Controller) setTreeChildren(ids []string) {
 		}
 		return
 	}
+	// XXX: Workaround a bug in Tk-go, ideally we would use a.ui.treeView.Children("", ids...) instead
 	children := tkutil.TclSafeStrings(ids...)
 	if _, err := tkutil.Evalf("%s children {} {%s}", treePath, children); err != nil {
 		slog.Debug("tree children set", slog.Any("error", err))
