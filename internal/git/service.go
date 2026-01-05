@@ -260,31 +260,39 @@ func formatListColumns(c *Commit) (msg, author, when string) {
 	if c == nil {
 		return "", "", ""
 	}
-	firstLine := strings.SplitN(strings.TrimSpace(c.Message), "\n", 2)[0]
-	if len(firstLine) > 80 {
-		firstLine = firstLine[:77] + "..."
-	}
+	firstLine := firstCommitLine(c.Message)
 	hash := c.Hash
 	if len(hash) > 7 {
 		hash = hash[:7]
 	}
-	msg = fmt.Sprintf("%s  %s", hash, firstLine)
-	author = fmt.Sprintf("%s <%s>", c.Author.Name, c.Author.Email)
+	msg = hash + "  " + firstLine
+	author = c.Author.Name + " <" + c.Author.Email + ">"
 	when = c.Committer.When.Format("2006-01-02 15:04")
 	return msg, author, when
 }
 
 func formatSummary(c *Commit) string {
-	firstLine := strings.SplitN(strings.TrimSpace(c.Message), "\n", 2)[0]
-	if len(firstLine) > 80 {
-		firstLine = firstLine[:77] + "..."
-	}
+	firstLine := firstCommitLine(c.Message)
 	timestamp := c.Committer.When.Format("2006-01-02 15:04")
 	hash := c.Hash
 	if len(hash) > 7 {
 		hash = hash[:7]
 	}
-	return fmt.Sprintf("%s  %s  %s", hash, timestamp, firstLine)
+	return hash + "  " + timestamp + "  " + firstLine
+}
+
+func firstCommitLine(message string) string {
+	message = strings.TrimSpace(message)
+	if message == "" {
+		return ""
+	}
+	if idx := strings.IndexByte(message, '\n'); idx >= 0 {
+		message = message[:idx]
+	}
+	if len(message) > 80 {
+		message = message[:77] + "..."
+	}
+	return message
 }
 
 func localDiffHeader(staged bool) string {
@@ -303,7 +311,10 @@ func newGraphBuilder(maxColumns int) *graphBuilder {
 	if maxColumns <= 0 {
 		maxColumns = DefaultGraphMaxColumns
 	}
-	return &graphBuilder{maxColumns: maxColumns}
+	return &graphBuilder{
+		columns:    make([]string, 0, maxColumns),
+		maxColumns: maxColumns,
+	}
 }
 
 func (g *graphBuilder) trim() {
@@ -318,18 +329,22 @@ func (g *graphBuilder) trim() {
 func (g *graphBuilder) Line(c *Commit) string {
 	idx := g.columnIndex(c.Hash)
 	if idx == -1 {
-		g.columns = append([]string{c.Hash}, g.columns...)
+		g.insertAt(0, c.Hash)
 		idx = 0
 	}
 	g.trim()
+	cols := len(g.columns)
 	var b strings.Builder
-	for i := range g.columns {
+	if cols > 0 {
+		b.Grow(cols*2 - 1)
+	}
+	for i := 0; i < cols; i++ {
 		if i == idx {
 			b.WriteString("*")
 		} else {
 			b.WriteString("|")
 		}
-		if i != len(g.columns)-1 {
+		if i != cols-1 {
 			b.WriteString(" ")
 		}
 	}
@@ -348,7 +363,7 @@ func (g *graphBuilder) columnIndex(hash string) int {
 
 func (g *graphBuilder) advance(idx int, parents []string) {
 	if len(parents) == 0 {
-		g.columns = append(g.columns[:idx], g.columns[idx+1:]...)
+		g.removeAt(idx)
 		return
 	}
 	primary := parents[0]
@@ -360,7 +375,7 @@ func (g *graphBuilder) advance(idx int, parents []string) {
 		if pos > len(g.columns) {
 			pos = len(g.columns)
 		}
-		g.columns = append(g.columns[:pos], append([]string{parent}, g.columns[pos:]...)...)
+		g.insertAt(pos, parent)
 	}
 	g.trim()
 }
@@ -368,8 +383,32 @@ func (g *graphBuilder) advance(idx int, parents []string) {
 func (g *graphBuilder) removeColumn(hash string) {
 	for i, h := range g.columns {
 		if h == hash {
-			g.columns = append(g.columns[:i], g.columns[i+1:]...)
+			g.removeAt(i)
 			return
 		}
 	}
+}
+
+func (g *graphBuilder) insertAt(pos int, hash string) {
+	if pos < 0 {
+		pos = 0
+	}
+	if pos > len(g.columns) {
+		pos = len(g.columns)
+	}
+	g.columns = append(g.columns, "")
+	if pos < len(g.columns)-1 {
+		copy(g.columns[pos+1:], g.columns[pos:len(g.columns)-1])
+	}
+	g.columns[pos] = hash
+}
+
+func (g *graphBuilder) removeAt(idx int) {
+	if idx < 0 || idx >= len(g.columns) {
+		return
+	}
+	copy(g.columns[idx:], g.columns[idx+1:])
+	last := len(g.columns) - 1
+	g.columns[last] = ""
+	g.columns = g.columns[:last]
 }

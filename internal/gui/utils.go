@@ -1,7 +1,6 @@
 package gui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/thiagokokada/gitk-go/internal/git"
@@ -82,7 +81,7 @@ func formatLabelSuffix(labels []string) string {
 	if len(labels) == 0 {
 		return ""
 	}
-	return fmt.Sprintf(" [%s]", strings.Join(labels, ", "))
+	return " [" + strings.Join(labels, ", ") + "]"
 }
 
 func filterEntries(entries []*git.Entry, query string) []*git.Entry {
