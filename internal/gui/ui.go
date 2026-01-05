@@ -46,6 +46,7 @@ func (a *Controller) buildControls() *TFrameWidget {
 	Bind(a.ui.filterEntry, "<KeyRelease>", Command(func() {
 		a.scheduleFilterApply(a.ui.filterEntry.Textvariable())
 	}))
+	a.bindEmacsEntryShortcuts(a.ui.filterEntry)
 
 	clearBtn := controls.TButton(Txt("Clear"), Command(func() {
 		a.ui.filterEntry.Configure(Textvariable(""))

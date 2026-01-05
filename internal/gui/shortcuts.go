@@ -155,6 +155,46 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			handler:     a.blurFilterEntry,
 		},
 		{
+			category:    "Filter box",
+			display:     "Ctrl+A",
+			description: "Move to start of line",
+		},
+		{
+			category:    "Filter box",
+			display:     "Ctrl+E",
+			description: "Move to end of line",
+		},
+		{
+			category:    "Filter box",
+			display:     "Ctrl+B",
+			description: "Move back one character",
+		},
+		{
+			category:    "Filter box",
+			display:     "Ctrl+F",
+			description: "Move forward one character",
+		},
+		{
+			category:    "Filter box",
+			display:     "Ctrl+W",
+			description: "Delete word before cursor",
+		},
+		{
+			category:    "Filter box",
+			display:     "Ctrl+U",
+			description: "Delete to start of line",
+		},
+		{
+			category:    "Filter box",
+			display:     "Ctrl+K",
+			description: "Delete to end of line",
+		},
+		{
+			category:    "Filter box",
+			display:     "Ctrl+D",
+			description: "Delete character at cursor",
+		},
+		{
 			category:    "General",
 			display:     "F5",
 			description: "Reload commits",

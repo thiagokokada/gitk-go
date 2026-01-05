@@ -182,6 +182,7 @@ func (a *Controller) showBranchSwitchDialog(branches []string, current string) {
 		visible = filterBranchChoices(all, filter.Textvariable())
 		render()
 	}))
+	a.bindEmacsEntryShortcuts(filter)
 	Bind(list, "<Double-Button-1>", Command(func() { a.applyBranchChoiceSelection(dialog, list, visible) }))
 	Bind(dialog.Window, "<KeyPress-Escape>", Command(func() { Destroy(dialog.Window) }))
 	Bind(dialog.Window, "<KeyPress-Return>", Command(func() { a.applyBranchChoiceSelection(dialog, list, visible) }))
