@@ -7,7 +7,6 @@ import (
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
-	"github.com/alecthomas/chroma/v2/styles"
 	. "modernc.org/tk9.0"
 )
 
@@ -16,10 +15,7 @@ func (a *Controller) applySyntaxHighlight(content string) {
 		return
 	}
 	a.clearSyntaxHighlight()
-	style := styleForPalette(a.theme.palette)
-	if style == nil {
-		return
-	}
+	style := a.theme.palette.chromaStyle()
 	lines := strings.Split(content, "\n")
 	var currentLexer chroma.Lexer
 	for i, line := range lines {
@@ -94,19 +90,6 @@ func (a *Controller) highlightCodeLine(lexer chroma.Lexer, style *chroma.Style, 
 		}
 		col += length
 	}
-}
-
-func styleForPalette(p colorPalette) *chroma.Style {
-	if p.isDark() {
-		if st := styles.Get("github-dark"); st != nil {
-			return st
-		}
-	} else {
-		if st := styles.Get("github"); st != nil {
-			return st
-		}
-	}
-	return styles.Fallback
 }
 
 func colorFromEntry(entry chroma.StyleEntry) string {

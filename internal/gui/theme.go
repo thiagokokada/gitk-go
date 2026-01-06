@@ -4,6 +4,9 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/alecthomas/chroma/v2"
+	"github.com/alecthomas/chroma/v2/styles"
+
 	darkmode "github.com/thiagokokada/dark-mode-go"
 )
 
@@ -21,6 +24,7 @@ func (p ThemePreference) String() string {
 
 type colorPalette struct {
 	ThemeName        string
+	HighlightTheme   string
 	DiffAdd          string
 	DiffDel          string
 	DiffHeader       string
@@ -31,6 +35,7 @@ type colorPalette struct {
 var (
 	lightPalette = colorPalette{
 		ThemeName:        "azure light",
+		HighlightTheme:   "github",
 		DiffAdd:          "#dff5de",
 		DiffDel:          "#f9d6d5",
 		DiffHeader:       "#e4e4e4",
@@ -39,6 +44,7 @@ var (
 	}
 	darkPalette = colorPalette{
 		ThemeName:        "azure dark",
+		HighlightTheme:   "github-dark",
 		DiffAdd:          "#1c6135",
 		DiffDel:          "#612238",
 		DiffHeader:       "#3a3a3a",
@@ -98,4 +104,13 @@ func paletteForPreference(pref ThemePreference) colorPalette {
 
 func (p colorPalette) isDark() bool {
 	return p == darkPalette
+}
+
+func (p colorPalette) chromaStyle() *chroma.Style {
+	if p.HighlightTheme != "" {
+		if st := styles.Get(p.HighlightTheme); st != nil {
+			return st
+		}
+	}
+	return styles.Fallback
 }
