@@ -10,7 +10,6 @@ import (
 
 	"github.com/thiagokokada/gitk-go/internal/debounce"
 	"github.com/thiagokokada/gitk-go/internal/git"
-	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 
 	. "modernc.org/tk9.0"
 	_ "modernc.org/tk9.0/themes/azure" // load theme
@@ -483,8 +482,12 @@ func (a *Controller) highlightDiffLines(content string) {
 }
 
 func (a *Controller) copyDetailSelection(stripMarkers bool) {
-	text, err := tkutil.Evalf("%s get sel.first sel.last", a.ui.diffDetail)
-	if err != nil || text == "" {
+	ranges := a.ui.diffDetail.TagRanges("sel")
+	if len(ranges) < 2 {
+		return
+	}
+	text := a.ui.diffDetail.Get(ranges[0], ranges[1])[0]
+	if text == "" {
 		return
 	}
 	if stripMarkers {

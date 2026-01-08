@@ -221,10 +221,7 @@ func (a *Controller) updateCommitRow(id string, entry *git.Entry) {
 	if !a.state.tree.rows.itemValueChanged(id, row) {
 		return
 	}
-	if _, err := tkutil.Evalf("%s item {%s} %s", treePath, id, Values(row.values())); err != nil {
-		slog.Debug("tree item update", slog.Any("error", err))
-		return
-	}
+	a.ui.treeView.Item(id, Values(row.values()))
 	a.state.tree.rows.setItemValue(id, row)
 }
 

@@ -2,7 +2,6 @@ package gui
 
 import (
 	"log/slog"
-	"strconv"
 	"strings"
 
 	"github.com/thiagokokada/gitk-go/internal/debounce"
@@ -100,15 +99,7 @@ func (a *Controller) treeChildCount() int {
 	if path == "" {
 		return 0
 	}
-	out, err := tkutil.Evalf("llength [%s children {}]", path)
-	if err != nil {
-		return 0
-	}
-	count, err := strconv.Atoi(strings.TrimSpace(out))
-	if err != nil {
-		return 0
-	}
-	return count
+	return len(a.ui.treeView.Children(""))
 }
 
 func (a *Controller) visibleSelectionIndex() int {

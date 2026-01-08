@@ -146,7 +146,7 @@ func (g *GraphCanvas) planGraphCanvasDraw() (graphCanvasDrawPlan, bool) {
 	g.canvas.Delete("all")
 
 	treePath := g.treePath
-	treeHeight := tkutil.Atoi(tkutil.EvalfOrEmpty("winfo height %s", treePath))
+	treeHeight := tkutil.Atoi(WinfoHeight(g.treeView.Window))
 	yOffset := g.overlay.y
 	contentHeight := g.overlay.h
 	first := firstVisibleTreeItemForRedraw(treePath, max(1, g.overlay.x+1), yOffset, treeHeight)
@@ -154,11 +154,10 @@ func (g *GraphCanvas) planGraphCanvasDraw() (graphCanvasDrawPlan, bool) {
 		return graphCanvasDrawPlan{}, false
 	}
 
-	canvasPath := g.canvasPath
 	// Prefer the Treeview column width since the overlay canvas size may lag behind `place`.
 	canvasWidth := tkutil.Atoi(tkutil.EvalfOrEmpty("%s column graph -width", treePath))
 	if canvasWidth <= 0 {
-		canvasWidth = tkutil.Atoi(tkutil.EvalfOrEmpty("winfo width %s", canvasPath))
+		canvasWidth = tkutil.Atoi(WinfoWidth(g.canvas.Window))
 	}
 	if canvasWidth <= 0 {
 		canvasWidth = defaultGraphColumnWidth
@@ -218,12 +217,12 @@ func (g *GraphCanvas) ensureOverlay() {
 	canvasPath := g.canvasPath
 	treePath := g.treePath
 
-	bg := strings.TrimSpace(tkutil.EvalfOrEmpty("ttk::style lookup Treeview -background"))
+	bg := strings.TrimSpace(StyleLookup("Treeview", Background))
 	if bg == "" {
-		bg = strings.TrimSpace(tkutil.EvalfOrEmpty("ttk::style lookup Treeview -fieldbackground"))
+		bg = strings.TrimSpace(StyleLookup("Treeview", Fieldbackground))
 	}
-	treeHeight := tkutil.Atoi(tkutil.EvalfOrEmpty("winfo height %s", treePath))
-	treeWidth := tkutil.Atoi(tkutil.EvalfOrEmpty("winfo width %s", treePath))
+	treeHeight := tkutil.Atoi(WinfoHeight(g.treeView.Window))
+	treeWidth := tkutil.Atoi(WinfoWidth(g.treeView.Window))
 
 	colWidth := tkutil.Atoi(tkutil.EvalfOrEmpty("%s column graph -width", treePath))
 	xOffset := g.overlay.x
@@ -264,16 +263,15 @@ func (g *GraphCanvas) ensureOverlay() {
 		canvas.Configure(Background(bg))
 	}
 	// Place the overlay only over the content area, not over the header.
-	tkutil.EvalfOrEmpty(
-		"place %s -in %s -x %d -y %d -width %d -height %d",
-		canvasPath,
-		treePath,
-		xOffset,
-		yOffset,
-		colWidth,
-		canvasHeight,
+	Place(
+		g.canvas,
+		In(g.treeView),
+		X(xOffset),
+		Y(yOffset),
+		Width(colWidth),
+		Height(canvasHeight),
 	)
-	tkutil.EvalfOrEmpty("raise %s", canvasPath)
+	g.canvas.Raise(nil)
 
 	if st.ready {
 		return

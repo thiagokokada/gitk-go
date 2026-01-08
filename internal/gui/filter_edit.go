@@ -42,9 +42,7 @@ func (a *Controller) onEntryCtrlW(entry *TEntryWidget, e *Event) {
 	if _, err := tkutil.Evalf("%s selection clear", entry); err != nil {
 		slog.Debug("filter selection clear", slog.Any("error", err))
 	}
-	if _, err := tkutil.Evalf("%s icursor %d", entry, newCursor); err != nil {
-		slog.Debug("filter cursor", slog.Any("error", err))
-	}
+	entry.Icursor(newCursor)
 	e.SetReturnCodeBreak()
 }
 
@@ -177,9 +175,7 @@ func (*Controller) setFilterEntryCursor(entry *TEntryWidget, cursor int, clearSe
 			slog.Debug("filter selection clear", slog.Any("error", err))
 		}
 	}
-	if _, err := tkutil.Evalf("%s icursor %d", entry, cursor); err != nil {
-		slog.Debug("filter cursor", slog.Any("error", err))
-	}
+	entry.Icursor(cursor)
 }
 
 func (a *Controller) updateFilterEntryText(entry *TEntryWidget, text string, cursor int) {

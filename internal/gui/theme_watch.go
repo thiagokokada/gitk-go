@@ -5,8 +5,6 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
-
 	. "modernc.org/tk9.0"
 )
 
@@ -176,10 +174,5 @@ func (a *Controller) currentDiffText() string {
 	if a.ui.diffDetail == nil {
 		return ""
 	}
-	out, err := tkutil.Evalf("%s get 1.0 end-1c", a.ui.diffDetail)
-	if err != nil {
-		slog.Debug("diff detail get", slog.Any("error", err))
-		return ""
-	}
-	return out
+	return a.ui.diffDetail.Text()
 }

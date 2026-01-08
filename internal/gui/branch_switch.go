@@ -2,12 +2,10 @@ package gui
 
 import (
 	"fmt"
-	"log/slog"
 	"slices"
 	"strings"
 
 	"github.com/thiagokokada/gitk-go/internal/gui/selection"
-	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 	. "modernc.org/tk9.0"
 )
 
@@ -192,9 +190,7 @@ func (a *Controller) showBranchSwitchDialog(branches []string, current string) {
 		}
 	}))
 
-	if _, err := tkutil.Evalf("focus %s", filter); err != nil {
-		slog.Debug("focus branch filter", slog.Any("error", err))
-	}
+	Focus(filter)
 	dialog.Center()
 }
 

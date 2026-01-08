@@ -431,31 +431,22 @@ func (a *Controller) focusFilterEntry() {
 	if a.filterHasFocus() {
 		return
 	}
-	if _, err := tkutil.Evalf("focus %s", a.ui.filterEntry); err != nil {
-		slog.Error("focus filter", slog.Any("error", err))
-	}
+	Focus(a.ui.filterEntry)
 	if _, err := tkutil.Evalf("%s selection range 0 end", a.ui.filterEntry); err != nil {
 		slog.Error("select filter", slog.Any("error", err))
 	}
-	if _, err := tkutil.Evalf("%s icursor end", a.ui.filterEntry); err != nil {
-		slog.Error("cursor filter", slog.Any("error", err))
-	}
+	a.ui.filterEntry.Icursor("end")
 }
 
 func (a *Controller) blurFilterEntry() {
 	if !a.filterHasFocus() {
 		return
 	}
-	target := a.ui.treeView.String()
-	if target == "" {
-		target = App.String()
+	if a.ui.treeView == nil || a.ui.treeView.String() == "" {
+		Focus(App)
+		return
 	}
-	if target == "" {
-		target = "."
-	}
-	if _, err := tkutil.Evalf("focus %s", target); err != nil {
-		slog.Error("blur filter", slog.Any("error", err))
-	}
+	Focus(a.ui.treeView)
 }
 
 func formatShortcutsHelpText(bindings []shortcutBinding) string {
