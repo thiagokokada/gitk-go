@@ -53,10 +53,27 @@ type GraphCanvas struct {
 	handlersBound bool
 }
 
+type GraphCanvasLabelStyle struct {
+	Fill    string
+	Outline string
+	Text    string
+}
+
+type GraphCanvasTheme struct {
+	LaneColors      []string
+	SelectedRowFill string
+	NodeFill        string
+	HeadNodeFill    string
+	HeadLabel       GraphCanvasLabelStyle
+	TagLabel        GraphCanvasLabelStyle
+	BranchLabel     GraphCanvasLabelStyle
+	DefaultLabel    GraphCanvasLabelStyle
+}
+
 type GraphCanvasDrawInput struct {
 	Visible   []*git.Entry
 	Labels    map[string][]string
-	Dark      bool
+	Theme     GraphCanvasTheme
 	IndexByID map[string]int
 }
 
@@ -71,7 +88,7 @@ type graphOverlayState struct {
 
 type graphCanvasDrawState struct {
 	canvas      *CanvasWidget
-	dark        bool
+	theme       GraphCanvasTheme
 	canvasWidth int
 	maxCols     int
 }
@@ -135,6 +152,9 @@ func (g *GraphCanvas) ScheduleDraw(redraw func()) {
 
 func (g *GraphCanvas) Draw(input GraphCanvasDrawInput) {
 	g.input = input
+	if len(input.Theme.LaneColors) == 0 {
+		return
+	}
 	plan, ok := g.planGraphCanvasDraw()
 	if !ok {
 		return
@@ -184,7 +204,7 @@ func (g *GraphCanvas) planGraphCanvasDraw() (graphCanvasDrawPlan, bool) {
 	}
 	g.draw = graphCanvasDrawState{
 		canvas:      g.canvas,
-		dark:        input.Dark,
+		theme:       input.Theme,
 		canvasWidth: canvasWidth,
 		maxCols:     maxCols,
 	}
@@ -479,10 +499,7 @@ func (g *GraphCanvas) drawGraphRow(
 		return
 	}
 	if selected {
-		fill := "#cfe7ff"
-		if g.draw.dark {
-			fill = "#253446"
-		}
+		fill := g.draw.theme.SelectedRowFill
 		g.draw.canvas.CreateRectangle(
 			0, yTop,
 			g.draw.canvasWidth, yTop+height,
@@ -493,7 +510,7 @@ func (g *GraphCanvas) drawGraphRow(
 	yMid := graphRowMidY(yTop, height)
 	radius := min(graphCanvasLaneSpacing/2, max(2, height/3))
 
-	colors := graphCanvasLaneColors(g.draw.dark)
+	colors := g.draw.theme.LaneColors
 	head := containsPrefix(labels, "HEAD")
 	nodeX := graphCanvasLaneMargin + graphCanvasLaneSpacing/2
 	nodeColor := colors[0]
@@ -508,15 +525,9 @@ func (g *GraphCanvas) drawGraphRow(
 			nodeColor = color
 			g.draw.canvas.CreateLine(x, yTop, x, yMid-radius, Width(graphCanvasLineWidth), Fill(color))
 			g.draw.canvas.CreateLine(x, yMid+radius, x, yTop+height, Width(graphCanvasLineWidth), Fill(color))
-			fill := "white"
-			if g.draw.dark {
-				fill = "#1e1e1e"
-			}
+			fill := g.draw.theme.NodeFill
 			if head {
-				fill = "#ffd75e"
-				if g.draw.dark {
-					fill = "#b58900"
-				}
+				fill = g.draw.theme.HeadNodeFill
 			}
 			g.draw.canvas.CreateOval(
 				x-radius, yMid-radius,
@@ -552,7 +563,7 @@ func (g *GraphCanvas) drawGraphLabels(
 		if x >= g.draw.canvasWidth-graphCanvasLabelGap {
 			break
 		}
-		style := graphLabelStyleFor(g.draw.dark, label, nodeColor)
+		style := graphLabelStyleFor(g.draw.theme, label, nodeColor)
 		textID := g.draw.canvas.CreateText(
 			x+graphCanvasLabelPadX, yMid,
 			Anchor(W),
@@ -587,33 +598,38 @@ func (g *GraphCanvas) drawGraphLabels(
 	}
 }
 
-func graphLabelStyleFor(dark bool, label string, nodeColor string) graphLabelStyle {
+func graphLabelStyleFor(theme GraphCanvasTheme, label string, nodeColor string) graphLabelStyle {
 	labelLower := strings.ToLower(label)
 	if strings.HasPrefix(label, "HEAD") {
-		if dark {
-			return graphLabelStyle{fill: "#b58900", out: "#8a6a00", text: "#111111"}
+		return graphLabelStyle{
+			fill: theme.HeadLabel.Fill,
+			out:  theme.HeadLabel.Outline,
+			text: theme.HeadLabel.Text,
 		}
-		return graphLabelStyle{fill: "#ffd75e", out: "#c9a300", text: "#111111"}
 	}
 	if strings.HasPrefix(labelLower, "tag:") {
-		if dark {
-			return graphLabelStyle{fill: "#3a3a3a", out: "#6b6b6b", text: "#eaeaea"}
+		return graphLabelStyle{
+			fill: theme.TagLabel.Fill,
+			out:  theme.TagLabel.Outline,
+			text: theme.TagLabel.Text,
 		}
-		return graphLabelStyle{fill: "#e6e6e6", out: "#8a8a8a", text: "#111111"}
 	}
 	if strings.Contains(label, "/") {
-		if dark {
-			return graphLabelStyle{fill: "#253446", out: "#4fa3ff", text: "#eaeaea"}
+		return graphLabelStyle{
+			fill: theme.BranchLabel.Fill,
+			out:  theme.BranchLabel.Outline,
+			text: theme.BranchLabel.Text,
 		}
-		return graphLabelStyle{fill: "#dbeafe", out: "#2563eb", text: "#111111"}
 	}
-	text := "#111111"
-	fill := "#dff5de"
-	if dark {
-		text = "#eaeaea"
-		fill = "#1f3b2a"
+	style := graphLabelStyle{
+		fill: theme.DefaultLabel.Fill,
+		out:  theme.DefaultLabel.Outline,
+		text: theme.DefaultLabel.Text,
 	}
-	return graphLabelStyle{fill: fill, out: nodeColor, text: text}
+	if style.out == "" {
+		style.out = nodeColor
+	}
+	return style
 }
 
 func containsPrefix(values []string, prefix string) bool {
@@ -641,12 +657,4 @@ func maxGraphCanvasCols(canvasWidth int) int {
 		return 0
 	}
 	return max(1, avail/graphCanvasLaneSpacing)
-}
-
-func graphCanvasLaneColors(dark bool) []string {
-	// Based on gitk's default colors; keep a small, high-contrast palette.
-	if dark {
-		return []string{"#00ff00", "#ff5c5c", "#4fa3ff", "#d56bff", "#a0a0a0", "#d09a6b", "#ffb347"}
-	}
-	return []string{"#00cc00", "#cc0000", "#0055cc", "#aa00aa", "#555555", "#8b4513", "#ff8c00"}
 }

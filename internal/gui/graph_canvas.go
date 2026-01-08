@@ -24,7 +24,29 @@ func (a *Controller) drawGraphCanvas() {
 	a.state.tree.graphCanvas.Draw(widgets.GraphCanvasDrawInput{
 		Visible:   a.data.visible,
 		Labels:    a.state.tree.branchLabels,
-		Dark:      a.theme.palette.isDark(),
+		Theme:     graphCanvasThemeForPalette(a.theme.palette),
 		IndexByID: a.state.tree.rows.visibleByID,
 	})
+}
+
+func graphCanvasThemeForPalette(palette colorPalette) widgets.GraphCanvasTheme {
+	canvas := palette.GraphCanvas
+	return widgets.GraphCanvasTheme{
+		LaneColors:      canvas.LaneColors[:],
+		SelectedRowFill: canvas.SelectedRowFill,
+		NodeFill:        canvas.NodeFill,
+		HeadNodeFill:    canvas.HeadNodeFill,
+		HeadLabel:       graphCanvasLabelStyle(canvas.HeadLabel),
+		TagLabel:        graphCanvasLabelStyle(canvas.TagLabel),
+		BranchLabel:     graphCanvasLabelStyle(canvas.BranchLabel),
+		DefaultLabel:    graphCanvasLabelStyle(canvas.DefaultLabel),
+	}
+}
+
+func graphCanvasLabelStyle(palette graphLabelPalette) widgets.GraphCanvasLabelStyle {
+	return widgets.GraphCanvasLabelStyle{
+		Fill:    palette.Fill,
+		Outline: palette.Outline,
+		Text:    palette.Text,
+	}
 }

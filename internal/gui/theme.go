@@ -22,6 +22,23 @@ func (p ThemePreference) String() string {
 	return []string{"auto", "light", "dark"}[p]
 }
 
+type graphLabelPalette struct {
+	Fill    string
+	Outline string
+	Text    string
+}
+
+type graphCanvasPalette struct {
+	LaneColors      [7]string
+	SelectedRowFill string
+	NodeFill        string
+	HeadNodeFill    string
+	HeadLabel       graphLabelPalette
+	TagLabel        graphLabelPalette
+	BranchLabel     graphLabelPalette
+	DefaultLabel    graphLabelPalette
+}
+
 type colorPalette struct {
 	ThemeName        string
 	HighlightTheme   string
@@ -30,6 +47,7 @@ type colorPalette struct {
 	DiffHeader       string
 	LocalUnstagedRow string
 	LocalStagedRow   string
+	GraphCanvas      graphCanvasPalette
 }
 
 var (
@@ -41,6 +59,17 @@ var (
 		DiffHeader:       "#e4e4e4",
 		LocalUnstagedRow: "#fde2e1",
 		LocalStagedRow:   "#e2f7e1",
+		GraphCanvas: graphCanvasPalette{
+			// Based on gitk's default colors; keep a small, high-contrast palette.
+			LaneColors:      [7]string{"#00cc00", "#cc0000", "#0055cc", "#aa00aa", "#555555", "#8b4513", "#ff8c00"},
+			SelectedRowFill: "#cfe7ff",
+			NodeFill:        "white",
+			HeadNodeFill:    "#ffd75e",
+			HeadLabel:       graphLabelPalette{Fill: "#ffd75e", Outline: "#c9a300", Text: "#111111"},
+			TagLabel:        graphLabelPalette{Fill: "#e6e6e6", Outline: "#8a8a8a", Text: "#111111"},
+			BranchLabel:     graphLabelPalette{Fill: "#dbeafe", Outline: "#2563eb", Text: "#111111"},
+			DefaultLabel:    graphLabelPalette{Fill: "#dff5de", Text: "#111111"},
+		},
 	}
 	darkPalette = colorPalette{
 		ThemeName:        "azure dark",
@@ -50,6 +79,17 @@ var (
 		DiffHeader:       "#3a3a3a",
 		LocalUnstagedRow: "#4a1f23",
 		LocalStagedRow:   "#1f3b2a",
+		GraphCanvas: graphCanvasPalette{
+			// Based on gitk's default colors; keep a small, high-contrast palette.
+			LaneColors:      [7]string{"#00ff00", "#ff5c5c", "#4fa3ff", "#d56bff", "#a0a0a0", "#d09a6b", "#ffb347"},
+			SelectedRowFill: "#253446",
+			NodeFill:        "#1e1e1e",
+			HeadNodeFill:    "#b58900",
+			HeadLabel:       graphLabelPalette{Fill: "#b58900", Outline: "#8a6a00", Text: "#111111"},
+			TagLabel:        graphLabelPalette{Fill: "#3a3a3a", Outline: "#6b6b6b", Text: "#eaeaea"},
+			BranchLabel:     graphLabelPalette{Fill: "#253446", Outline: "#4fa3ff", Text: "#eaeaea"},
+			DefaultLabel:    graphLabelPalette{Fill: "#1f3b2a", Text: "#eaeaea"},
+		},
 	}
 	detectDarkMode = darkmode.IsDarkMode
 	watchDarkMode  = darkmode.WatchDarkMode
@@ -100,10 +140,6 @@ func paletteForPreference(pref ThemePreference) colorPalette {
 		}
 		return darkPalette
 	}
-}
-
-func (p colorPalette) isDark() bool {
-	return p == darkPalette
 }
 
 func (p colorPalette) chromaStyle() *chroma.Style {
