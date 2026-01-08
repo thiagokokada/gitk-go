@@ -165,13 +165,13 @@ func (g *GraphCanvas) planGraphCanvasDraw() (graphCanvasDrawPlan, bool) {
 	treeHeight := tkutil.Atoi(WinfoHeight(g.treeView.Window))
 	yOffset := g.overlay.y
 	contentHeight := g.overlay.h
-	first := firstVisibleTreeItemForRedraw(treePath, max(1, g.overlay.x+1), yOffset, treeHeight)
+	first := firstVisibleTreeItemForRedraw(g.treeView, max(1, g.overlay.x+1), yOffset, treeHeight)
 	if first == "" {
 		return graphCanvasDrawPlan{}, false
 	}
 
 	// Prefer the Treeview column width since the overlay canvas size may lag behind `place`.
-	canvasWidth := tkutil.Atoi(tkutil.EvalfOrEmpty("%s column graph -width", treePath))
+	canvasWidth := treeviewColumnWidth(g.treeView, "graph")
 	if canvasWidth <= 0 {
 		canvasWidth = tkutil.Atoi(WinfoWidth(g.canvas.Window))
 	}
@@ -239,11 +239,11 @@ func (g *GraphCanvas) ensureOverlay() {
 	treeHeight := tkutil.Atoi(WinfoHeight(g.treeView.Window))
 	treeWidth := tkutil.Atoi(WinfoWidth(g.treeView.Window))
 
-	colWidth := tkutil.Atoi(tkutil.EvalfOrEmpty("%s column graph -width", treePath))
+	colWidth := treeviewColumnWidth(g.treeView, "graph")
 	xOffset := g.overlay.x
 	yOffset := g.overlay.y
 	if xOffset <= 0 || yOffset <= 0 {
-		xOffset, yOffset, colWidth = graphContentCellGeometry(treePath, treeHeight)
+		xOffset, yOffset, colWidth = graphContentCellGeometry(treePath, g.treeView, treeHeight)
 	} else if colWidth <= 0 {
 		// Fall back to a cached width if the Treeview hasn't been configured yet.
 		colWidth = g.overlay.width
@@ -351,21 +351,24 @@ func (g *GraphCanvas) handleOverlayContextEvent(e *Event) {
 	g.handlers.OnContextMenu(x, y, e.XRoot, e.YRoot)
 }
 
-func treeCoordsForOverlay(overlay graphOverlayState, x, y int) (int, int, bool) {
+func treeCoordsForOverlay(overlay graphOverlayState, x, y int) (resX, resY int, ok bool) {
 	if !overlay.ready {
 		return 0, 0, false
 	}
 	return x + overlay.x, y + overlay.y, true
 }
 
-func firstVisibleTreeItem(treePath string, treeHeight int) string {
-	if treePath == "" || treeHeight <= 1 {
+func firstVisibleTreeItem(treeView *TTreeviewWidget, treeHeight int) string {
+	if treeView == nil || treeHeight <= 1 {
+		return ""
+	}
+	if treeView.String() == "" {
 		return ""
 	}
 	probeLimit := min(treeHeight-1, maxTreeIdentifyProbeRows)
 	x := defaultTreeIdentifyX
 	for y := 1; y <= probeLimit; y++ {
-		item := strings.TrimSpace(tkutil.EvalfOrEmpty("%s identify item %d %d", treePath, x, y))
+		item := strings.TrimSpace(treeView.IdentifyItem(x, y))
 		if item != "" {
 			return item
 		}
@@ -373,8 +376,11 @@ func firstVisibleTreeItem(treePath string, treeHeight int) string {
 	return ""
 }
 
-func firstVisibleTreeItemForRedraw(treePath string, xProbe int, yOffset int, treeHeight int) string {
-	if treePath == "" || treeHeight <= 1 {
+func firstVisibleTreeItemForRedraw(treeView *TTreeviewWidget, xProbe int, yOffset int, treeHeight int) string {
+	if treeView == nil || treeHeight <= 1 {
+		return ""
+	}
+	if treeView.String() == "" {
 		return ""
 	}
 	if xProbe <= 0 {
@@ -384,18 +390,22 @@ func firstVisibleTreeItemForRedraw(treePath string, xProbe int, yOffset int, tre
 	if y >= treeHeight {
 		y = treeHeight - 1
 	}
-	item := strings.TrimSpace(tkutil.EvalfOrEmpty("%s identify item %d %d", treePath, xProbe, y))
+	item := strings.TrimSpace(treeView.IdentifyItem(xProbe, y))
 	if item != "" {
 		return item
 	}
-	return firstVisibleTreeItem(treePath, treeHeight)
+	return firstVisibleTreeItem(treeView, treeHeight)
 }
 
-func graphContentCellGeometry(treePath string, treeHeight int) (xOffset int, yOffset int, width int) {
-	if treePath == "" || treeHeight <= 1 {
+func graphContentCellGeometry(
+	treePath string,
+	treeView *TTreeviewWidget,
+	treeHeight int,
+) (xOffset int, yOffset int, width int) {
+	if treePath == "" || treeView == nil || treeHeight <= 1 {
 		return 0, 0, 0
 	}
-	first := firstVisibleTreeItem(treePath, treeHeight)
+	first := firstVisibleTreeItem(treeView, treeHeight)
 	if first == "" {
 		return 0, 0, 0
 	}
@@ -404,6 +414,19 @@ func graphContentCellGeometry(treePath string, treeHeight int) (xOffset int, yOf
 		return 0, 0, 0
 	}
 	return tkutil.Atoi(bbox[0]), tkutil.Atoi(bbox[1]), tkutil.Atoi(bbox[2])
+}
+
+func treeviewColumnWidth(treeView *TTreeviewWidget, column string) int {
+	if treeView == nil || treeView.String() == "" || column == "" {
+		return 0
+	}
+	fields := strings.Fields(treeView.Column(column))
+	for i := 0; i+1 < len(fields); i++ {
+		if fields[i] == "-width" {
+			return tkutil.Atoi(strings.Trim(fields[i+1], "{}"))
+		}
+	}
+	return 0
 }
 
 func resolveFirstCommitIndex(
