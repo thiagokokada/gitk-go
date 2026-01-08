@@ -3,9 +3,7 @@ package gui
 import (
 	"fmt"
 	"log/slog"
-	"runtime"
 	"strings"
-	"time"
 
 	. "modernc.org/tk9.0"
 
@@ -68,27 +66,39 @@ func (a *Controller) buildMainPane() *TPanedwindowWidget {
 	a.buildCommitPane(listArea)
 	a.buildDiffPane(diffArea)
 
-	// calculates the first widget to be 25% of the total height of the,
-	// widget, based in the <Configure> event (that triggers whenever the
-	// widget configuration changes)
-	PostEvent(
-		func() {
-			switch runtime.GOOS {
-			case "darwin":
-				<-time.After(10 * time.Millisecond)
-			default:
-			}
-			tkutil.MustEvalf(`
-				bind %[1]s <Configure> {
-					set h [winfo height %[1]s]
-					if {$h > 1} {
-						%[1]s sashpos 0 [expr {round($h * 0.25)}]
-						bind %[1]s <Configure> {}
-					}
-				}
-			`, pane)
-		}, false,
+	// Keep the first pane at ~25% of the total height on first configure.
+	var (
+		lastHeight  int
+		stableCount int
+		pending     bool
 	)
+	setSashOnce := func() {
+		if pending {
+			return
+		}
+		pending = true
+		TclAfterIdle(func() {
+			pending = false
+			height := tkutil.Atoi(WinfoHeight(pane.Window))
+			if height <= 1 {
+				return
+			}
+			if height == lastHeight {
+				stableCount++
+			} else {
+				stableCount = 0
+				lastHeight = height
+			}
+			target := (height + 2) / 4
+			tkutil.MustEvalf("%s sashpos 0 %d", pane, target)
+			if stableCount >= 1 {
+				Bind(pane, "<Configure>", "")
+			}
+		})
+	}
+	Bind(pane, "<Configure>", Command(func(e *Event) {
+		setSashOnce()
+	}))
 
 	return pane
 }
