@@ -410,6 +410,15 @@ func (a *Controller) scrollTreePages(delta int) {
 	}
 }
 
+func (a *Controller) scrollTreeUnits(delta int) {
+	if delta == 0 {
+		return
+	}
+	if _, err := tkutil.Evalf("%s yview scroll %d units", a.ui.treeView, delta); err != nil {
+		slog.Error("tree scroll", slog.Any("error", err))
+	}
+}
+
 func (a *Controller) scrollDetailPages(delta int) {
 	a.scrollDetail(delta, "pages")
 }

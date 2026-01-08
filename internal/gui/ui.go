@@ -158,6 +158,9 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 	} else {
 		a.state.tree.graphCanvas = nil
 	}
+	if a.state.tree.graphCanvas != nil {
+		a.bindGraphCanvasHandlers(a.state.tree.graphCanvas)
+	}
 
 	Bind(a.ui.treeView, "<<TreeviewSelect>>", Command(a.onTreeSelectionChanged))
 	if a.cfg.graphCanvas {
@@ -239,18 +242,67 @@ func (a *Controller) bindTreeContextMenu() {
 	Bind(a.ui.treeView, "<Button-3>", Command(handler))
 }
 
+func (a *Controller) bindGraphCanvasHandlers(graphCanvas *widgets.GraphCanvas) {
+	graphCanvas.SetHandlers(widgets.GraphCanvasHandlers{
+		OnClick: func(x, y int) {
+			a.handleGraphCanvasClick(x, y)
+		},
+		OnDoubleClick: func(x, y int) {
+			a.handleGraphCanvasClick(x, y)
+		},
+		OnContextMenu: func(x, y, xRoot, yRoot int) {
+			a.showTreeContextMenuAt(x, y, xRoot, yRoot)
+		},
+		OnWheel: func(delta int) {
+			a.handleGraphCanvasWheel(delta)
+		},
+	})
+}
+
+func (a *Controller) handleGraphCanvasClick(x, y int) {
+	if a.ui.treeView == nil {
+		return
+	}
+	item := strings.TrimSpace(a.ui.treeView.IdentifyItem(x, y))
+	if item == "" {
+		return
+	}
+	Focus(a.ui.treeView)
+	a.ui.treeView.Selection("set", item)
+	a.ui.treeView.Focus(item)
+}
+
+func (a *Controller) handleGraphCanvasWheel(delta int) {
+	if delta == 0 {
+		return
+	}
+	steps := delta / 120
+	if steps == 0 {
+		if delta > 0 {
+			steps = 1
+		} else {
+			steps = -1
+		}
+	}
+	a.scrollTreeUnits(-steps)
+}
+
 func (a *Controller) showTreeContextMenu(e *Event) {
 	if e == nil {
 		return
 	}
-	item := strings.TrimSpace(a.ui.treeView.IdentifyItem(e.X, e.Y))
+	a.showTreeContextMenuAt(e.X, e.Y, e.XRoot, e.YRoot)
+}
+
+func (a *Controller) showTreeContextMenuAt(x, y, xRoot, yRoot int) {
+	item := strings.TrimSpace(a.ui.treeView.IdentifyItem(x, y))
 	if _, ok := a.treeCommitIndex(item); !ok {
 		return
 	}
 	a.ui.treeView.Selection("set", item)
 	a.ui.treeView.Focus(item)
 	a.state.tree.contextTargetID = item
-	Popup(a.ui.treeContextMenu.Window, e.XRoot, e.YRoot, nil)
+	Popup(a.ui.treeContextMenu.Window, xRoot, yRoot, nil)
 }
 
 func (a *Controller) copySelectedCommitReference() {

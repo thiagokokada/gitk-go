@@ -49,6 +49,8 @@ type GraphCanvas struct {
 	treePath      string
 	input         GraphCanvasDrawInput
 	draw          graphCanvasDrawState
+	handlers      GraphCanvasHandlers
+	handlersBound bool
 }
 
 type GraphCanvasDrawInput struct {
@@ -72,6 +74,13 @@ type graphCanvasDrawState struct {
 	dark        bool
 	canvasWidth int
 	maxCols     int
+}
+
+type GraphCanvasHandlers struct {
+	OnClick       func(x, y int)
+	OnDoubleClick func(x, y int)
+	OnContextMenu func(x, y int, xRoot, yRoot int)
+	OnWheel       func(delta int)
 }
 
 type graphCanvasDrawPlan struct {
@@ -102,6 +111,13 @@ func NewGraphCanvas(canvas *CanvasWidget, treeView *TTreeviewWidget) (*GraphCanv
 		canvasPath: canvasPath,
 		treePath:   treePath,
 	}, nil
+}
+
+func (g *GraphCanvas) SetHandlers(handlers GraphCanvasHandlers) {
+	g.handlers = handlers
+	if g.overlay.ready {
+		g.bindOverlayHandlers()
+	}
 }
 
 func (g *GraphCanvas) ScheduleDraw(redraw func()) {
@@ -214,7 +230,6 @@ func (g *GraphCanvas) planGraphCanvasDraw() (graphCanvasDrawPlan, bool) {
 
 func (g *GraphCanvas) ensureOverlay() {
 	canvas := g.canvas
-	canvasPath := g.canvasPath
 	treePath := g.treePath
 
 	bg := strings.TrimSpace(StyleLookup("Treeview", Background))
@@ -277,82 +292,70 @@ func (g *GraphCanvas) ensureOverlay() {
 		return
 	}
 	st.ready = true
-	// Forward basic interactions from the overlay to the treeview.
-	//
-	// Canvas event coordinates are relative to the canvas; convert to treeview
-	// coordinates using the widgets' root positions.
-	tkutil.EvalfOrEmpty(`
-		bind %[1]s <Button-1> {
-			set rx [winfo rootx %%W]
-			set ry [winfo rooty %%W]
-			set trx [winfo rootx %[2]s]
-			set try [winfo rooty %[2]s]
-			set x [expr {%%x + $rx - $trx}]
-			set y [expr {%%y + $ry - $try}]
-			focus %[2]s
-			event generate %[2]s <Button-1> -x $x -y $y
+	g.bindOverlayHandlers()
+}
+
+func (g *GraphCanvas) bindOverlayHandlers() {
+	if g.handlersBound {
+		return
+	}
+	g.handlersBound = true
+	Bind(g.canvas, "<Button-1>", Command(func(e *Event) {
+		g.handleOverlayPointEvent(e, g.handlers.OnClick)
+	}))
+	Bind(g.canvas, "<Double-Button-1>", Command(func(e *Event) {
+		g.handleOverlayPointEvent(e, g.handlers.OnDoubleClick)
+	}))
+	Bind(g.canvas, "<Button-2>", Command(func(e *Event) {
+		g.handleOverlayContextEvent(e)
+	}))
+	Bind(g.canvas, "<Button-3>", Command(func(e *Event) {
+		g.handleOverlayContextEvent(e)
+	}))
+	Bind(g.canvas, "<MouseWheel>", Command(func(e *Event) {
+		if g.handlers.OnWheel != nil {
+			g.handlers.OnWheel(e.Delta)
 		}
-		bind %[1]s <Double-Button-1> {
-			set rx [winfo rootx %%W]
-			set ry [winfo rooty %%W]
-			set trx [winfo rootx %[2]s]
-			set try [winfo rooty %[2]s]
-			set x [expr {%%x + $rx - $trx}]
-			set y [expr {%%y + $ry - $try}]
-			focus %[2]s
-			event generate %[2]s <Double-Button-1> -x $x -y $y
+	}))
+	Bind(g.canvas, "<Button-4>", Command(func(e *Event) {
+		if g.handlers.OnWheel != nil {
+			g.handlers.OnWheel(120)
 		}
-		bind %[1]s <Button-2> {
-			set rx [winfo rootx %%W]
-			set ry [winfo rooty %%W]
-			set trx [winfo rootx %[2]s]
-			set try [winfo rooty %[2]s]
-			set x [expr {%%x + $rx - $trx}]
-			set y [expr {%%y + $ry - $try}]
-			focus %[2]s
-			event generate %[2]s <Button-2> -x $x -y $y
+	}))
+	Bind(g.canvas, "<Button-5>", Command(func(e *Event) {
+		if g.handlers.OnWheel != nil {
+			g.handlers.OnWheel(-120)
 		}
-		bind %[1]s <Button-3> {
-			set rx [winfo rootx %%W]
-			set ry [winfo rooty %%W]
-			set trx [winfo rootx %[2]s]
-			set try [winfo rooty %[2]s]
-			set x [expr {%%x + $rx - $trx}]
-			set y [expr {%%y + $ry - $try}]
-			focus %[2]s
-			event generate %[2]s <Button-3> -x $x -y $y
-		}
-		bind %[1]s <MouseWheel> {
-			set rx [winfo rootx %%W]
-			set ry [winfo rooty %%W]
-			set trx [winfo rootx %[2]s]
-			set try [winfo rooty %[2]s]
-			set x [expr {%%x + $rx - $trx}]
-			set y [expr {%%y + $ry - $try}]
-			focus %[2]s
-			event generate %[2]s <MouseWheel> -x $x -y $y -delta %%D
-		}
-		bind %[1]s <Button-4> {
-			set rx [winfo rootx %%W]
-			set ry [winfo rooty %%W]
-			set trx [winfo rootx %[2]s]
-			set try [winfo rooty %[2]s]
-			set x [expr {%%x + $rx - $trx}]
-			set y [expr {%%y + $ry - $try}]
-			focus %[2]s
-			event generate %[2]s <Button-4> -x $x -y $y
-		}
-		bind %[1]s <Button-5> {
-			set rx [winfo rootx %%W]
-			set ry [winfo rooty %%W]
-			set trx [winfo rootx %[2]s]
-			set try [winfo rooty %[2]s]
-			set x [expr {%%x + $rx - $trx}]
-			set y [expr {%%y + $ry - $try}]
-			focus %[2]s
-			event generate %[2]s <Button-5> -x $x -y $y
-		}
-	`, canvasPath, treePath)
+	}))
+}
+
+func (g *GraphCanvas) handleOverlayPointEvent(e *Event, handler func(x, y int)) {
+	if handler == nil || e == nil {
+		return
+	}
+	x, y, ok := treeCoordsForOverlay(g.overlay, e.X, e.Y)
+	if !ok {
+		return
+	}
+	handler(x, y)
+}
+
+func (g *GraphCanvas) handleOverlayContextEvent(e *Event) {
+	if e == nil || g.handlers.OnContextMenu == nil {
+		return
+	}
+	x, y, ok := treeCoordsForOverlay(g.overlay, e.X, e.Y)
+	if !ok {
+		return
+	}
+	g.handlers.OnContextMenu(x, y, e.XRoot, e.YRoot)
+}
+
+func treeCoordsForOverlay(overlay graphOverlayState, x, y int) (int, int, bool) {
+	if !overlay.ready {
+		return 0, 0, false
+	}
+	return x + overlay.x, y + overlay.y, true
 }
 
 func firstVisibleTreeItem(treePath string, treeHeight int) string {
