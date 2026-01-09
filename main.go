@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+	// tk9.0 requires ActivateTheme to be invoked from the main package.
 	cmd.SetThemeActivator(func(name string) error {
 		return ActivateTheme(name)
 	})
