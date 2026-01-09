@@ -33,6 +33,82 @@ func TestFileSectionIndexForLine(t *testing.T) {
 	}
 }
 
+func TestDiffViewModel(t *testing.T) {
+	sections := []git.FileSection{
+		{Path: "a.go", Line: 5},
+		{Path: "b.go", Line: 10},
+	}
+	model := newDiffViewModel(sections)
+	if len(model.sections) != 3 {
+		t.Fatalf("expected 3 sections, got %d", len(model.sections))
+	}
+	if model.sections[0].Path != diffCommitSectionLabel || model.sections[0].Line != 1 {
+		t.Fatalf("unexpected commit section: %#v", model.sections[0])
+	}
+	if model.sections[1].Path != "a.go" || model.sections[1].Line != 5 {
+		t.Fatalf("unexpected first file section: %#v", model.sections[1])
+	}
+	if model.sections[2].Path != "b.go" || model.sections[2].Line != 10 {
+		t.Fatalf("unexpected second file section: %#v", model.sections[2])
+	}
+	if len(model.labels) != 3 || model.labels[0] != diffCommitSectionLabel || model.labels[2] != "b.go" {
+		t.Fatalf("unexpected labels: %#v", model.labels)
+	}
+}
+
+func TestDiffSectionLine(t *testing.T) {
+	sections := newDiffViewModel([]git.FileSection{{Path: "a.go", Line: 5}}).sections
+	if line, ok := diffSectionLine(sections, 1); !ok || line != 5 {
+		t.Fatalf("expected line 5 for index 1, got (%d,%v)", line, ok)
+	}
+	if _, ok := diffSectionLine(sections, -1); ok {
+		t.Fatalf("expected invalid index to return ok=false")
+	}
+}
+
+func TestDiffSectionIndexForLine(t *testing.T) {
+	sections := newDiffViewModel([]git.FileSection{
+		{Path: "a.go", Line: 5},
+		{Path: "b.go", Line: 10},
+	}).sections
+	tests := []struct {
+		line    int
+		wantIdx int
+		wantOK  bool
+	}{
+		{line: 1, wantIdx: 0, wantOK: true},
+		{line: 6, wantIdx: 1, wantOK: true},
+		{line: 10, wantIdx: 2, wantOK: true},
+		{line: 0, wantIdx: 0, wantOK: true},
+	}
+	for _, tc := range tests {
+		idx, ok := diffSectionIndexForLine(sections, tc.line)
+		if ok != tc.wantOK || idx != tc.wantIdx {
+			t.Fatalf("line=%d: want (%d,%v), got (%d,%v)", tc.line, tc.wantIdx, tc.wantOK, idx, ok)
+		}
+	}
+}
+
+func TestDiffScrollFraction(t *testing.T) {
+	tests := []struct {
+		line       int
+		totalLines int
+		want       float64
+	}{
+		{line: 1, totalLines: 1, want: 0},
+		{line: 1, totalLines: 10, want: 0},
+		{line: 10, totalLines: 10, want: 1},
+		{line: 20, totalLines: 10, want: 1},
+		{line: -1, totalLines: 10, want: 0},
+	}
+	for _, tc := range tests {
+		got := diffScrollFraction(tc.line, tc.totalLines)
+		if got != tc.want {
+			t.Fatalf("line=%d total=%d: want %v, got %v", tc.line, tc.totalLines, tc.want, got)
+		}
+	}
+}
+
 func TestDiffLineTag(t *testing.T) {
 	tests := []struct {
 		line string

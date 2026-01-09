@@ -514,20 +514,12 @@ func (a *Controller) copyDetailSelection(stripMarkers bool) {
 }
 
 func (a *Controller) setFileSections(sections []git.FileSection) {
-	// Keep a virtual "Commit" row so users can jump back to the header quickly.
-	augmented := make([]git.FileSection, 0, len(sections)+1)
-	augmented = append(augmented, git.FileSection{Path: "Commit", Line: 1})
-	augmented = append(augmented, sections...)
-	a.state.diff.fileSections = augmented
+	model := newDiffViewModel(sections)
+	a.state.diff.fileSections = model.sections
 	a.ui.diffFileList.Configure(State("normal"))
 	a.ui.diffFileList.Delete(0, END)
-	if len(augmented) == 0 {
-		a.ui.diffFileList.Insert(END, "(no files)")
-		a.ui.diffFileList.Configure(State("disabled"))
-		return
-	}
-	for _, sec := range augmented {
-		a.ui.diffFileList.Insert(END, sec.Path)
+	for _, label := range model.labels {
+		a.ui.diffFileList.Insert(END, label)
 	}
 	a.ui.diffFileList.SelectionClear(0, END)
 	a.ui.diffFileList.Activate(0)
@@ -550,8 +542,12 @@ func (a *Controller) onFileSelectionChanged() {
 	if idx < 0 || idx >= len(a.state.diff.fileSections) {
 		return
 	}
+	line, ok := diffSectionLine(a.state.diff.fileSections, idx)
+	if !ok {
+		return
+	}
 	a.state.diff.skipNextSync = true
-	a.scrollDiffToLine(a.state.diff.fileSections[idx].Line)
+	a.scrollDiffToLine(line)
 }
 
 func (a *Controller) scrollDiffToLine(line int) {
@@ -559,18 +555,7 @@ func (a *Controller) scrollDiffToLine(line int) {
 		return
 	}
 	totalLines := a.textLineCount()
-	if totalLines <= 1 {
-		a.ui.diffDetail.Yviewmoveto(0)
-		return
-	}
-	fraction := float64(line-1) / float64(totalLines-1)
-	if fraction < 0 {
-		fraction = 0
-	}
-	if fraction > 1 {
-		fraction = 1
-	}
-	a.ui.diffDetail.Yviewmoveto(fraction)
+	a.ui.diffDetail.Yviewmoveto(diffScrollFraction(line, totalLines))
 }
 
 func (a *Controller) textLineCount() int {
@@ -644,7 +629,11 @@ func (a *Controller) syncFileSelectionToDiff() {
 	if line <= 0 {
 		return
 	}
-	a.setFileListSelection(fileSectionIndexForLine(a.state.diff.fileSections, line))
+	idx, ok := diffSectionIndexForLine(a.state.diff.fileSections, line)
+	if !ok {
+		return
+	}
+	a.setFileListSelection(idx)
 }
 
 func (a *Controller) setFileListSelection(idx int) {
