@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thiagokokada/gitk-go/internal/debounce"
 	"github.com/thiagokokada/gitk-go/internal/git"
 
 	. "modernc.org/tk9.0"
@@ -76,8 +75,26 @@ func Run(cfg RunConfig) error {
 			activate: cfg.ThemeActivator,
 		},
 	}
+	app.initDebouncedActions()
 	app.state.diff.syntaxTags = make(map[string]string)
 	return app.run()
+}
+
+func (a *Controller) initDebouncedActions() {
+	a.state.filter.debounce.Configure(filterDebounceDelay, func(value string) {
+		if value == "" {
+			return
+		}
+		PostEvent(func() {
+			a.applyFilter(value)
+		}, false)
+	})
+	a.state.diff.debounce.Configure(diffDebounceDelay, func(req diffRequest) {
+		if req.entry == nil {
+			return
+		}
+		go a.populateDiff(req.entry, req.hash)
+	})
 }
 
 func (a *Controller) run() error {
@@ -303,44 +320,12 @@ func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
 		return
 	}
 	slog.Debug("scheduleDiffLoad", slog.String("hash", hash))
-	deb := func() *debounce.Debouncer {
-		a.state.diff.mu.Lock()
-		defer a.state.diff.mu.Unlock()
-		a.state.diff.pendingDiff = entry
-		a.state.diff.pendingHash = hash
-		return debounce.Ensure(&a.state.diff.debouncer, diffDebounceDelay, func() {
-			a.flushDiffDebounce()
-		})
-	}()
-	deb.Trigger()
-}
-
-func (a *Controller) flushDiffDebounce() {
-	entry, hash := func() (*git.Entry, string) {
-		a.state.diff.mu.Lock()
-		defer a.state.diff.mu.Unlock()
-		pending := a.state.diff.pendingDiff
-		pendingHash := a.state.diff.pendingHash
-		a.state.diff.pendingDiff = nil
-		a.state.diff.pendingHash = ""
-		return pending, pendingHash
-	}()
-	if entry == nil {
-		return
-	}
-	go a.populateDiff(entry, hash)
+	a.state.diff.debounce.Trigger(diffRequest{entry: entry, hash: hash})
 }
 
 func (a *Controller) cancelPendingDiffLoad() {
-	slog.Debug("cancelPendingDiffLoad", slog.String("hash", a.state.diff.pendingHash))
-	a.state.diff.mu.Lock()
-	defer a.state.diff.mu.Unlock()
-	if a.state.diff.debouncer != nil {
-		a.state.diff.debouncer.Stop()
-	}
-	a.state.diff.debouncer = nil
-	a.state.diff.pendingDiff = nil
-	a.state.diff.pendingHash = ""
+	slog.Debug("cancelPendingDiffLoad")
+	a.state.diff.debounce.Stop()
 }
 
 func (a *Controller) reloadCommitsAsync() {

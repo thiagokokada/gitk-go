@@ -14,10 +14,12 @@ type diffState struct {
 	suppressFileSelection bool
 	skipNextSync          bool
 
-	mu          sync.Mutex
-	debouncer   *debounce.Debouncer
-	pendingDiff *git.Entry
-	pendingHash string
+	debounce debounce.Action[diffRequest]
+}
+
+type diffRequest struct {
+	entry *git.Entry
+	hash  string
 }
 
 type treeState struct {
@@ -45,9 +47,7 @@ type treeRowState struct {
 type filterState struct {
 	value string
 
-	mu        sync.Mutex
-	debouncer *debounce.Debouncer
-	pending   string
+	debounce debounce.Action[string]
 }
 
 type scrollState struct {

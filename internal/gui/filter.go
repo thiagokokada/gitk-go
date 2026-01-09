@@ -4,10 +4,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/thiagokokada/gitk-go/internal/debounce"
 	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
-
-	. "modernc.org/tk9.0"
 )
 
 func (a *Controller) applyFilter(raw string) {
@@ -24,7 +21,7 @@ func (a *Controller) applyFilterState(raw string) {
 }
 
 func (a *Controller) applyFilterImmediate(raw string) {
-	a.stopFilterDebounce()
+	a.state.filter.debounce.Stop()
 	a.applyFilter(raw)
 }
 
@@ -112,52 +109,16 @@ func (a *Controller) scheduleFilterApply(raw string) {
 		return
 	}
 	slog.Debug("scheduleFilterApply", slog.String("value", raw))
-	debouncer := a.ensureFilterDebouncer(raw)
-	debouncer.Trigger()
+	a.state.filter.debounce.Trigger(raw)
 }
 
 func (a *Controller) scheduleFilterApplyState(raw string) {
 	if raw == "" {
-		a.stopFilterDebounce()
+		a.state.filter.debounce.Stop()
 		a.applyFilterState("")
 		return
 	}
-	_ = a.ensureFilterDebouncer(raw)
-}
-
-func (a *Controller) ensureFilterDebouncer(raw string) *debounce.Debouncer {
-	a.state.filter.mu.Lock()
-	defer a.state.filter.mu.Unlock()
-	a.state.filter.pending = raw
-	return debounce.Ensure(&a.state.filter.debouncer, filterDebounceDelay, func() {
-		a.flushFilterDebounce()
-	})
-}
-
-func (a *Controller) flushFilterDebounce() {
-	value := func() string {
-		a.state.filter.mu.Lock()
-		defer a.state.filter.mu.Unlock()
-		val := a.state.filter.pending
-		a.state.filter.pending = ""
-		return val
-	}()
-	if value == "" {
-		return
-	}
-	PostEvent(func() {
-		a.applyFilter(value)
-	}, false)
-}
-
-func (a *Controller) stopFilterDebounce() {
-	a.state.filter.mu.Lock()
-	defer a.state.filter.mu.Unlock()
-	if deb := a.state.filter.debouncer; deb != nil {
-		deb.Stop()
-	}
-	a.state.filter.debouncer = nil
-	a.state.filter.pending = ""
+	a.state.filter.debounce.SetPending(raw)
 }
 
 func shouldAutoLoadForFilter(filterValue string, visibleLen int, hasMore bool, loadingBatch bool) bool {

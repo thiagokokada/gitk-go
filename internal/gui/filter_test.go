@@ -3,8 +3,6 @@ package gui
 import (
 	"testing"
 	"time"
-
-	"github.com/thiagokokada/gitk-go/internal/debounce"
 )
 
 func TestScrollRestoreTarget(t *testing.T) {
@@ -44,12 +42,12 @@ func TestScrollRestoreTarget(t *testing.T) {
 
 func TestApplyFilterDoesNotStopDebounce(t *testing.T) {
 	a := &Controller{}
-	a.state.filter.debouncer = debounce.New(time.Hour, func() {})
-	a.state.filter.pending = "stale"
+	a.state.filter.debounce.Configure(time.Hour, func(string) {})
+	a.state.filter.debounce.Trigger("stale")
 
 	a.applyFilterState("foo")
 
-	if a.state.filter.debouncer == nil {
+	if !a.state.filter.debounce.Active() {
 		t.Fatalf("expected debouncer to remain set")
 	}
 	if got := a.state.filter.value; got != "foo" {
@@ -59,16 +57,17 @@ func TestApplyFilterDoesNotStopDebounce(t *testing.T) {
 
 func TestScheduleFilterApplyEmptyStopsDebounce(t *testing.T) {
 	a := &Controller{}
-	a.state.filter.debouncer = debounce.New(time.Hour, func() {})
-	a.state.filter.pending = "foo"
+	a.state.filter.debounce.Configure(time.Hour, func(string) {})
+	a.state.filter.debounce.Trigger("foo")
+	a.state.filter.debounce.SetPending("foo")
 	a.state.filter.value = "foo"
 
 	a.scheduleFilterApplyState("")
 
-	if a.state.filter.debouncer != nil {
+	if a.state.filter.debounce.Active() {
 		t.Fatalf("expected debouncer to be stopped")
 	}
-	if a.state.filter.pending != "" {
+	if a.state.filter.debounce.HasPending() {
 		t.Fatalf("expected pending filter to be cleared")
 	}
 	if got := a.state.filter.value; got != "" {

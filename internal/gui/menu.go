@@ -98,9 +98,9 @@ func (a *Controller) switchRepository(path string) {
 	a.clearTreeRows()
 	a.state.tree = treeState{}
 	a.state.localDiff = localDiffCache{}
-	a.state.filter = filterState{}
+	a.state.filter.debounce.Stop()
+	a.state.filter.value = ""
 	a.state.selection = selection.State{}
-	a.stopFilterDebounce()
 	if a.ui.filterEntry != nil {
 		a.ui.filterEntry.Configure(Textvariable(""))
 	}
