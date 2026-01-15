@@ -420,7 +420,7 @@ func (f *fakeLogStream) Next() (*Commit, error) {
 	return commit, nil
 }
 
-func (f *fakeLogStream) Close() error {
+func (*fakeLogStream) Close() error {
 	return nil
 }
 
