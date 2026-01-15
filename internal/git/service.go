@@ -84,19 +84,33 @@ func (s *Service) ScanCommits(skip, batch uint) ([]*Entry, string, bool, error) 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	startHead := time.Now()
-	headHash, headName, ok, err := s.headStateLocked()
-	if err != nil {
-		return nil, "", false, fmt.Errorf("resolve HEAD: %w", err)
-	}
-	if !ok {
-		if s.scan != nil {
-			s.scan.close()
-			s.scan = nil
+	var (
+		headHash string
+		headName string
+		headDur  time.Duration
+	)
+	if s.scan == nil || skip == 0 {
+		startHead := time.Now()
+		var (
+			ok  bool
+			err error
+		)
+		headHash, headName, ok, err = s.headStateLocked()
+		headDur = time.Since(startHead)
+		if err != nil {
+			return nil, "", false, fmt.Errorf("resolve HEAD: %w", err)
 		}
-		return nil, "", false, nil
+		if !ok {
+			if s.scan != nil {
+				s.scan.close()
+				s.scan = nil
+			}
+			return nil, "", false, nil
+		}
+	} else {
+		headHash = s.scan.head
+		headName = s.scan.headName
 	}
-	headDur := time.Since(startHead)
 
 	startSession := time.Now()
 	if err := s.ensureScanSessionLocked(headHash, headName); err != nil {

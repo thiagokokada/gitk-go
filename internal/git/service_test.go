@@ -3,6 +3,7 @@ package git
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	gitbackend "github.com/thiagokokada/gitk-go/internal/git/backend"
 )
 
 func TestFormatCommitHeader(t *testing.T) {
@@ -303,6 +306,82 @@ func TestScanCommitsSkipMismatchResetsSession(t *testing.T) {
 	}
 }
 
+func TestScanCommitsUsesSessionHeadState(t *testing.T) {
+	commits := []*Commit{
+		{
+			Hash:   "1111111111111111111111111111111111111111",
+			Author: Signature{Name: "Alice", Email: "alice@example.com"},
+			Committer: Signature{
+				Name:  "Alice",
+				Email: "alice@example.com",
+				When:  time.Unix(1, 0),
+			},
+			Message: "first",
+		},
+		{
+			Hash:   "2222222222222222222222222222222222222222",
+			Author: Signature{Name: "Alice", Email: "alice@example.com"},
+			Committer: Signature{
+				Name:  "Alice",
+				Email: "alice@example.com",
+				When:  time.Unix(2, 0),
+			},
+			Message: "second",
+		},
+		{
+			Hash:   "3333333333333333333333333333333333333333",
+			Author: Signature{Name: "Alice", Email: "alice@example.com"},
+			Committer: Signature{
+				Name:  "Alice",
+				Email: "alice@example.com",
+				When:  time.Unix(3, 0),
+			},
+			Message: "third",
+		},
+	}
+
+	headCalls := 0
+	backend := &fakeBackend{
+		repoPath: "repo",
+		headStateFunc: func() (hash string, headName string, ok bool, err error) {
+			headCalls++
+			return "headhash", "main", true, nil
+		},
+		startLogStreamFunc: func(fromHash string) (gitbackend.LogStream, error) {
+			return &fakeLogStream{commits: commits}, nil
+		},
+	}
+	svc := NewWithBackend(backend)
+
+	entries1, head1, more1, err := svc.ScanCommits(0, 2)
+	if err != nil {
+		t.Fatalf("ScanCommits(0): %v", err)
+	}
+	if headCalls != 1 {
+		t.Fatalf("expected HeadState to be called once, got %d", headCalls)
+	}
+	if head1 != "main" {
+		t.Fatalf("expected head name main, got %q", head1)
+	}
+	if len(entries1) != 2 || !more1 {
+		t.Fatalf("expected 2 entries with more, got %d entries and more=%v", len(entries1), more1)
+	}
+
+	entries2, head2, more2, err := svc.ScanCommits(2, 2)
+	if err != nil {
+		t.Fatalf("ScanCommits(2): %v", err)
+	}
+	if headCalls != 1 {
+		t.Fatalf("expected HeadState to stay at one call, got %d", headCalls)
+	}
+	if head2 != "main" {
+		t.Fatalf("expected head name main, got %q", head2)
+	}
+	if len(entries2) != 1 || more2 {
+		t.Fatalf("expected last entry with more=false, got %d entries and more=%v", len(entries2), more2)
+	}
+}
+
 func TestSetGraphMaxColumnsAppliesToSession(t *testing.T) {
 	dir, _ := createTestRepo(t, 3)
 	svc, err := Open(dir)
@@ -325,6 +404,24 @@ func TestSetGraphMaxColumnsAppliesToSession(t *testing.T) {
 	if got := svc.scan.graphBuilder.maxColumns; got != DefaultGraphMaxColumns {
 		t.Fatalf("expected default maxColumns=%d, got %d", DefaultGraphMaxColumns, got)
 	}
+}
+
+type fakeLogStream struct {
+	commits []*Commit
+	index   int
+}
+
+func (f *fakeLogStream) Next() (*Commit, error) {
+	if f.index >= len(f.commits) {
+		return nil, io.EOF
+	}
+	commit := f.commits[f.index]
+	f.index++
+	return commit, nil
+}
+
+func (f *fakeLogStream) Close() error {
+	return nil
 }
 
 func createTestRepo(t *testing.T, commitCount int) (path string, hashesNewestFirst []string) {
