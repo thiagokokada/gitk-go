@@ -28,7 +28,7 @@ buildGoModule {
     ];
   };
 
-  vendorHash = "sha256-37zBZS0zkgB3awDSrJmF+saWwDQp/ZDNDZNzrc5Sslk=";
+  vendorHash = "sha256-fMoDoZk9ZsHMfDMF88bPo7gtUSVhIZ6R9xSArRzfPAc=";
 
   nativeBuildInputs = [
     git
