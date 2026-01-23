@@ -3,22 +3,27 @@ package gui
 import (
 	"testing"
 
-	"github.com/rjeczalik/notify"
+	"github.com/sgtdi/fswatcher"
 )
 
 func TestEventTriggersReload(t *testing.T) {
 	tests := []struct {
 		name  string
-		event notify.Event
+		event []fswatcher.EventType
 		want  bool
 	}{
-		{name: "empty", event: 0, want: false},
-		{name: "create", event: notify.Create, want: true},
-		{name: "remove", event: notify.Remove, want: true},
-		{name: "write", event: notify.Write, want: true},
-		{name: "rename", event: notify.Rename, want: true},
-		{name: "all", event: notify.All, want: true},
-		{name: "unknown", event: notify.Event(1 << 30), want: false},
+		{name: "empty", event: nil, want: false},
+		{name: "create", event: []fswatcher.EventType{fswatcher.EventCreate}, want: true},
+		{name: "remove", event: []fswatcher.EventType{fswatcher.EventRemove}, want: true},
+		{name: "write", event: []fswatcher.EventType{fswatcher.EventMod}, want: true},
+		{name: "rename", event: []fswatcher.EventType{fswatcher.EventRename}, want: true},
+		{name: "chmod", event: []fswatcher.EventType{fswatcher.EventChmod}, want: true},
+		{name: "unknown", event: []fswatcher.EventType{fswatcher.EventUnknown}, want: false},
+		{
+			name:  "mixed",
+			event: []fswatcher.EventType{fswatcher.EventUnknown, fswatcher.EventCreate},
+			want:  true,
+		},
 	}
 
 	for _, tt := range tests {
