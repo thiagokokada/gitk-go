@@ -22,8 +22,6 @@ const (
 	graphCanvasLabelMinX  = 2
 	graphCanvasConnectorW = 1
 
-	graphCanvasLabelFont = "TkDefaultFont 9"
-
 	// Treeview "identify item" takes x/y coordinates; using a small x offset avoids
 	// the left border and hits the first visible cell reliably.
 	defaultTreeIdentifyX = 5
@@ -568,7 +566,7 @@ func (g *GraphCanvas) drawGraphLabels(
 			x+graphCanvasLabelPadX, yMid,
 			Anchor(W),
 			Txt(label),
-			Font(graphCanvasLabelFont),
+			Font(graphCanvasLabelFontSpec()...),
 			Fill(style.text),
 		)
 		bbox := g.draw.canvas.Bbox(textID)

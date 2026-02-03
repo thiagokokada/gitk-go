@@ -193,7 +193,12 @@ func (a *Controller) buildDiffPane(diffArea *TFrameWidget) {
 
 	detailYScroll := textFrame.TScrollbar(Command(func(e *Event) { e.Yview(a.ui.diffDetail) }))
 	detailXScroll := textFrame.TScrollbar(Orient(HORIZONTAL), Command(func(e *Event) { e.Xview(a.ui.diffDetail) }))
-	a.ui.diffDetail = textFrame.Text(Wrap(NONE), Font(CourierFont(), 11), Exportselection(false), Tabs("1c"))
+	a.ui.diffDetail = textFrame.Text(
+		Wrap(NONE),
+		Font(diffDetailFontSpec()...),
+		Exportselection(false),
+		Tabs("1c"),
+	)
 	a.ui.diffDetail.Configure(Yscrollcommand(func(e *Event) {
 		e.ScrollSet(detailYScroll)
 		a.onDiffScrolled()
