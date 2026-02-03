@@ -105,7 +105,6 @@ func (a *Controller) run() error {
 		level = slog.LevelDebug
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
-	a.configureFonts()
 	applyAppIcon()
 	a.buildUI()
 	a.startThemeWatch()
