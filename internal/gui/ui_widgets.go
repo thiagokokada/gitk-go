@@ -5,6 +5,10 @@ import (
 )
 
 type appWidgets struct {
+	menubar         *MenuWidget
+	fileMenu        *MenuWidget
+	viewMenu        *MenuWidget
+	helpMenu        *MenuWidget
 	status          *TLabelWidget
 	repoLabel       *TLabelWidget
 	filterEntry     *TEntryWidget

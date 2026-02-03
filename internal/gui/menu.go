@@ -14,6 +14,7 @@ import (
 
 func (a *Controller) initMenubar() {
 	menubar := Menu(Tearoff(false))
+	a.ui.menubar = menubar
 
 	openAccel := "Ctrl+O"
 	branchAccel := "Ctrl+B"
@@ -23,13 +24,21 @@ func (a *Controller) initMenubar() {
 	}
 
 	fileMenu := menubar.Menu(Tearoff(false))
+	a.ui.fileMenu = fileMenu
 	fileMenu.AddCommand(Lbl("Open Repository..."), Accelerator(openAccel), Command(a.promptRepositorySwitch))
 	fileMenu.AddCommand(Lbl("Switch Branch..."), Accelerator(branchAccel), Command(a.promptBranchSwitch))
 	fileMenu.AddSeparator()
 	fileMenu.AddCommand(Lbl("Quit"), Command(func() { Destroy(App) }))
 	menubar.AddCascade(Lbl("File"), Mnu(fileMenu))
 
+	viewMenu := menubar.Menu(Tearoff(false))
+	a.ui.viewMenu = viewMenu
+	viewMenu.AddCommand(Lbl("UI Font..."), Command(a.showUIFontDialog))
+	viewMenu.AddCommand(Lbl("Fixed Font..."), Command(a.showFixedFontDialog))
+	menubar.AddCascade(Lbl("View"), Mnu(viewMenu))
+
 	helpMenu := menubar.Menu(Tearoff(false))
+	a.ui.helpMenu = helpMenu
 	helpMenu.AddCommand(Lbl("Keyboard Shortcuts"), Command(a.showShortcutsDialog))
 	helpMenu.AddCommand(Lbl("About gitk-go"), Command(a.showAboutDialog))
 	menubar.AddCascade(Lbl("Help"), Mnu(helpMenu))
