@@ -5,20 +5,21 @@ import (
 )
 
 type appWidgets struct {
-	menubar         *MenuWidget
-	fileMenu        *MenuWidget
-	viewMenu        *MenuWidget
-	helpMenu        *MenuWidget
-	status          *TLabelWidget
-	repoLabel       *TLabelWidget
-	filterEntry     *TEntryWidget
-	reloadButton    *TButtonWidget
-	graphCanvas     *CanvasWidget
-	treeView        *TTreeviewWidget
-	treeContextMenu *MenuWidget
-	diffDetail      *TextWidget
-	diffFileList    *ListboxWidget
-	diffContextMenu *MenuWidget
-	shortcutsWindow *ToplevelWidget
-	branchWindow    *ToplevelWidget
+	menubar             *MenuWidget
+	fileMenu            *MenuWidget
+	viewMenu            *MenuWidget
+	helpMenu            *MenuWidget
+	status              *TLabelWidget
+	repoLabel           *TLabelWidget
+	filterEntry         *TEntryWidget
+	reloadButton        *TButtonWidget
+	graphCanvas         *CanvasWidget
+	treeView            *TTreeviewWidget
+	treeContextMenu     *MenuWidget
+	diffDetail          *TextWidget
+	diffFileList        *ListboxWidget
+	diffContextMenu     *MenuWidget
+	diffFileContextMenu *MenuWidget
+	shortcutsWindow     *ToplevelWidget
+	branchWindow        *ToplevelWidget
 }

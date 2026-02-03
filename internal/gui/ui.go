@@ -219,6 +219,8 @@ func (a *Controller) buildDiffPane(diffArea *TFrameWidget) {
 	Grid(fileScroll, Row(0), Column(1), Sticky(NS))
 	fileScroll.Configure(Command(func(e *Event) { e.Yview(a.ui.diffFileList) }))
 	Bind(a.ui.diffFileList, "<<ListboxSelect>>", Command(a.onFileSelectionChanged))
+	a.initDiffFileListContextMenu()
+	a.bindDiffFileListContextMenu()
 }
 
 func (a *Controller) showInitialLoadingRow() {
@@ -334,6 +336,48 @@ func (a *Controller) copySelectedCommitReference() {
 func (a *Controller) updateRepoLabel() {
 	label := fmt.Sprintf("Repository: %s", a.repo.path)
 	a.ui.repoLabel.Configure(Txt(label))
+}
+
+func (a *Controller) initDiffFileListContextMenu() {
+	menu := App.Menu(Tearoff(false))
+	menu.AddCommand(Lbl("Copy file path"), Command(a.copySelectedDiffFilePath))
+	a.ui.diffFileContextMenu = menu
+}
+
+func (a *Controller) bindDiffFileListContextMenu() {
+	handler := func(e *Event) {
+		a.showDiffFileListContextMenu(e)
+	}
+	Bind(a.ui.diffFileList, "<Button-2>", Command(handler))
+	Bind(a.ui.diffFileList, "<Button-3>", Command(handler))
+}
+
+func (a *Controller) showDiffFileListContextMenu(e *Event) {
+	if e == nil {
+		return
+	}
+	idx := a.ui.diffFileList.Nearest(e.Y)
+	if _, ok := diffFilePathForIndex(a.state.diff.fileSections, idx); !ok {
+		return
+	}
+	a.ui.diffFileList.SelectionClear(0, END)
+	a.ui.diffFileList.SelectionSet(idx)
+	a.ui.diffFileList.Activate(idx)
+	Popup(a.ui.diffFileContextMenu.Window, e.XRoot, e.YRoot, nil)
+}
+
+func (a *Controller) copySelectedDiffFilePath() {
+	selection := a.ui.diffFileList.Curselection()
+	if len(selection) == 0 {
+		return
+	}
+	path, ok := diffFilePathForIndex(a.state.diff.fileSections, selection[0])
+	if !ok {
+		return
+	}
+	ClipboardClear()
+	ClipboardAppend(path)
+	a.setStatus(fmt.Sprintf("Copied %s to clipboard.", path))
 }
 
 func (a *Controller) initDiffContextMenu() {

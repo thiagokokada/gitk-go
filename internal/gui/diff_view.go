@@ -46,6 +46,20 @@ func diffSectionIndexForLine(sections []git.FileSection, line int) (int, bool) {
 	return fileSectionIndexForLine(sections, line), true
 }
 
+func diffFilePathForIndex(sections []git.FileSection, idx int) (string, bool) {
+	if idx < 0 || idx >= len(sections) {
+		return "", false
+	}
+	section := sections[idx]
+	if section.Path == "" {
+		return "", false
+	}
+	if idx == 0 && section.Path == diffCommitSectionLabel && section.Line == 1 {
+		return "", false
+	}
+	return section.Path, true
+}
+
 func diffScrollFraction(line, totalLines int) float64 {
 	if line <= 0 || totalLines <= 1 {
 		return 0
