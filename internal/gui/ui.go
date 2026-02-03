@@ -22,7 +22,7 @@ func (a *Controller) buildUI() {
 	mainPane := a.buildMainPane()
 	Grid(mainPane, Row(1), Column(0), Sticky(NEWS), Padx("4p"), Pady("4p"))
 
-	a.ui.status = App.TLabel(Anchor(W), Relief(SUNKEN), Padding("4p"))
+	a.ui.status = App.TLabel(Anchor(W), Relief(SUNKEN), Padding("4p"), Font(DefaultFont))
 	Grid(a.ui.status, Row(2), Column(0), Sticky(WE))
 
 	a.clearDetailText("Select a commit to view its details.")
@@ -33,11 +33,11 @@ func (a *Controller) buildControls() *TFrameWidget {
 	controls := App.TFrame(Padding("4p"))
 	GridColumnConfigure(controls.Window, 1, Weight(1))
 
-	a.ui.repoLabel = controls.TLabel(Anchor(W))
+	a.ui.repoLabel = controls.TLabel(Anchor(W), Font(DefaultFont))
 	a.updateRepoLabel()
 	Grid(a.ui.repoLabel, Row(0), Column(0), Columnspan(4), Sticky(W))
 
-	Grid(controls.TLabel(Txt("Filter:"), Anchor(E)), Row(1), Column(0), Sticky(E))
+	Grid(controls.TLabel(Txt("Filter:"), Anchor(E), Font(DefaultFont)), Row(1), Column(0), Sticky(E))
 	a.ui.filterEntry = controls.TEntry(Width(40), Textvariable(""))
 	Grid(a.ui.filterEntry, Row(1), Column(1), Sticky(WE), Padx("4p"))
 
