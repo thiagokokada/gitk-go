@@ -566,7 +566,6 @@ func (g *GraphCanvas) drawGraphLabels(
 			x+graphCanvasLabelPadX, yMid,
 			Anchor(W),
 			Txt(label),
-			Font(graphCanvasLabelFontSpec()...),
 			Fill(style.text),
 		)
 		bbox := g.draw.canvas.Bbox(textID)
