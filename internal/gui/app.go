@@ -107,6 +107,7 @@ func (a *Controller) run() error {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
 	applyAppIcon()
 	a.buildUI()
+	a.loadPreferences()
 	a.startThemeWatch()
 	a.initAutoReload(a.cfg.autoReloadRequested)
 	a.showInitialLoadingRow()

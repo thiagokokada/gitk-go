@@ -12,6 +12,7 @@ type Controller struct {
 	repo  controllerRepo
 	theme controllerTheme
 	fonts controllerFonts
+	prefs controllerPreferences
 	data  controllerData
 
 	ui appWidgets
@@ -37,6 +38,11 @@ type controllerTheme struct {
 	palette  colorPalette
 	activate func(string) error
 	watch    themeWatchState
+}
+
+type controllerPreferences struct {
+	uiFontSpec    []string
+	fixedFontSpec []string
 }
 
 type controllerData struct {

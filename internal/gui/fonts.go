@@ -24,7 +24,9 @@ var uiNamedFonts = []string{
 type fontDialogTarget struct {
 	title      string
 	seedFont   string
+	seedSpec   []string
 	names      []string
+	onSpec     func([]string)
 	afterApply func(selection fontSelection)
 }
 
@@ -49,30 +51,46 @@ func diffDetailFontSpec() []any {
 }
 
 func (a *Controller) showUIFontDialog() {
-	a.showFontDialog(fontDialogTarget{
-		title:      "Select UI Font",
-		seedFont:   DefaultFont,
-		names:      uiNamedFonts,
-		afterApply: a.applyUIFontSelection,
-	})
+	a.showFontDialog(a.uiFontDialogTarget())
 }
 
 func (a *Controller) showFixedFontDialog() {
-	a.showFontDialog(fontDialogTarget{
+	a.showFontDialog(a.fixedFontDialogTarget())
+}
+
+func (a *Controller) uiFontDialogTarget() fontDialogTarget {
+	return fontDialogTarget{
+		title:      "Select UI Font",
+		seedFont:   DefaultFont,
+		seedSpec:   a.prefs.uiFontSpec,
+		names:      uiNamedFonts,
+		onSpec:     a.setUIFontSpec,
+		afterApply: a.applyUIFontSelection,
+	}
+}
+
+func (a *Controller) fixedFontDialogTarget() fontDialogTarget {
+	return fontDialogTarget{
 		title:    "Select Fixed Font",
 		seedFont: FixedFont,
+		seedSpec: a.prefs.fixedFontSpec,
 		names:    []string{FixedFont},
+		onSpec:   a.setFixedFontSpec,
 		afterApply: func(selection fontSelection) {
 			a.applyFixedFontToDiff()
 		},
-	})
+	}
 }
 
 func (a *Controller) showFontDialog(target fontDialogTarget) {
+	seed := Font(target.seedFont)
+	if len(target.seedSpec) > 0 {
+		seed = Font(fontSpecToAny(target.seedSpec)...)
+	}
 	Fontchooser(
 		Parent(App),
 		Title(target.title),
-		Font(target.seedFont),
+		seed,
 		Command(func() {
 			a.applyFontDialogSelection(target)
 		}),
@@ -80,16 +98,28 @@ func (a *Controller) showFontDialog(target fontDialogTarget) {
 	FontchooserShow()
 }
 
-func (*Controller) applyFontDialogSelection(target fontDialogTarget) {
-	selection, ok := fontSelectionFromSpec(FontchooserFont())
-	if !ok {
+func (a *Controller) applyFontDialogSelection(target fontDialogTarget) {
+	if ok := a.applyFontSpec(target, FontchooserFont(), true); !ok {
 		slog.Debug("font selection missing or invalid")
-		return
+	}
+}
+
+func (a *Controller) applyFontSpec(target fontDialogTarget, spec []string, save bool) bool {
+	selection, ok := fontSelectionFromSpec(spec)
+	if !ok {
+		return false
+	}
+	if target.onSpec != nil {
+		target.onSpec(spec)
 	}
 	applyFontSelectionToNamedFonts(selection, target.names)
 	if target.afterApply != nil {
 		target.afterApply(selection)
 	}
+	if save {
+		a.savePreferences(false)
+	}
+	return true
 }
 
 func (a *Controller) applyFixedFontToDiff() {
@@ -109,6 +139,27 @@ func (a *Controller) applyUIFontSelection(selection fontSelection) {
 	applyUIFontToOptions(font)
 	a.applyUIFontToWidgets(font)
 	a.scheduleGraphCanvasDraw()
+}
+
+func (a *Controller) applyStoredFontPreferences() {
+	if len(a.prefs.uiFontSpec) > 0 {
+		if !a.applyFontSpec(a.uiFontDialogTarget(), a.prefs.uiFontSpec, false) {
+			slog.Debug("stored ui font invalid")
+		}
+	}
+	if len(a.prefs.fixedFontSpec) > 0 {
+		if !a.applyFontSpec(a.fixedFontDialogTarget(), a.prefs.fixedFontSpec, false) {
+			slog.Debug("stored fixed font invalid")
+		}
+	}
+}
+
+func (a *Controller) setUIFontSpec(spec []string) {
+	a.prefs.uiFontSpec = cloneStringSlice(spec)
+}
+
+func (a *Controller) setFixedFontSpec(spec []string) {
+	a.prefs.fixedFontSpec = cloneStringSlice(spec)
 }
 
 func fontSelectionFromSpec(spec []string) (fontSelection, bool) {
@@ -212,6 +263,17 @@ func boolToInt(value bool) int {
 		return 1
 	}
 	return 0
+}
+
+func fontSpecToAny(spec []string) []any {
+	if len(spec) == 0 {
+		return nil
+	}
+	out := make([]any, len(spec))
+	for i, value := range spec {
+		out[i] = value
+	}
+	return out
 }
 
 func applyUIFontToStyles(font *FontFace) {
