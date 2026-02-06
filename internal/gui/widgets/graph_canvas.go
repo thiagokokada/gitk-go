@@ -16,9 +16,9 @@ const (
 	graphCanvasLaneMargin  = 6
 	graphCanvasLineWidth   = 2
 
-	graphCanvasLabelPadX  = 4
-	graphCanvasLabelPadY  = 2
-	graphCanvasLabelGap   = 6
+	graphCanvasLabelPadX  = 2
+	graphCanvasLabelPadY  = 0
+	graphCanvasLabelGap   = 2
 	graphCanvasLabelMinX  = 2
 	graphCanvasConnectorW = 1
 
