@@ -16,7 +16,9 @@ const (
 	graphCanvasLaneMargin  = 6
 	graphCanvasLineWidth   = 2
 
-	graphCanvasLabelGap   = 2
+	graphCanvasLabelPadX  = 4
+	graphCanvasLabelPadY  = 2
+	graphCanvasLabelGap   = 6
 	graphCanvasLabelMinX  = 2
 	graphCanvasConnectorW = 1
 
@@ -561,7 +563,7 @@ func (g *GraphCanvas) drawGraphLabels(
 		}
 		style := graphLabelStyleFor(g.draw.theme, label, nodeColor)
 		textID := g.draw.canvas.CreateText(
-			x, yMid,
+			x+graphCanvasLabelPadX, yMid,
 			Anchor(W),
 			Txt(label),
 			Fill(style.text),
@@ -570,10 +572,10 @@ func (g *GraphCanvas) drawGraphLabels(
 		if len(bbox) < 4 {
 			continue
 		}
-		x1 := tkutil.Atoi(bbox[0])
-		y1 := tkutil.Atoi(bbox[1])
-		x2 := tkutil.Atoi(bbox[2])
-		y2 := tkutil.Atoi(bbox[3])
+		x1 := tkutil.Atoi(bbox[0]) - graphCanvasLabelPadX
+		y1 := tkutil.Atoi(bbox[1]) - graphCanvasLabelPadY
+		x2 := tkutil.Atoi(bbox[2]) + graphCanvasLabelPadX
+		y2 := tkutil.Atoi(bbox[3]) + graphCanvasLabelPadY
 		if x1 >= g.draw.canvasWidth {
 			continue
 		}
