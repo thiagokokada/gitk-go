@@ -42,6 +42,20 @@ func (a *Controller) applyFilterContent(raw string) {
 	}
 	a.syncTreeRows()
 
+	if staged, ok := a.state.selection.LocalSelection(); ok {
+		id := localRowID(staged)
+		if a.state.tree.rows.hasSpecialItem(id) {
+			a.ui.treeView.Selection("set", id)
+			a.ui.treeView.Focus(id)
+			a.ui.treeView.See(id)
+			a.setStatus(a.statusSummary())
+			a.scheduleAutoLoadCheck()
+			a.restoreScrollState()
+			a.scheduleGraphCanvasDraw()
+			return
+		}
+	}
+
 	if len(a.data.visible) == 0 {
 		if len(a.data.commits) == 0 {
 			a.clearDetailText("Repository has no commits yet.")
@@ -64,7 +78,9 @@ func (a *Controller) applyFilterContent(raw string) {
 				a.ui.treeView.Focus(id)
 				a.ui.treeView.See(id)
 			}
-			a.showCommitDetails(entry, index)
+			if entry.Commit != nil && entry.Commit.Hash != a.state.selection.CommitHash() {
+				a.showCommitDetails(entry, index)
+			}
 		}
 	}
 	a.setStatus(a.statusSummary())

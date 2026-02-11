@@ -19,6 +19,9 @@ func (a *Controller) onTreeSelectionChanged() {
 		a.state.selection.Clear()
 		return
 	}
+	if selectionMatchesTreeID(&a.state.selection, sel[0]) {
+		return
+	}
 	switch sel[0] {
 	case moreIndicatorID, loadingIndicatorID:
 		a.state.selection.Clear()
@@ -65,6 +68,9 @@ func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
 	if a.state.tree.rows.hasSpecialItem(id) {
 		a.ui.treeView.Delete(id)
 		a.state.tree.rows.removeSpecialItem(id)
+	}
+	if stagedSelection, ok := a.state.selection.LocalSelection(); ok && stagedSelection == staged {
+		a.selectFallbackCommit()
 	}
 }
 

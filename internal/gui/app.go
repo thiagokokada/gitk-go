@@ -177,6 +177,31 @@ func (a *Controller) showCommitDetails(entry *git.Entry, index int) {
 	a.scheduleDiffLoad(entry, hash)
 }
 
+func (a *Controller) selectFallbackCommit() {
+	if len(a.data.visible) == 0 {
+		a.state.selection.Clear()
+		if len(a.data.commits) == 0 {
+			a.clearDetailText("Repository has no commits yet.")
+		} else {
+			a.clearDetailText("No commits match the current filter.")
+		}
+		a.setStatus(a.statusSummary())
+		return
+	}
+	entry, ok := a.commitEntryAt(0)
+	if !ok {
+		return
+	}
+	id := commitRowID(entry)
+	if id != "" {
+		a.ui.treeView.Selection("set", id)
+		a.ui.treeView.Focus(id)
+		a.ui.treeView.See(id)
+	}
+	a.showCommitDetails(entry, 0)
+	a.scheduleGraphCanvasDraw()
+}
+
 func (a *Controller) showLocalChanges(staged bool) {
 	a.cancelPendingDiffLoad()
 	a.state.selection.SetLocal(staged)
@@ -297,7 +322,11 @@ func (a *Controller) onLocalDiffLoaded(staged bool) {
 	if len(sel) == 0 || sel[0] != targetID {
 		return
 	}
+	topLine := a.diffTopLine()
 	a.renderLocalChanges(staged, false)
+	if topLine > 0 {
+		a.scrollDiffToLine(topLine)
+	}
 }
 
 func (a *Controller) populateDiff(entry *git.Entry, hash string) {
@@ -560,6 +589,22 @@ func (a *Controller) textLineCount() int {
 	return lines
 }
 
+func (a *Controller) diffTopLine() int {
+	if a.ui.diffDetail == nil {
+		return 0
+	}
+	index := a.ui.diffDetail.Index("@0,0")
+	parts := strings.SplitN(index, ".", 2)
+	if len(parts) == 0 {
+		return 0
+	}
+	line, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0
+	}
+	return line
+}
+
 func (a *Controller) currentSelection() string {
 	return a.state.selection.CommitHash()
 }
@@ -600,18 +645,7 @@ func (a *Controller) syncFileSelectionToDiff() {
 	if a.state.diff.skipNextSync {
 		return
 	}
-	line := func() int {
-		index := a.ui.diffDetail.Index("@0,0")
-		parts := strings.SplitN(index, ".", 2)
-		if len(parts) == 0 {
-			return 0
-		}
-		line, err := strconv.Atoi(parts[0])
-		if err != nil {
-			return 0
-		}
-		return line
-	}()
+	line := a.diffTopLine()
 	if line <= 0 {
 		return
 	}

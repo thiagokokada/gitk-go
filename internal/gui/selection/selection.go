@@ -69,6 +69,18 @@ func (s *State) CommitHash() string {
 	return snap.hash
 }
 
+func (s *State) LocalSelection() (staged bool, ok bool) {
+	snap := s.snapshotValue()
+	switch snap.kind {
+	case selectionLocalUnstaged:
+		return false, true
+	case selectionLocalStaged:
+		return true, true
+	default:
+		return false, false
+	}
+}
+
 func (s *State) CommitIndex(visible []*git.Entry) int {
 	snap := s.snapshotValue()
 	if snap.kind != selectionCommit {

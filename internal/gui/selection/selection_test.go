@@ -60,3 +60,31 @@ func TestSelectionStateCommitHash(t *testing.T) {
 		t.Fatalf("expected hash %q, got %q", "abc", got)
 	}
 }
+
+func TestSelectionStateLocalSelection(t *testing.T) {
+	var sel State
+	if _, ok := sel.LocalSelection(); ok {
+		t.Fatalf("expected empty selection to return ok=false")
+	}
+	sel.SetLocal(false)
+	staged, ok := sel.LocalSelection()
+	if !ok {
+		t.Fatalf("expected local selection to return ok=true")
+	}
+	if staged {
+		t.Fatalf("expected unstaged local selection")
+	}
+	sel.SetLocal(true)
+	staged, ok = sel.LocalSelection()
+	if !ok {
+		t.Fatalf("expected local selection to return ok=true")
+	}
+	if !staged {
+		t.Fatalf("expected staged local selection")
+	}
+	entry := &git.Entry{Commit: &git.Commit{Hash: "abc"}}
+	sel.SetCommit(entry, 0)
+	if _, ok := sel.LocalSelection(); ok {
+		t.Fatalf("expected commit selection to return ok=false")
+	}
+}
