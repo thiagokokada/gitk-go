@@ -5,10 +5,18 @@
   fontconfig,
   freetype,
   git,
+  libX11,
+  libXScrnSaver,
+  libXcursor,
+  libXext,
+  libXfixes,
+  libXft,
+  libXinerama,
+  libXrandr,
+  libXrender,
   libjpeg,
   libpng,
   makeBinaryWrapper,
-  xorg,
   zlib,
   version ? "unknown",
 }:
@@ -38,15 +46,15 @@ buildGoModule {
   postFixup =
     let
       linuxLibs = lib.makeLibraryPath [
-        xorg.libX11
-        xorg.libXext
-        xorg.libXrender
-        xorg.libXft
-        xorg.libXfixes
-        xorg.libXcursor
-        xorg.libXinerama
-        xorg.libXrandr
-        xorg.libXScrnSaver
+        libX11
+        libXext
+        libXrender
+        libXft
+        libXfixes
+        libXcursor
+        libXinerama
+        libXrandr
+        libXScrnSaver
         fontconfig
         freetype
         libpng
