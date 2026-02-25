@@ -466,7 +466,15 @@ func (a *Controller) writeDetailText(content string, highlightDiff bool) {
 		a.ui.diffDetail.TagRemove("diffHeader", "1.0", END)
 	}
 	if a.cfg.syntaxHighlight && highlightDiff {
-		a.applySyntaxHighlight(content)
+		metrics := syntaxHighlightMetricsFor(content)
+		if ok, reason := shouldSyntaxHighlight(metrics); ok {
+			a.applySyntaxHighlight(content)
+		} else {
+			if reason != "" {
+				slog.Debug("syntax highlight skipped", slog.String("reason", reason))
+			}
+			a.clearSyntaxHighlight()
+		}
 	} else {
 		a.clearSyntaxHighlight()
 	}

@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"unicode/utf8"
 
@@ -18,10 +19,14 @@ func (a *Controller) applySyntaxHighlight(content string) {
 	style := a.theme.palette.chromaStyle()
 	lines := strings.Split(content, "\n")
 	var currentLexer chroma.Lexer
+	skipFile := false
+	currentPath := ""
 	for i, line := range lines {
 		lineNo := i + 1
 		if path, ok := diffPathFromLine(line); ok {
 			currentLexer = nil
+			skipFile = false
+			currentPath = path
 			if path != "" {
 				currentLexer = lexerForPath(path)
 			}
@@ -33,8 +38,24 @@ func (a *Controller) applySyntaxHighlight(content string) {
 		if currentLexer == nil {
 			continue
 		}
+		if skipFile {
+			continue
+		}
 		code, offset, ok := diffLineCode(line)
 		if !ok {
+			continue
+		}
+		if !shouldHighlightCodeLine(code) {
+			skipFile = true
+			reason := fmt.Sprintf(
+				"line length exceeds %d char limit",
+				maxSyntaxHighlightLineLength,
+			)
+			slog.Debug(
+				"syntax highlight skipped for file",
+				slog.String("path", currentPath),
+				slog.String("reason", reason),
+			)
 			continue
 		}
 		a.highlightCodeLine(currentLexer, style, code, lineNo, offset)
