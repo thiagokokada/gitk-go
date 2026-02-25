@@ -32,7 +32,7 @@ func (a *Controller) syntaxTagForColor(color string) string {
 	return tag
 }
 
-func (a *Controller) collectSyntaxSpans(
+func (*Controller) collectSyntaxSpans(
 	lexer chroma.Lexer,
 	style *chroma.Style,
 	code string,
