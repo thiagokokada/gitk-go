@@ -2,7 +2,6 @@ package gui
 
 import (
 	"fmt"
-	"log/slog"
 	"strings"
 	"unicode/utf8"
 
@@ -10,57 +9,6 @@ import (
 	"github.com/alecthomas/chroma/v2/lexers"
 	. "modernc.org/tk9.0"
 )
-
-func (a *Controller) applySyntaxHighlight(content string) {
-	if content == "" {
-		return
-	}
-	a.clearSyntaxHighlight()
-	style := a.theme.palette.chromaStyle()
-	lines := strings.Split(content, "\n")
-	var currentLexer chroma.Lexer
-	skipFile := false
-	currentPath := ""
-	for i, line := range lines {
-		lineNo := i + 1
-		if path, ok := diffPathFromLine(line); ok {
-			currentLexer = nil
-			skipFile = false
-			currentPath = path
-			if path != "" {
-				currentLexer = lexerForPath(path)
-			}
-			continue
-		}
-		if strings.HasPrefix(line, "--- ") || strings.HasPrefix(line, "+++ ") || strings.HasPrefix(line, "@@") {
-			continue
-		}
-		if currentLexer == nil {
-			continue
-		}
-		if skipFile {
-			continue
-		}
-		code, offset, ok := diffLineCode(line)
-		if !ok {
-			continue
-		}
-		if !shouldHighlightCodeLine(code) {
-			skipFile = true
-			reason := fmt.Sprintf(
-				"line length exceeds %d char limit",
-				maxSyntaxHighlightLineLength,
-			)
-			slog.Debug(
-				"syntax highlight skipped for file",
-				slog.String("path", currentPath),
-				slog.String("reason", reason),
-			)
-			continue
-		}
-		a.highlightCodeLine(currentLexer, style, code, lineNo, offset)
-	}
-}
 
 func (a *Controller) clearSyntaxHighlight() {
 	for _, tag := range a.state.diff.syntaxTags {
@@ -84,7 +32,14 @@ func (a *Controller) syntaxTagForColor(color string) string {
 	return tag
 }
 
-func (a *Controller) highlightCodeLine(lexer chroma.Lexer, style *chroma.Style, code string, lineNo, offset int) {
+func (a *Controller) collectSyntaxSpans(
+	lexer chroma.Lexer,
+	style *chroma.Style,
+	code string,
+	lineNo,
+	offset int,
+	spans *[]syntaxSpan,
+) {
 	if lexer == nil || style == nil || code == "" {
 		return
 	}
@@ -102,12 +57,12 @@ func (a *Controller) highlightCodeLine(lexer chroma.Lexer, style *chroma.Style, 
 		entry := style.Get(token.Type)
 		color := colorFromEntry(entry)
 		if color != "" {
-			tag := a.syntaxTagForColor(color)
-			if tag != "" {
-				start := fmt.Sprintf("%d.%d", lineNo, col)
-				end := fmt.Sprintf("%d.%d", lineNo, col+length)
-				a.ui.diffDetail.TagAdd(tag, start, end)
-			}
+			*spans = append(*spans, syntaxSpan{
+				color:    color,
+				line:     lineNo,
+				startCol: col,
+				endCol:   col + length,
+			})
 		}
 		col += length
 	}

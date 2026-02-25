@@ -163,7 +163,7 @@ func (a *Controller) refreshSyntaxHighlight() {
 	if content == "" {
 		return
 	}
-	a.applySyntaxHighlight(content)
+	a.maybeStartSyntaxHighlight(content, true)
 }
 
 func (a *Controller) shouldHighlightDiff() bool {
