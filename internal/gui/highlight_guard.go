@@ -3,8 +3,8 @@ package gui
 import "fmt"
 
 const (
-	maxSyntaxHighlightBytes      = 2 * 1024 * 1024
-	maxSyntaxHighlightLineLength = 8000
+	maxSyntaxHighlightBytes      = 1 * 1024 * 1024
+	maxSyntaxHighlightLineLength = 1024
 )
 
 type syntaxHighlightMetrics struct {
