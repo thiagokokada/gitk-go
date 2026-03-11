@@ -57,8 +57,17 @@ func (g *gitCLI) WorktreeDiffText(staged bool) (string, error) {
 	args := []string{"diff", "--no-color"}
 	if staged {
 		args = append(args, "--cached")
+		return g.runGitCommand(args, true, "git diff")
 	}
-	return g.runGitCommand(args, true, "git diff")
+	trackedDiff, err := g.runGitCommand(args, true, "git diff")
+	if err != nil {
+		return "", err
+	}
+	untrackedDiff, err := g.untrackedWorktreeDiffText()
+	if err != nil {
+		return "", err
+	}
+	return concatDiffText(trackedDiff, untrackedDiff), nil
 }
 
 func (g *gitCLI) LocalChangesStatus() (LocalChanges, error) {
@@ -98,14 +107,89 @@ func parseStatusPorcelainV2(r io.Reader) (LocalChanges, error) {
 			if worktreeState != '.' && worktreeState != '?' {
 				res.HasWorktree = true
 			}
+		case '?':
+			res.HasWorktree = true
 		default:
-			// '?' untracked, '!' ignored, etc.
+			// '!' ignored, etc.
 		}
 		if res.HasWorktree && res.HasStaged {
 			break
 		}
 	}
 	return res, scanner.Err()
+}
+
+func (g *gitCLI) untrackedWorktreeDiffText() (string, error) {
+	paths, err := g.untrackedPaths()
+	if err != nil {
+		return "", err
+	}
+	var diffs []string
+	for _, path := range paths {
+		diffText, err := g.runGitCommand(
+			[]string{
+				"diff",
+				"--no-color",
+				"--no-index",
+				"--src-prefix=a/",
+				"--dst-prefix=b/",
+				"--",
+				"/dev/null",
+				path,
+			},
+			true,
+			"git diff --no-index",
+		)
+		if err != nil {
+			return "", err
+		}
+		diffs = append(diffs, diffText)
+	}
+	return concatDiffText(diffs...), nil
+}
+
+func (g *gitCLI) untrackedPaths() ([]string, error) {
+	out, err := g.runGitCommand(
+		[]string{"ls-files", "--others", "--exclude-standard", "-z"},
+		false,
+		"git ls-files",
+	)
+	if err != nil {
+		return nil, err
+	}
+	if out == "" {
+		return nil, nil
+	}
+	var paths []string
+	for rawPath := range strings.SplitSeq(out, "\x00") {
+		if rawPath == "" {
+			continue
+		}
+		paths = append(paths, rawPath)
+	}
+	return paths, nil
+}
+
+func concatDiffText(parts ...string) string {
+	var b strings.Builder
+	needsTrailingNewline := false
+	for _, part := range parts {
+		if strings.TrimSpace(part) == "" {
+			continue
+		}
+		if needsTrailingNewline {
+			b.WriteByte('\n')
+		}
+		b.WriteString(part)
+		needsTrailingNewline = !strings.HasSuffix(part, "\n")
+	}
+	if b.Len() == 0 {
+		return ""
+	}
+	if needsTrailingNewline {
+		b.WriteByte('\n')
+	}
+	return b.String()
 }
 
 func (g *gitCLI) ListRefs() ([]Ref, error) {
