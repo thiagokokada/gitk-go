@@ -1,7 +1,11 @@
 package backend
 
 import (
+	"bytes"
 	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -36,9 +40,9 @@ func TestParseStatusPorcelainV2(t *testing.T) {
 			want: LocalChanges{HasWorktree: true, HasStaged: true},
 		},
 		{
-			name: "untracked_ignored",
+			name: "untracked_counts_as_worktree",
 			in:   "? untracked.txt\n",
-			want: LocalChanges{},
+			want: LocalChanges{HasWorktree: true},
 		},
 		{
 			name: "ignored_ignored",
@@ -82,6 +86,73 @@ func TestParseStatusPorcelainV2_Error(t *testing.T) {
 	_, err := parseStatusPorcelainV2(failingReader{})
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestGitCLI_LocalChangesStatusAndWorktreeDiffIncludeUntracked(t *testing.T) {
+	dir := initBackendTestRepo(t)
+	const untrackedPath = "new file.txt"
+	if err := os.WriteFile(filepath.Join(dir, untrackedPath), []byte("hello\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	cli := &gitCLI{path: dir}
+	status, err := cli.LocalChangesStatus()
+	if err != nil {
+		t.Fatalf("LocalChangesStatus: %v", err)
+	}
+	if !status.HasWorktree || status.HasStaged {
+		t.Fatalf("LocalChangesStatus = %+v, want worktree-only", status)
+	}
+
+	diffText, err := cli.WorktreeDiffText(false)
+	if err != nil {
+		t.Fatalf("WorktreeDiffText(false): %v", err)
+	}
+	if !strings.Contains(diffText, "diff --git a/"+untrackedPath+" b/"+untrackedPath) {
+		t.Fatalf("diff missing untracked file header: %q", diffText)
+	}
+	if !strings.Contains(diffText, "+++ b/"+untrackedPath) {
+		t.Fatalf("diff missing untracked file path: %q", diffText)
+	}
+	if !strings.Contains(diffText, "+hello") {
+		t.Fatalf("diff missing untracked file contents: %q", diffText)
+	}
+}
+
+func TestConcatDiffText(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		parts []string
+		want  string
+	}{
+		{
+			name:  "empty",
+			parts: nil,
+			want:  "",
+		},
+		{
+			name:  "skips_blank_parts",
+			parts: []string{"", " \n\t", "diff --git a/a.txt b/a.txt\n"},
+			want:  "diff --git a/a.txt b/a.txt\n",
+		},
+		{
+			name:  "adds_separator_newline",
+			parts: []string{"diff --git a/a.txt b/a.txt", "diff --git a/b.txt b/b.txt\n"},
+			want:  "diff --git a/a.txt b/a.txt\ndiff --git a/b.txt b/b.txt\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := concatDiffText(tt.parts...); got != tt.want {
+				t.Fatalf("concatDiffText() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -143,4 +214,37 @@ func assertHasRef(t *testing.T, refs []Ref, want Ref) {
 		}
 	}
 	t.Fatalf("missing ref: %+v (got=%+v)", want, refs)
+}
+
+func initBackendTestRepo(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	runGitBackend(t, dir, "init", "-q")
+	runGitBackend(t, dir, "config", "user.name", "Alice")
+	runGitBackend(t, dir, "config", "user.email", "alice@example.com")
+	if err := os.WriteFile(filepath.Join(dir, "tracked.txt"), []byte("tracked\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	runGitBackend(t, dir, "add", "tracked.txt")
+	runGitBackend(t, dir, "commit", "-m", "init", "--quiet", "--no-gpg-sign")
+	return dir
+}
+
+func runGitBackend(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+
+	cmdArgs := append([]string{"-C", dir}, args...)
+	cmd := exec.Command("git", cmdArgs...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg != "" {
+			t.Fatalf("git %s: %v: %s", strings.Join(args, " "), err, msg)
+		}
+		t.Fatalf("git %s: %v", strings.Join(args, " "), err)
+	}
+	return strings.TrimSpace(stdout.String())
 }
