@@ -60,7 +60,12 @@ func (a *Controller) insertDiffActionButton(lineNo int, label string, patch stri
 	)
 	a.state.diff.inlineButtons = append(a.state.diff.inlineButtons, btn)
 	index := fmt.Sprintf("%d.0", lineNo)
-	if _, err := tkutil.Evalf("%s window create %s -window %s -padx 2 -pady 0", a.ui.diffDetail, index, btn); err != nil {
+	if _, err := tkutil.Evalf(
+		"%s window create %s -window %s -padx 2 -pady 0",
+		a.ui.diffDetail,
+		index,
+		btn,
+	); err != nil {
 		slog.Debug("diff action button", slog.Any("error", err))
 	}
 }
