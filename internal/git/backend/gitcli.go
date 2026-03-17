@@ -63,3 +63,22 @@ func (g *gitCLI) runGitCommand(args []string, allowExit1 bool, context string) (
 	}
 	return stdout.String(), nil
 }
+
+func (g *gitCLI) runGitCommandWithInput(args []string, input string, context string) (string, error) {
+	if g == nil || g.path == "" {
+		return "", fmt.Errorf("repository root not set")
+	}
+	cmdArgs := append([]string{"-C", g.path}, args...)
+	cmd := exec.Command("git", cmdArgs...)
+	cmd.Stdin = strings.NewReader(input)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			return "", fmt.Errorf("%s: %v: %s", context, err, strings.TrimSpace(stderr.String()))
+		}
+		return "", fmt.Errorf("%s: %w", context, err)
+	}
+	return stdout.String(), nil
+}

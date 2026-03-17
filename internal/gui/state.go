@@ -3,6 +3,8 @@ package gui
 import (
 	"sync"
 
+	. "modernc.org/tk9.0"
+
 	"github.com/thiagokokada/gitk-go/internal/debounce"
 	"github.com/thiagokokada/gitk-go/internal/git"
 	"github.com/thiagokokada/gitk-go/internal/gui/widgets"
@@ -14,6 +16,7 @@ type diffState struct {
 	syntaxTags            map[string]string
 	suppressFileSelection bool
 	skipNextSync          bool
+	inlineButtons         []*TButtonWidget
 
 	debounce debounce.Action[diffRequest]
 }

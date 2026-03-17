@@ -146,3 +146,90 @@ func diffLineCode(line string) (string, int, bool) {
 		return "", 0, false
 	}
 }
+
+type diffFileChunk struct {
+	path   string
+	lineNo int
+	header []string
+	hunks  []diffHunkChunk
+}
+
+type diffHunkChunk struct {
+	header string
+	lineNo int
+	lines  []string
+}
+
+func parseDiffChunks(diff string) []diffFileChunk {
+	lines := strings.Split(diff, "\n")
+	var chunks []diffFileChunk
+	var current *diffFileChunk
+	var currentHunk *diffHunkChunk
+	for i, line := range lines {
+		lineNo := i + 1
+		if strings.HasPrefix(line, "diff --git ") {
+			if current != nil {
+				chunks = append(chunks, *current)
+			}
+			path, _ := diffPathFromLine(line)
+			current = &diffFileChunk{
+				path:   path,
+				lineNo: lineNo,
+				header: []string{line},
+			}
+			currentHunk = nil
+			continue
+		}
+		if current == nil {
+			continue
+		}
+		if strings.HasPrefix(line, "@@ ") {
+			current.hunks = append(current.hunks, diffHunkChunk{header: line, lineNo: lineNo})
+			currentHunk = &current.hunks[len(current.hunks)-1]
+			continue
+		}
+		if line == "" {
+			currentHunk = nil
+			continue
+		}
+		if currentHunk == nil {
+			current.header = append(current.header, line)
+			continue
+		}
+		currentHunk.lines = append(currentHunk.lines, line)
+	}
+	if current != nil {
+		chunks = append(chunks, *current)
+	}
+	return chunks
+}
+
+func buildFilePatch(chunk diffFileChunk) (string, bool) {
+	if len(chunk.header) == 0 {
+		return "", false
+	}
+	lines := make([]string, 0, len(chunk.header)+len(chunk.hunks)*4)
+	lines = append(lines, chunk.header...)
+	for _, hunk := range chunk.hunks {
+		if hunk.header == "" {
+			continue
+		}
+		lines = append(lines, hunk.header)
+		lines = append(lines, hunk.lines...)
+	}
+	if len(lines) == 0 {
+		return "", false
+	}
+	return strings.Join(lines, "\n") + "\n", true
+}
+
+func buildHunkPatch(chunk diffFileChunk, hunk diffHunkChunk) (string, bool) {
+	if len(chunk.header) == 0 || hunk.header == "" {
+		return "", false
+	}
+	lines := make([]string, 0, len(chunk.header)+len(hunk.lines)+1)
+	lines = append(lines, chunk.header...)
+	lines = append(lines, hunk.header)
+	lines = append(lines, hunk.lines...)
+	return strings.Join(lines, "\n") + "\n", true
+}
