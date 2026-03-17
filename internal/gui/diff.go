@@ -204,6 +204,87 @@ func parseDiffChunks(diff string) []diffFileChunk {
 	return chunks
 }
 
+func diffSectionsFromText(diffText string) []git.FileSection {
+	lines := strings.Split(diffText, "\n")
+	var sections []git.FileSection
+	for i, line := range lines {
+		if !strings.HasPrefix(line, "diff --git ") {
+			continue
+		}
+		path, ok := diffPathFromLine(line)
+		if !ok || path == "" {
+			continue
+		}
+		sections = append(sections, git.FileSection{Path: path, Line: i + 1})
+	}
+	return sections
+}
+
+func removePatchFromDiffText(diffText string, patch string) (string, []git.FileSection, bool) {
+	if strings.TrimSpace(diffText) == "" || strings.TrimSpace(patch) == "" {
+		return "", nil, false
+	}
+	lines := strings.Split(diffText, "\n")
+	firstDiff := -1
+	for i, line := range lines {
+		if strings.HasPrefix(line, "diff --git ") {
+			firstDiff = i
+			break
+		}
+	}
+	if firstDiff == -1 {
+		return "", nil, false
+	}
+	preamble := strings.Join(lines[:firstDiff], "\n")
+	bodyText := strings.Join(lines[firstDiff:], "\n")
+	chunks := parseDiffChunks(bodyText)
+	if len(chunks) == 0 {
+		return "", nil, false
+	}
+	removed := false
+	remaining := make([]diffFileChunk, 0, len(chunks))
+	for _, chunk := range chunks {
+		if filePatch, ok := buildFilePatch(chunk); ok && filePatch == patch {
+			removed = true
+			continue
+		}
+		if len(chunk.hunks) > 0 {
+			hunks := make([]diffHunkChunk, 0, len(chunk.hunks))
+			for _, hunk := range chunk.hunks {
+				if hunkPatch, ok := buildHunkPatch(chunk, hunk); ok && hunkPatch == patch {
+					removed = true
+					continue
+				}
+				hunks = append(hunks, hunk)
+			}
+			chunk.hunks = hunks
+		}
+		if len(chunk.hunks) == 0 {
+			continue
+		}
+		remaining = append(remaining, chunk)
+	}
+	if !removed {
+		return "", nil, false
+	}
+	var body strings.Builder
+	for _, chunk := range remaining {
+		if filePatch, ok := buildFilePatch(chunk); ok {
+			body.WriteString(filePatch)
+		}
+	}
+	rawText := preamble
+	if rawText != "" && body.Len() > 0 {
+		if !strings.HasSuffix(rawText, "\n") {
+			rawText += "\n"
+		}
+	}
+	rawText += body.String()
+	sections := diffSectionsFromText(rawText)
+	displayText, displaySections := prepareDiffDisplay(rawText, sections)
+	return displayText, displaySections, true
+}
+
 func buildFilePatch(chunk diffFileChunk) (string, bool) {
 	if len(chunk.header) == 0 {
 		return "", false

@@ -311,3 +311,38 @@ func TestParseDiffChunksAndBuildPatches(t *testing.T) {
 		t.Fatalf("hunk patch mismatch:\nwant:\n%s\ngot:\n%s", wantHunk, hunkPatch)
 	}
 }
+
+func TestRemovePatchFromDiffText(t *testing.T) {
+	diff := strings.Join([]string{
+		"Local uncommitted changes, not checked in to index",
+		"diff --git a/a.txt b/a.txt",
+		"index 111..222 100644",
+		"--- a/a.txt",
+		"+++ b/a.txt",
+		"@@ -1,2 +1,2 @@",
+		"-line1",
+		"+line1a",
+		" line2",
+		"@@ -5,1 +5,2 @@",
+		"+line5a",
+		"",
+	}, "\n")
+	chunks := parseDiffChunks(diff)
+	if len(chunks) != 1 || len(chunks[0].hunks) != 2 {
+		t.Fatalf("unexpected diff chunks")
+	}
+	patch, ok := buildHunkPatch(chunks[0], chunks[0].hunks[0])
+	if !ok {
+		t.Fatalf("expected hunk patch")
+	}
+	updated, sections, ok := removePatchFromDiffText(diff, patch)
+	if !ok {
+		t.Fatalf("expected patch removal")
+	}
+	if strings.Contains(updated, "@@ -1,2 +1,2 @@") {
+		t.Fatalf("expected first hunk to be removed")
+	}
+	if len(sections) != 1 || sections[0].Path != "a.txt" {
+		t.Fatalf("unexpected sections: %#v", sections)
+	}
+}
