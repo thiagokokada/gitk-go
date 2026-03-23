@@ -17,6 +17,7 @@
   libjpeg,
   libpng,
   makeBinaryWrapper,
+  patchelf,
   zlib,
   version ? "unknown",
 }:
@@ -41,6 +42,7 @@ buildGoModule {
   nativeBuildInputs = [
     git
     makeBinaryWrapper
+    patchelf
   ];
 
   postFixup =
@@ -63,9 +65,11 @@ buildGoModule {
       ];
 
       gitPath = "--prefix PATH : ${lib.makeBinPath [ git ]}";
+      wrappedBinary = "$out/bin/.gitk-go-unwrapped";
+      wrapperBinary = "$out/bin/gitk-go";
     in
     ''
-      mv $out/bin/gitk-go $out/bin/.gitk-go-unwrapped
+      mv $out/bin/gitk-go ${wrappedBinary}
     ''
     +
       # XXX: purego (used by modernc.org/tk9.0) is kinda cursed, it makes the Go
@@ -76,19 +80,19 @@ buildGoModule {
       # dynamic loader (and this doesn't work).
       # Ideally we would patch purego/tk9.0 to allow overriding this (e.g., by
       # allowing loading tk9.0 from nixpkgs instead of using the one bundled in
-      # the package), but for now forcing the binary to load with Nix's dynamic
-      # linker, even if this is an unholy hack.
+      # the package), but for now we patch the interpreter to use Nix's dynamic
+      # linker and keep the usual wrapper for runtime environment setup.
       lib.optionalString stdenv.isLinux ''
-        makeWrapper ${stdenv.cc.bintools.dynamicLinker} \
-          $out/bin/gitk-go \
-          --add-flags $out/bin/.gitk-go-unwrapped \
-          --argv0 gitk-go \
+        patchelf --set-interpreter ${stdenv.cc.bintools.dynamicLinker} ${wrappedBinary}
+
+        makeWrapper ${wrappedBinary} \
+          ${wrapperBinary} \
           --set LD_LIBRARY_PATH ${linuxLibs} \
           ${gitPath}
       ''
     + lib.optionalString stdenv.isDarwin ''
-      makeWrapper $out/bin/.gitk-go-unwrapped \
-        $out/bin/gitk-go \
+      makeWrapper ${wrappedBinary} \
+        ${wrapperBinary} \
         ${gitPath}
     '';
 
