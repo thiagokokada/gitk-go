@@ -248,6 +248,17 @@ func TestContainsUnmergedPathMarker(t *testing.T) {
 		{name: "normal_diff", diff: "diff --git a/a b/a\n@@ -1 +1 @@\n-a\n+b\n", want: false},
 		{name: "plain_unmerged", diff: "* Unmerged path foo/bar.txt\n", want: true},
 		{name: "header_then_unmerged", diff: "Local changes\n* Unmerged path foo/bar.txt\n", want: true},
+		{
+			name: "context_line_with_marker_text",
+			diff: strings.Join([]string{
+				"diff --git a/a.txt b/a.txt",
+				"@@ -1 +1,2 @@",
+				" context",
+				" * Unmerged path appears in file content",
+				"+next",
+			}, "\n"),
+			want: false,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

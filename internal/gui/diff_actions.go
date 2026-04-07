@@ -65,8 +65,8 @@ func shouldAddInlineDiffActions(diff string, chunks []diffFileChunk) bool {
 }
 
 func containsUnmergedPathMarker(diff string) bool {
-	for _, line := range strings.Split(diff, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), "* Unmerged path ") {
+	for line := range strings.SplitSeq(diff, "\n") {
+		if strings.HasPrefix(line, "* Unmerged path ") {
 			return true
 		}
 	}
