@@ -19,6 +19,7 @@ type Commit struct {
 type LocalChanges struct {
 	HasWorktree bool
 	HasStaged   bool
+	HasUnmerged bool
 }
 
 type RefKind uint8

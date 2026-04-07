@@ -10,6 +10,10 @@ type diffViewModel struct {
 }
 
 func newDiffViewModel(sections []git.FileSection) diffViewModel {
+	if len(sections) == 0 {
+		return diffViewModel{}
+	}
+
 	augmented := make([]git.FileSection, 0, len(sections)+1)
 	augmented = append(augmented, git.FileSection{Path: diffCommitSectionLabel, Line: 1})
 	augmented = append(augmented, sections...)
