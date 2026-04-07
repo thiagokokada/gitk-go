@@ -99,6 +99,9 @@ func parseStatusPorcelainV2(r io.Reader) (LocalChanges, error) {
 			if len(line) < 4 {
 				continue
 			}
+			if line[0] == 'u' {
+				res.HasUnmerged = true
+			}
 			stagedState := line[2]
 			worktreeState := line[3]
 			if stagedState != '.' {
@@ -111,9 +114,6 @@ func parseStatusPorcelainV2(r io.Reader) (LocalChanges, error) {
 			res.HasWorktree = true
 		default:
 			// '!' ignored, etc.
-		}
-		if res.HasWorktree && res.HasStaged {
-			break
 		}
 	}
 	return res, scanner.Err()

@@ -37,7 +37,12 @@ func TestParseStatusPorcelainV2(t *testing.T) {
 		{
 			name: "unmerged_counts_as_both",
 			in:   "u UU N... 100644 100644 100644 abcdef0 abcdef0 path.txt\n",
-			want: LocalChanges{HasWorktree: true, HasStaged: true},
+			want: LocalChanges{HasWorktree: true, HasStaged: true, HasUnmerged: true},
+		},
+		{
+			name: "deleted_by_us_counts_as_unmerged",
+			in:   "u DU N... 100644 000000 100644 100644 abcdef0 0000000 abcdef1 path.txt\n",
+			want: LocalChanges{HasWorktree: true, HasStaged: true, HasUnmerged: true},
 		},
 		{
 			name: "untracked_counts_as_worktree",

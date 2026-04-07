@@ -3,11 +3,14 @@ package gui
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 
 	. "modernc.org/tk9.0"
 
 	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 )
+
+const maxInlineDiffActions = 64
 
 func (a *Controller) clearInlineDiffActions() {
 	for _, btn := range a.state.diff.inlineButtons {
@@ -21,7 +24,7 @@ func (a *Controller) addInlineDiffActions(staged bool, diff string) {
 		return
 	}
 	chunks := parseDiffChunks(diff)
-	if len(chunks) == 0 {
+	if !shouldAddInlineDiffActions(diff, chunks) {
 		return
 	}
 	label := "+"
@@ -44,6 +47,30 @@ func (a *Controller) addInlineDiffActions(staged bool, diff string) {
 			}
 		}
 	}
+}
+
+func shouldAddInlineDiffActions(diff string, chunks []diffFileChunk) bool {
+	if len(chunks) == 0 || containsUnmergedPathMarker(diff) {
+		return false
+	}
+	total := 0
+	for _, chunk := range chunks {
+		total++
+		total += len(chunk.hunks)
+		if total > maxInlineDiffActions {
+			return false
+		}
+	}
+	return true
+}
+
+func containsUnmergedPathMarker(diff string) bool {
+	for line := range strings.SplitSeq(diff, "\n") {
+		if strings.HasPrefix(line, "* Unmerged path ") {
+			return true
+		}
+	}
+	return false
 }
 
 func (a *Controller) insertDiffActionButton(lineNo int, label string, patch string, reverse bool, actionLabel string) {

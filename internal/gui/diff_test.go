@@ -56,6 +56,16 @@ func TestDiffViewModel(t *testing.T) {
 	}
 }
 
+func TestDiffViewModelNoSections(t *testing.T) {
+	model := newDiffViewModel(nil)
+	if len(model.sections) != 0 {
+		t.Fatalf("expected no sections, got %#v", model.sections)
+	}
+	if len(model.labels) != 0 {
+		t.Fatalf("expected no labels, got %#v", model.labels)
+	}
+}
+
 func TestDiffSectionLine(t *testing.T) {
 	sections := newDiffViewModel([]git.FileSection{{Path: "a.go", Line: 5}}).sections
 	if line, ok := diffSectionLine(sections, 1); !ok || line != 5 {
@@ -225,6 +235,62 @@ func TestDiffPathFromLine(t *testing.T) {
 		if ok && got != tc.want {
 			t.Fatalf("line=%q: want %q, got %q", tc.line, tc.want, got)
 		}
+	}
+}
+
+func TestContainsUnmergedPathMarker(t *testing.T) {
+	tests := []struct {
+		name string
+		diff string
+		want bool
+	}{
+		{name: "empty", diff: "", want: false},
+		{name: "normal_diff", diff: "diff --git a/a b/a\n@@ -1 +1 @@\n-a\n+b\n", want: false},
+		{name: "plain_unmerged", diff: "* Unmerged path foo/bar.txt\n", want: true},
+		{name: "header_then_unmerged", diff: "Local changes\n* Unmerged path foo/bar.txt\n", want: true},
+		{
+			name: "context_line_with_marker_text",
+			diff: strings.Join([]string{
+				"diff --git a/a.txt b/a.txt",
+				"@@ -1 +1,2 @@",
+				" context",
+				" * Unmerged path appears in file content",
+				"+next",
+			}, "\n"),
+			want: false,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := containsUnmergedPathMarker(tc.diff); got != tc.want {
+				t.Fatalf("containsUnmergedPathMarker() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestShouldAddInlineDiffActions(t *testing.T) {
+	diff := strings.Join([]string{
+		"diff --git a/a.txt b/a.txt",
+		"@@ -1 +1 @@",
+		"-a",
+		"+b",
+	}, "\n")
+	chunks := parseDiffChunks(diff)
+	if !shouldAddInlineDiffActions(diff, chunks) {
+		t.Fatal("expected inline actions for small regular diff")
+	}
+
+	if shouldAddInlineDiffActions("* Unmerged path foo/bar.txt\n", nil) {
+		t.Fatal("expected inline actions to be disabled for unmerged diff marker")
+	}
+
+	large := make([]diffFileChunk, maxInlineDiffActions+1)
+	for i := range large {
+		large[i] = diffFileChunk{hunks: []diffHunkChunk{{header: "@@ -1 +1 @@"}}}
+	}
+	if shouldAddInlineDiffActions(diff, large) {
+		t.Fatal("expected inline actions to be disabled when button count exceeds limit")
 	}
 }
 
