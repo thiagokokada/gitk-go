@@ -17,6 +17,19 @@ func (s *Service) Diff(commit *Commit) (string, []FileSection, error) {
 	if strings.TrimSpace(diffText) == "" {
 		return header + "\nNo file level changes.", nil, nil
 	}
+	rendered, sections := buildDiffResult(header, diffText)
+	return rendered, sections, nil
+}
+
+func (s *Service) commitDiffText(commit *Commit) (string, error) {
+	if len(commit.ParentHashes) > 0 {
+		parent := commit.ParentHashes[0]
+		return s.backend.CommitDiffText(commit.Hash, parent)
+	}
+	return s.backend.CommitDiffText(commit.Hash, "")
+}
+
+func buildDiffResult(header, diffText string) (rendered string, sections []FileSection) {
 	if !strings.HasSuffix(header, "\n") {
 		header += "\n"
 	}
@@ -27,16 +40,7 @@ func (s *Service) Diff(commit *Commit) (string, []FileSection, error) {
 		b.WriteByte('\n')
 	}
 	lineOffset := strings.Count(header, "\n")
-	sections := ParseDiffSections(diffText, lineOffset)
-	return b.String(), sections, nil
-}
-
-func (s *Service) commitDiffText(commit *Commit) (string, error) {
-	if len(commit.ParentHashes) > 0 {
-		parent := commit.ParentHashes[0]
-		return s.backend.CommitDiffText(commit.Hash, parent)
-	}
-	return s.backend.CommitDiffText(commit.Hash, "")
+	return b.String(), ParseDiffSections(diffText, lineOffset)
 }
 
 // ParseDiffSections returns one file section per "diff --git" header in the

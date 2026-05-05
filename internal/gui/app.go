@@ -358,6 +358,54 @@ func (a *Controller) cancelPendingDiffLoad() {
 	a.state.diff.debounce.Stop()
 }
 
+func (a *Controller) refreshCommitBatchState(prefetchLocalChanges bool) {
+	if err := a.loadBranchLabels(); err != nil {
+		slog.Error("failed to refresh branch labels", slog.Any("error", err))
+	}
+	a.applyFilterContent(a.state.filter.value)
+	a.refreshLocalChangesAsync(prefetchLocalChanges)
+	a.setStatus(a.statusSummary())
+}
+
+func (a *Controller) applyReloadedCommitBatch(entries []*git.Entry, head string, hasMore bool) {
+	a.data.commits = entries
+	a.data.visible = entries
+	a.repo.headRef = head
+	a.state.tree.hasMore = hasMore
+	a.state.tree.rows.setCommitIDs(entries)
+	a.state.tree.rows.refreshValues = true
+	slog.Debug("reloadCommitsAsync loaded",
+		slog.Int("count", len(entries)),
+		slog.String("head", head),
+		slog.Bool("has_more", hasMore),
+	)
+	a.refreshCommitBatchState(true)
+}
+
+func (a *Controller) applyAppendedCommitBatch(entries []*git.Entry, hasMore bool, background bool) {
+	if len(entries) == 0 {
+		a.state.tree.hasMore = false
+		if !background {
+			a.setStatus("No more commits available.")
+		}
+		return
+	}
+	a.data.commits = append(a.data.commits, entries...)
+	a.state.tree.hasMore = hasMore
+	a.state.tree.rows.addCommitIDs(entries)
+	a.state.tree.rows.refreshValues = true
+	slog.Debug("loadMoreCommitsAsync loaded",
+		slog.Int("added", len(entries)),
+		slog.Int("total", len(a.data.commits)),
+		slog.Bool("has_more", hasMore),
+		slog.Bool("background", background),
+	)
+	a.refreshCommitBatchState(false)
+	if background && a.state.tree.hasMore {
+		go a.loadMoreCommitsAsync(true)
+	}
+}
+
 func (a *Controller) reloadCommitsAsync() {
 	if a.state.tree.loadingBatch {
 		return
@@ -376,23 +424,7 @@ func (a *Controller) reloadCommitsAsync() {
 				a.setStatus(fmt.Sprintf("Failed to reload commits: %v", err))
 				return
 			}
-			a.data.commits = entries
-			a.data.visible = entries
-			a.repo.headRef = head
-			a.state.tree.hasMore = hasMore
-			a.state.tree.rows.setCommitIDs(entries)
-			a.state.tree.rows.refreshValues = true
-			slog.Debug("reloadCommitsAsync loaded",
-				slog.Int("count", len(entries)),
-				slog.String("head", head),
-				slog.Bool("has_more", hasMore),
-			)
-			if err := a.loadBranchLabels(); err != nil {
-				slog.Error("failed to refresh branch labels", slog.Any("error", err))
-			}
-			a.applyFilterContent(a.state.filter.value)
-			a.refreshLocalChangesAsync(true)
-			a.setStatus(a.statusSummary())
+			a.applyReloadedCommitBatch(entries, head, hasMore)
 		}, false)
 	}()
 }
@@ -419,32 +451,7 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 				}
 				return
 			}
-			if len(entries) == 0 {
-				a.state.tree.hasMore = false
-				if !background {
-					a.setStatus("No more commits available.")
-				}
-				return
-			}
-			a.data.commits = append(a.data.commits, entries...)
-			a.state.tree.hasMore = hasMore
-			a.state.tree.rows.addCommitIDs(entries)
-			a.state.tree.rows.refreshValues = true
-			slog.Debug("loadMoreCommitsAsync loaded",
-				slog.Int("added", len(entries)),
-				slog.Int("total", len(a.data.commits)),
-				slog.Bool("has_more", hasMore),
-				slog.Bool("background", background),
-			)
-			if err := a.loadBranchLabels(); err != nil {
-				slog.Error("failed to refresh branch labels", slog.Any("error", err))
-			}
-			a.applyFilterContent(a.state.filter.value)
-			a.refreshLocalChangesAsync(false)
-			a.setStatus(a.statusSummary())
-			if background && a.state.tree.hasMore {
-				go a.loadMoreCommitsAsync(true)
-			}
+			a.applyAppendedCommitBatch(entries, hasMore, background)
 		}, false)
 	}(uint(skip), prefetch)
 }

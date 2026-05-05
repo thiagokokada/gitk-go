@@ -18,16 +18,6 @@ func (s *Service) WorktreeDiff(staged bool) (string, []FileSection, error) {
 	}
 
 	header := localDiffHeader(staged)
-	if !strings.HasSuffix(header, "\n") {
-		header += "\n"
-	}
-	var b strings.Builder
-	b.WriteString(header)
-	b.WriteString(diffText)
-	if !strings.HasSuffix(diffText, "\n") {
-		b.WriteByte('\n')
-	}
-	lineOffset := strings.Count(header, "\n")
-	sections := ParseDiffSections(diffText, lineOffset)
-	return b.String(), sections, nil
+	rendered, sections := buildDiffResult(header, diffText)
+	return rendered, sections, nil
 }
