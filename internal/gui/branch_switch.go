@@ -249,9 +249,6 @@ func (a *Controller) switchBranchAsync(branch string) {
 			a.state.localDiff = localDiffCache{}
 			a.state.selection = selection.State{}
 
-			if a.ui.diffFileList != nil {
-				a.ui.diffFileList.Delete("1.0", END)
-			}
 			a.setFileSections(nil)
 			a.setLocalRowVisibility(false, false)
 			a.setLocalRowVisibility(true, false)
