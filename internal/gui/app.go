@@ -215,7 +215,7 @@ func (a *Controller) renderLocalChanges(staged bool, requestReload bool) {
 	}
 	snap := a.snapshotLocalDiff(staged)
 	if requestReload && snap.ready {
-		a.presentLocalDiff(staged, header, snap)
+		a.presentLocalDiff(header, snap)
 		a.ensureLocalDiffLoading(staged, true)
 		return
 	}
@@ -226,10 +226,10 @@ func (a *Controller) renderLocalChanges(staged bool, requestReload bool) {
 		a.ensureLocalDiffLoading(staged, false)
 		snap = a.snapshotLocalDiff(staged)
 	}
-	a.presentLocalDiff(staged, header, snap)
+	a.presentLocalDiff(header, snap)
 }
 
-func (a *Controller) presentLocalDiff(staged bool, header string, snap localDiffSnapshot) {
+func (a *Controller) presentLocalDiff(header string, snap localDiffSnapshot) {
 	if !snap.ready {
 		a.clearDetailText(fmt.Sprintf("%s\nLoading local changes...", header))
 		return
@@ -246,7 +246,6 @@ func (a *Controller) presentLocalDiff(staged bool, header string, snap localDiff
 	diff, sections := prepareDiffDisplay(diff, snap.sections)
 	a.writeDetailText(diff, len(sections) > 0)
 	a.setFileSections(sections)
-	a.addInlineDiffActions(staged, diff)
 }
 
 func (a *Controller) snapshotLocalDiff(staged bool) localDiffSnapshot {
@@ -456,7 +455,6 @@ func (a *Controller) clearDetailText(msg string) {
 }
 
 func (a *Controller) writeDetailText(content string, highlightDiff bool) {
-	a.clearInlineDiffActions()
 	a.ui.diffDetail.Configure(State(NORMAL))
 	a.ui.diffDetail.Delete("1.0", END)
 	a.ui.diffDetail.Insert("1.0", content)

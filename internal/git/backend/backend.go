@@ -15,7 +15,6 @@ type Backend interface {
 	CommitDiffText(commitHash string, parentHash string) (string, error)
 	WorktreeDiffText(staged bool) (string, error)
 	LocalChangesStatus() (LocalChanges, error)
-	ApplyPatchToIndex(patch string, reverse bool) error
 }
 
 type LogStream interface {

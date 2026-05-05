@@ -119,21 +119,6 @@ func parseStatusPorcelainV2(r io.Reader) (LocalChanges, error) {
 	return res, scanner.Err()
 }
 
-func (g *gitCLI) ApplyPatchToIndex(patch string, reverse bool) error {
-	if g == nil || g.path == "" {
-		return fmt.Errorf("repository root not set")
-	}
-	if strings.TrimSpace(patch) == "" {
-		return fmt.Errorf("patch not specified")
-	}
-	args := []string{"apply", "--cached", "--unidiff-zero", "--recount"}
-	if reverse {
-		args = append(args, "--reverse")
-	}
-	_, err := g.runGitCommandWithInput(args, patch, "git apply")
-	return err
-}
-
 func (g *gitCLI) untrackedWorktreeDiffText() (string, error) {
 	paths, err := g.untrackedPaths()
 	if err != nil {

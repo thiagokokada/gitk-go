@@ -15,15 +15,12 @@ type fakeBackend struct {
 	commitDiffTextFunc     func(commitHash string, parentHash string) (string, error)
 	worktreeDiffTextFunc   func(staged bool) (string, error)
 	localChangesStatusFunc func() (gitbackend.LocalChanges, error)
-	applyPatchToIndexFunc  func(patch string, reverse bool) error
 	startLogStreamFunc     func(fromHash string) (gitbackend.LogStream, error)
 
 	lastCommitHash   string
 	lastParentHash   string
 	lastStagedParam  *bool
 	lastSwitchBranch string
-	lastPatch        string
-	lastPatchReverse *bool
 }
 
 func (f *fakeBackend) RepoPath() string { return f.repoPath }
@@ -79,13 +76,4 @@ func (f *fakeBackend) LocalChangesStatus() (gitbackend.LocalChanges, error) {
 		return f.localChangesStatusFunc()
 	}
 	return gitbackend.LocalChanges{}, errors.New("unexpected LocalChangesStatus call")
-}
-
-func (f *fakeBackend) ApplyPatchToIndex(patch string, reverse bool) error {
-	f.lastPatch = patch
-	f.lastPatchReverse = &reverse
-	if f.applyPatchToIndexFunc != nil {
-		return f.applyPatchToIndexFunc(patch, reverse)
-	}
-	return errors.New("unexpected ApplyPatchToIndex call")
 }
