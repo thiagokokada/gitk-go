@@ -12,6 +12,7 @@ type diffState struct {
 	syntaxGeneration      uint64
 	fileSections          []git.FileSection
 	syntaxTags            map[string]string
+	selectedFileIndex     int
 	suppressFileSelection bool
 	skipNextSync          bool
 

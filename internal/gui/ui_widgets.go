@@ -17,7 +17,7 @@ type appWidgets struct {
 	treeView            *TTreeviewWidget
 	treeContextMenu     *MenuWidget
 	diffDetail          *TextWidget
-	diffFileList        *ListboxWidget
+	diffFileList        *TextWidget
 	diffContextMenu     *MenuWidget
 	diffFileContextMenu *MenuWidget
 	shortcutsWindow     *ToplevelWidget

@@ -36,8 +36,10 @@ type Entry struct {
 }
 
 type FileSection struct {
-	Path string
-	Line int
+	Path    string
+	Line    int
+	Added   int
+	Removed int
 }
 
 func Open(repoPath string) (*Service, error) {

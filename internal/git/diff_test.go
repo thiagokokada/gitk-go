@@ -25,11 +25,48 @@ func TestParseGitDiffSections(t *testing.T) {
 	if got[0].Path != "foo.txt" || got[0].Line != 7 {
 		t.Fatalf("unexpected first section: %+v", got[0])
 	}
+	if got[0].Added != 0 || got[0].Removed != 0 {
+		t.Fatalf("unexpected first section counts: %+v", got[0])
+	}
 	if got[1].Path != "space name.txt" || got[1].Line != 8 {
 		t.Fatalf("unexpected second section: %+v", got[1])
 	}
 	if got[2].Path != `quo"te.txt` || got[2].Line != 9 {
 		t.Fatalf("unexpected third section: %+v", got[2])
+	}
+}
+
+func TestParseDiffSections_CountsAddedAndRemovedLines(t *testing.T) {
+	t.Parallel()
+
+	diffText := strings.Join([]string{
+		"diff --git a/foo.txt b/foo.txt",
+		"--- a/foo.txt",
+		"+++ b/foo.txt",
+		"@@ -1,2 +1,3 @@",
+		" line1",
+		"-line2",
+		"+line2 changed",
+		"+line3",
+		`diff --git "a/bar baz.txt" "b/bar baz.txt"`,
+		"--- a/bar baz.txt",
+		"+++ b/bar baz.txt",
+		"@@ -1 +1 @@",
+		"-old",
+		"+new",
+		"\\ No newline at end of file",
+	}, "\n")
+
+	got := ParseDiffSections(diffText, 2)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 sections, got %d: %+v", len(got), got)
+	}
+
+	if got[0].Path != "foo.txt" || got[0].Line != 3 || got[0].Added != 2 || got[0].Removed != 1 {
+		t.Fatalf("unexpected first section: %+v", got[0])
+	}
+	if got[1].Path != "bar baz.txt" || got[1].Line != 11 || got[1].Added != 1 || got[1].Removed != 1 {
+		t.Fatalf("unexpected second section: %+v", got[1])
 	}
 }
 
@@ -161,5 +198,8 @@ func TestDiff_PassesParentHashToBackend(t *testing.T) {
 	}
 	if len(sections) != 1 || sections[0].Path != "foo.txt" {
 		t.Fatalf("unexpected sections: %+v", sections)
+	}
+	if sections[0].Added != 0 || sections[0].Removed != 0 {
+		t.Fatalf("expected zero line counts for header-only diff, got %+v", sections[0])
 	}
 }

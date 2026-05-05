@@ -213,12 +213,18 @@ func (a *Controller) buildDiffPane(diffArea *TFrameWidget) {
 	a.bindDiffContextMenu()
 
 	fileScroll := fileFrame.TScrollbar()
-	a.ui.diffFileList = fileFrame.Listbox(Exportselection(false), Width(40))
+	a.ui.diffFileList = fileFrame.Text(
+		Wrap(NONE),
+		Width(40),
+		Exportselection(false),
+	)
 	a.ui.diffFileList.Configure(Yscrollcommand(func(e *Event) { e.ScrollSet(fileScroll) }))
+	a.ui.diffFileList.Configure(State("disabled"))
 	Grid(a.ui.diffFileList, Row(0), Column(0), Sticky(NEWS))
 	Grid(fileScroll, Row(0), Column(1), Sticky(NS))
 	fileScroll.Configure(Command(func(e *Event) { e.Yview(a.ui.diffFileList) }))
-	Bind(a.ui.diffFileList, "<<ListboxSelect>>", Command(a.onFileSelectionChanged))
+	a.applyDiffFileListStyles()
+	Bind(a.ui.diffFileList, "<Button-1>", Command(a.onFileSelectionChanged))
 	a.initDiffFileListContextMenu()
 	a.bindDiffFileListContextMenu()
 }
@@ -356,22 +362,23 @@ func (a *Controller) showDiffFileListContextMenu(e *Event) {
 	if e == nil {
 		return
 	}
-	idx := a.ui.diffFileList.Nearest(e.Y)
+	idx, ok := a.diffFileListIndexAtY(e)
+	if !ok {
+		return
+	}
 	if _, ok := diffFilePathForIndex(a.state.diff.fileSections, idx); !ok {
 		return
 	}
-	a.ui.diffFileList.SelectionClear(0, END)
-	a.ui.diffFileList.SelectionSet(idx)
-	a.ui.diffFileList.Activate(idx)
+	a.setFileListSelection(idx)
 	Popup(a.ui.diffFileContextMenu.Window, e.XRoot, e.YRoot, nil)
 }
 
 func (a *Controller) copySelectedDiffFilePath() {
-	selection := a.ui.diffFileList.Curselection()
-	if len(selection) == 0 {
+	idx := a.state.diff.selectedFileIndex
+	if idx < 0 {
 		return
 	}
-	path, ok := diffFilePathForIndex(a.state.diff.fileSections, selection[0])
+	path, ok := diffFilePathForIndex(a.state.diff.fileSections, idx)
 	if !ok {
 		return
 	}

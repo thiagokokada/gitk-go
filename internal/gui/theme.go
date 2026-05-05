@@ -43,7 +43,9 @@ type colorPalette struct {
 	ThemeName        string
 	HighlightTheme   string
 	DiffAdd          string
+	DiffAddText      string
 	DiffDel          string
+	DiffDelText      string
 	DiffHeader       string
 	LocalUnstagedRow string
 	LocalStagedRow   string
@@ -55,7 +57,9 @@ var (
 		ThemeName:        "azure light",
 		HighlightTheme:   "github",
 		DiffAdd:          "#dff5de",
+		DiffAddText:      "#1f7a1f",
 		DiffDel:          "#f9d6d5",
+		DiffDelText:      "#b42318",
 		DiffHeader:       "#e4e4e4",
 		LocalUnstagedRow: "#fde2e1",
 		LocalStagedRow:   "#e2f7e1",
@@ -75,7 +79,9 @@ var (
 		ThemeName:        "azure dark",
 		HighlightTheme:   "github-dark",
 		DiffAdd:          "#1c6135",
+		DiffAddText:      "#6ddf6d",
 		DiffDel:          "#612238",
+		DiffDelText:      "#ff7b72",
 		DiffHeader:       "#3a3a3a",
 		LocalUnstagedRow: "#4a1f23",
 		LocalStagedRow:   "#1f3b2a",

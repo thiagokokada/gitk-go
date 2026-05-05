@@ -1,12 +1,24 @@
 package gui
 
-import "github.com/thiagokokada/gitk-go/internal/git"
+import (
+	"fmt"
+
+	"github.com/thiagokokada/gitk-go/internal/git"
+)
 
 const diffCommitSectionLabel = "Commit"
 
 type diffViewModel struct {
 	sections []git.FileSection
-	labels   []string
+	rows     []diffViewRow
+}
+
+type diffViewRow struct {
+	label    string
+	addStart int
+	addEnd   int
+	delStart int
+	delEnd   int
 }
 
 func newDiffViewModel(sections []git.FileSection) diffViewModel {
@@ -15,18 +27,51 @@ func newDiffViewModel(sections []git.FileSection) diffViewModel {
 	}
 
 	augmented := make([]git.FileSection, 0, len(sections)+1)
-	augmented = append(augmented, git.FileSection{Path: diffCommitSectionLabel, Line: 1})
+	augmented = append(augmented, summarizeDiffSections(sections))
 	augmented = append(augmented, sections...)
 
-	labels := make([]string, 0, len(augmented))
+	rows := make([]diffViewRow, 0, len(augmented))
 	for _, sec := range augmented {
-		labels = append(labels, sec.Path)
+		rows = append(rows, diffSectionRow(sec))
 	}
 
 	return diffViewModel{
 		sections: augmented,
-		labels:   labels,
+		rows:     rows,
 	}
+}
+
+func summarizeDiffSections(sections []git.FileSection) git.FileSection {
+	total := git.FileSection{
+		Path: diffCommitSectionLabel,
+		Line: 1,
+	}
+	for _, section := range sections {
+		total.Added += section.Added
+		total.Removed += section.Removed
+	}
+	return total
+}
+
+func diffSectionRow(section git.FileSection) diffViewRow {
+	label := section.Path + formatDiffSectionStats(section)
+	addText := fmt.Sprintf("+%d", section.Added)
+	delText := fmt.Sprintf("-%d", section.Removed)
+	addStart := len(section.Path) + 2
+	addEnd := addStart + len(addText)
+	delStart := addEnd + 1
+	delEnd := delStart + len(delText)
+	return diffViewRow{
+		label:    label,
+		addStart: addStart,
+		addEnd:   addEnd,
+		delStart: delStart,
+		delEnd:   delEnd,
+	}
+}
+
+func formatDiffSectionStats(section git.FileSection) string {
+	return fmt.Sprintf(" (+%d -%d)", section.Added, section.Removed)
 }
 
 func diffSectionLine(sections []git.FileSection, idx int) (int, bool) {

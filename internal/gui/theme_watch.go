@@ -102,6 +102,7 @@ func (a *Controller) activateTheme(name string) error {
 func (a *Controller) refreshThemeStyles() {
 	a.applyTreeRowStyles()
 	a.applyDiffTagStyles()
+	a.applyDiffFileListStyles()
 	a.refreshSyntaxHighlight()
 	a.scheduleGraphCanvasDraw()
 }
@@ -153,6 +154,27 @@ func (a *Controller) applyDiffTagStyles() {
 	a.ui.diffDetail.TagConfigure("diffAdd", tagOpts(addColor)...)
 	a.ui.diffDetail.TagConfigure("diffDel", tagOpts(delColor)...)
 	a.ui.diffDetail.TagConfigure("diffHeader", tagOpts(headerColor)...)
+}
+
+func (a *Controller) applyDiffFileListStyles() {
+	if a.ui.diffFileList == nil {
+		return
+	}
+	addColor := a.theme.palette.DiffAddText
+	if addColor == "" {
+		addColor = lightPalette.DiffAddText
+	}
+	delColor := a.theme.palette.DiffDelText
+	if delColor == "" {
+		delColor = lightPalette.DiffDelText
+	}
+	a.ui.diffFileList.TagConfigure("diffFileAddCount", Foreground(addColor))
+	a.ui.diffFileList.TagConfigure("diffFileDelCount", Foreground(delColor))
+	selBg := a.ui.diffFileList.Selectbackground()
+	if selBg == "" {
+		return
+	}
+	a.ui.diffFileList.TagConfigure("diffFileSelected", Background(selBg))
 }
 
 func (a *Controller) refreshSyntaxHighlight() {

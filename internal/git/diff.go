@@ -45,9 +45,22 @@ func ParseDiffSections(diffText string, lineOffset int) []FileSection {
 	lines := strings.Split(diffText, "\n")
 	var sections []FileSection
 	for i, line := range lines {
-		if path, ok := DiffPathFromLine(line); ok && path != "" {
-			sections = append(sections, FileSection{Path: path, Line: lineOffset + i + 1})
+		if path, ok := DiffPathFromLine(line); ok {
+			if path != "" {
+				sections = append(sections, FileSection{Path: path, Line: lineOffset + i + 1})
+			}
+			continue
 		}
+		if len(sections) == 0 {
+			continue
+		}
+		added, removed := diffLineDelta(line)
+		if added == 0 && removed == 0 {
+			continue
+		}
+		last := &sections[len(sections)-1]
+		last.Added += added
+		last.Removed += removed
 	}
 	return sections
 }
@@ -135,5 +148,19 @@ func DiffLineCode(line string) (code string, offset int, ok bool) {
 		return line[1:], 1, true
 	default:
 		return "", 0, false
+	}
+}
+
+func diffLineDelta(line string) (added int, removed int) {
+	if line == "" {
+		return 0, 0
+	}
+	switch {
+	case strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++"):
+		return 1, 0
+	case strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---"):
+		return 0, 1
+	default:
+		return 0, 0
 	}
 }

@@ -114,7 +114,7 @@ func (a *Controller) switchRepository(path string) {
 		a.ui.filterEntry.Configure(Textvariable(""))
 	}
 	if a.ui.diffFileList != nil {
-		a.ui.diffFileList.Delete(0, END)
+		a.ui.diffFileList.Delete("1.0", END)
 	}
 
 	a.setLocalRowVisibility(false, false)

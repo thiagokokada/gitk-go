@@ -51,4 +51,7 @@ func TestWorktreeDiff_PrependsHeaderAndOffsetsSections(t *testing.T) {
 	if sections[0].Line != 2 {
 		t.Fatalf("expected section line=2, got %d", sections[0].Line)
 	}
+	if sections[0].Added != 0 || sections[0].Removed != 0 {
+		t.Fatalf("expected zero line counts for header-only diff, got %+v", sections[0])
+	}
 }
