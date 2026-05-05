@@ -104,37 +104,13 @@ func (a *Controller) applyDiffPatch(patch string, reverse bool, actionLabel stri
 				a.setStatus(fmt.Sprintf("%s failed: %v", actionLabel, err))
 				return
 			}
+			a.resetLocalDiffState(false)
+			a.resetLocalDiffState(true)
 			if stagedSelection, ok := a.state.selection.LocalSelection(); ok {
-				if a.optimisticRemoveDiffPatch(stagedSelection, patch) {
-					a.refreshLocalChangesAsync(true)
-					a.setStatus(actionLabel + " done.")
-					return
-				}
-				a.resetLocalDiffState(false)
-				a.resetLocalDiffState(true)
 				a.renderLocalChanges(stagedSelection, true)
 			}
 			a.refreshLocalChangesAsync(true)
 			a.setStatus(actionLabel + " done.")
 		}, false)
 	}(patch, reverse, actionLabel)
-}
-
-func (a *Controller) optimisticRemoveDiffPatch(staged bool, patch string) bool {
-	if a.ui.diffDetail == nil {
-		return false
-	}
-	diffText := a.ui.diffDetail.Get("1.0", "end-1c")[0]
-	displayText, sections, ok := removePatchFromDiffText(diffText, patch)
-	if !ok {
-		return false
-	}
-	topLine := a.diffTopLine()
-	a.writeDetailText(displayText, len(sections) > 0)
-	if topLine > 0 {
-		a.scrollDiffToLine(topLine)
-	}
-	a.setFileSections(sections)
-	a.addInlineDiffActions(staged, displayText)
-	return true
 }
