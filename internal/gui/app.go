@@ -171,8 +171,7 @@ func (a *Controller) showCommitDetails(entry *git.Entry, index int) {
 	header := git.FormatCommitHeader(entry.Commit)
 	hash := entry.Commit.Hash
 	a.state.selection.SetCommit(entry, index)
-	a.setFileSections(nil)
-	a.writeDetailText(header+"\nLoading diff...", false)
+	a.showDiffStatus(header, "Loading diff...")
 	a.scheduleDiffLoad(entry, hash)
 }
 
@@ -230,21 +229,19 @@ func (a *Controller) renderLocalChanges(staged bool, requestReload bool) {
 
 func (a *Controller) presentLocalDiff(header string, snap localDiffSnapshot) {
 	if !snap.ready {
-		a.clearDetailText(fmt.Sprintf("%s\nLoading local changes...", header))
+		a.showDiffStatus(header, "Loading local changes...")
 		return
 	}
 	if snap.err != nil {
-		a.clearDetailText(fmt.Sprintf("%s\nUnable to compute diff: %v", header, snap.err))
+		a.showDiffStatus(header, fmt.Sprintf("Unable to compute diff: %v", snap.err))
 		return
 	}
 	diff := snap.diff
 	if strings.TrimSpace(diff) == "" {
-		a.clearDetailText(fmt.Sprintf("%s\nNo changes.", header))
+		a.showDiffStatus(header, "No changes.")
 		return
 	}
-	diff, sections := prepareDiffDisplay(diff, snap.sections)
-	a.writeDetailText(diff, len(sections) > 0)
-	a.setFileSections(sections)
+	a.showRenderedDiff(diff, snap.sections)
 }
 
 func (a *Controller) snapshotLocalDiff(staged bool) localDiffSnapshot {
@@ -333,14 +330,11 @@ func (a *Controller) populateDiff(entry *git.Entry, hash string) {
 	if err != nil {
 		diff = fmt.Sprintf("Unable to compute diff: %v", err)
 	}
-	diff, sections = prepareDiffDisplay(diff, sections)
-	highlight := len(sections) > 0
 	PostEvent(func() {
 		if a.currentSelection() != hash {
 			return
 		}
-		a.writeDetailText(diff, highlight)
-		a.setFileSections(sections)
+		a.showRenderedDiff(diff, sections)
 	}, false)
 }
 
