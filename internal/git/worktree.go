@@ -28,6 +28,6 @@ func (s *Service) WorktreeDiff(staged bool) (string, []FileSection, error) {
 		b.WriteByte('\n')
 	}
 	lineOffset := strings.Count(header, "\n")
-	sections := parseGitDiffSections(diffText, lineOffset)
+	sections := ParseDiffSections(diffText, lineOffset)
 	return b.String(), sections, nil
 }

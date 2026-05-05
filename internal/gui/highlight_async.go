@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 
 	"github.com/alecthomas/chroma/v2"
+	"github.com/thiagokokada/gitk-go/internal/git"
 	. "modernc.org/tk9.0"
 )
 
@@ -66,7 +67,7 @@ func (a *Controller) computeSyntaxHighlight(content string, style *chroma.Style,
 			return
 		}
 		lineNo := i + 1
-		if path, ok := diffPathFromLine(line); ok {
+		if path, ok := git.DiffPathFromLine(line); ok {
 			currentLexer = nil
 			skipFile = false
 			currentPath = path
@@ -81,7 +82,7 @@ func (a *Controller) computeSyntaxHighlight(content string, style *chroma.Style,
 		if currentLexer == nil || skipFile {
 			continue
 		}
-		code, offset, ok := diffLineCode(line)
+		code, offset, ok := git.DiffLineCode(line)
 		if !ok {
 			continue
 		}

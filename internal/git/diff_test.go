@@ -18,7 +18,7 @@ func TestParseGitDiffSections(t *testing.T) {
 		"not a diff line",
 	}, "\n")
 
-	got := parseGitDiffSections(diffText, 5)
+	got := ParseDiffSections(diffText, 5)
 	if len(got) != 3 {
 		t.Fatalf("expected 3 sections, got %d: %+v", len(got), got)
 	}
@@ -30,6 +30,62 @@ func TestParseGitDiffSections(t *testing.T) {
 	}
 	if got[2].Path != `quo"te.txt` || got[2].Line != 9 {
 		t.Fatalf("unexpected third section: %+v", got[2])
+	}
+}
+
+func TestDiffPathFromLine(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		line   string
+		want   string
+		wantOK bool
+	}{
+		{line: "diff --git a/foo.txt b/foo.txt", want: "foo.txt", wantOK: true},
+		{line: `diff --git "a/space name.txt" "b/space name.txt"`, want: "space name.txt", wantOK: true},
+		{line: "diff --git a/onlyone", want: "", wantOK: true},
+		{line: "not a diff line", want: "", wantOK: false},
+	}
+
+	for _, tc := range tests {
+		got, ok := DiffPathFromLine(tc.line)
+		if got != tc.want || ok != tc.wantOK {
+			t.Fatalf("line=%q: want (%q,%v), got (%q,%v)", tc.line, tc.want, tc.wantOK, got, ok)
+		}
+	}
+}
+
+func TestDiffLineCode(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		line       string
+		wantCode   string
+		wantOffset int
+		wantOK     bool
+	}{
+		{line: "+added", wantCode: "added", wantOffset: 1, wantOK: true},
+		{line: "-removed", wantCode: "removed", wantOffset: 1, wantOK: true},
+		{line: " context", wantCode: "context", wantOffset: 1, wantOK: true},
+		{line: "+++ b/foo.txt", wantCode: "", wantOffset: 0, wantOK: false},
+		{line: "\\ No newline at end of file", wantCode: "", wantOffset: 0, wantOK: false},
+		{line: "@@ -1 +1 @@", wantCode: "", wantOffset: 0, wantOK: false},
+	}
+
+	for _, tc := range tests {
+		code, offset, ok := DiffLineCode(tc.line)
+		if code != tc.wantCode || offset != tc.wantOffset || ok != tc.wantOK {
+			t.Fatalf(
+				"line=%q: want (%q,%d,%v), got (%q,%d,%v)",
+				tc.line,
+				tc.wantCode,
+				tc.wantOffset,
+				tc.wantOK,
+				code,
+				offset,
+				ok,
+			)
+		}
 	}
 }
 

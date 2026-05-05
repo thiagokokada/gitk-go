@@ -27,7 +27,7 @@ func (s *Service) Diff(commit *Commit) (string, []FileSection, error) {
 		b.WriteByte('\n')
 	}
 	lineOffset := strings.Count(header, "\n")
-	sections := parseGitDiffSections(diffText, lineOffset)
+	sections := ParseDiffSections(diffText, lineOffset)
 	return b.String(), sections, nil
 }
 
@@ -39,30 +39,32 @@ func (s *Service) commitDiffText(commit *Commit) (string, error) {
 	return s.backend.CommitDiffText(commit.Hash, "")
 }
 
-func parseGitDiffSections(diffText string, lineOffset int) []FileSection {
+// ParseDiffSections returns one file section per "diff --git" header in the
+// provided unified diff text, offset by the number of preceding lines.
+func ParseDiffSections(diffText string, lineOffset int) []FileSection {
 	lines := strings.Split(diffText, "\n")
 	var sections []FileSection
 	for i, line := range lines {
-		if !strings.HasPrefix(line, "diff --git ") {
-			continue
-		}
-		if path := parseGitDiffPath(line); path != "" {
+		if path, ok := DiffPathFromLine(line); ok && path != "" {
 			sections = append(sections, FileSection{Path: path, Line: lineOffset + i + 1})
 		}
 	}
 	return sections
 }
 
-func parseGitDiffPath(line string) string {
+// DiffPathFromLine extracts the normalized file path from a "diff --git" line.
+// The boolean reports whether the line is a diff header, even when the path is
+// malformed or incomplete.
+func DiffPathFromLine(line string) (path string, ok bool) {
 	const prefix = "diff --git "
 	if !strings.HasPrefix(line, prefix) {
-		return ""
+		return "", false
 	}
 	tokens := diffLineTokens(strings.TrimSpace(line[len(prefix):]))
 	if len(tokens) < 2 {
-		return ""
+		return "", true
 	}
-	return normalizeDiffPath(tokens[1])
+	return normalizeDiffPath(tokens[1]), true
 }
 
 func diffLineTokens(s string) []string {
@@ -114,4 +116,24 @@ func normalizeDiffPath(token string) string {
 	token = strings.TrimPrefix(token, "a/")
 	token = strings.TrimPrefix(token, "b/")
 	return token
+}
+
+// DiffLineCode returns the code portion of a unified diff line, excluding the
+// leading diff marker, plus the rune offset where that code begins.
+func DiffLineCode(line string) (code string, offset int, ok bool) {
+	if line == "" {
+		return "", 0, false
+	}
+	switch line[0] {
+	case '+', '-', ' ':
+		if strings.HasPrefix(line, "+++") || strings.HasPrefix(line, "---") {
+			return "", 0, false
+		}
+		if strings.HasPrefix(line, "\\ ") {
+			return "", 0, false
+		}
+		return line[1:], 1, true
+	default:
+		return "", 0, false
+	}
 }
