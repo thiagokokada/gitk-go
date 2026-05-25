@@ -21,13 +21,13 @@ func (a *Controller) onTreeSelectionChanged() {
 	}
 	plan := a.model.treeSelectionPlan(sel[0])
 	switch plan.kind {
-	case treeSelectionNone, treeSelectionClear:
-		return
 	case treeSelectionLocal:
 		a.showLocalChanges(plan.staged)
 		return
 	case treeSelectionCommit:
 		a.showCommitDetails(plan.entry, plan.index)
+	default:
+		return
 	}
 }
 

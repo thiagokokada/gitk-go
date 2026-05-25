@@ -2,6 +2,7 @@ package gui
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/thiagokokada/gitk-go/internal/git"
 	"github.com/thiagokokada/gitk-go/internal/gui/widgets"
@@ -129,10 +130,7 @@ func (m *appModel) filterSelectionPlan() selectionDisplayPlan {
 			message: m.emptyCommitMessage(),
 		}
 	}
-	index := m.state.selection.CommitIndex(m.data.visible)
-	if index < 0 {
-		index = 0
-	}
+	index := max(m.state.selection.CommitIndex(m.data.visible), 0)
 	entry, ok := m.commitEntryAt(index)
 	if !ok {
 		return selectionDisplayPlan{}
@@ -199,7 +197,7 @@ func newDiffState() diffState {
 }
 
 type diffState struct {
-	syntaxGeneration      uint64
+	syntaxGeneration      atomic.Uint64
 	fileSections          []git.FileSection
 	syntaxTags            map[string]string
 	selectedFileIndex     int
@@ -255,7 +253,7 @@ func (d *diffState) finishProgrammaticFileSelection() {
 	d.suppressFileSelection = false
 }
 
-func (d diffState) selectedFilePath() (string, bool) {
+func (d *diffState) selectedFilePath() (string, bool) {
 	if d.selectedFileIndex < 0 {
 		return "", false
 	}

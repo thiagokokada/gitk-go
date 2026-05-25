@@ -119,19 +119,19 @@ func TestEnsureReturnsExisting(t *testing.T) {
 }
 
 func TestEnsureReusesDebouncer(t *testing.T) {
-	var called int32
-	handler := func() { atomic.AddInt32(&called, 1) }
+	var called atomic.Int32
+	handler := func() { called.Add(1) }
 	var d *Debouncer
 	first := Ensure(&d, 5*time.Millisecond, handler)
 	second := Ensure(&d, 5*time.Millisecond, func() {
-		atomic.AddInt32(&called, 10)
+		called.Add(10)
 	})
 	if first != second {
 		t.Fatal("Ensure should not allocate a new debouncer when already set")
 	}
 	first.Trigger()
 	time.Sleep(20 * time.Millisecond)
-	if atomic.LoadInt32(&called) != 1 {
+	if called.Load() != 1 {
 		t.Fatalf("new handler should not replace existing debouncer")
 	}
 }

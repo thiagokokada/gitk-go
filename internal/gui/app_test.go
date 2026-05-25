@@ -156,21 +156,3 @@ func TestPaletteForPreference(t *testing.T) {
 		t.Fatalf("explicit dark preference should use dark palette, got %+v", pal)
 	}
 }
-
-func TestVisibleSelectionIndex(t *testing.T) {
-	ctrl := &Controller{}
-	h1 := strings.Repeat("a", 40)
-	h2 := strings.Repeat("b", 40)
-	ctrl.model.data.visible = []*git.Entry{
-		{Commit: &git.Commit{Hash: h1}},
-		{Commit: &git.Commit{Hash: h2}},
-	}
-	ctrl.model.state.selection.SetCommit(ctrl.model.data.visible[1], 1)
-	if idx := ctrl.visibleSelectionIndex(); idx != 1 {
-		t.Fatalf("expected selection index 1, got %d", idx)
-	}
-	ctrl.model.state.selection.SetCommit(&git.Entry{Commit: &git.Commit{Hash: strings.Repeat("c", 40)}}, 0)
-	if idx := ctrl.visibleSelectionIndex(); idx != -1 {
-		t.Fatalf("expected -1 for missing hash, got %d", idx)
-	}
-}

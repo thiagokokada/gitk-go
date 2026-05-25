@@ -100,6 +100,7 @@ func (a *Controller) configureDebouncedActions() {
 
 func (a *Controller) Run() error {
 	defer a.shutdown()
+
 	a.configureLogging()
 	if err := a.initializeTkRuntime(); err != nil {
 		return err
@@ -107,7 +108,12 @@ func (a *Controller) Run() error {
 	a.buildUI()
 	a.startRuntimeServices()
 	a.startInitialDataLoads()
-	return a.enterMainLoop()
+
+	App.WmTitle("gitk-go")
+	App.SetResizable(true, true)
+	App.Center().Wait()
+
+	return nil
 }
 
 func (a *Controller) configureLogging() {
@@ -138,13 +144,6 @@ func (a *Controller) startInitialDataLoads() {
 	a.setStatus("Loading commits...")
 	a.refreshLocalChangesAsync(true)
 	a.reloadCommitsAsync()
-}
-
-func (a *Controller) enterMainLoop() error {
-	App.WmTitle("gitk-go")
-	App.SetResizable(true, true)
-	App.Center().Wait()
-	return nil
 }
 
 func (a *Controller) loadBranchLabels() error {

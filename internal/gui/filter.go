@@ -115,10 +115,6 @@ func (a *Controller) treeChildCount() int {
 	return len(a.ui.treeView.Children(""))
 }
 
-func (a *Controller) visibleSelectionIndex() int {
-	return a.model.state.selection.CommitIndex(a.model.data.visible)
-}
-
 func (a *Controller) scheduleFilterApply(raw string) {
 	if raw == "" {
 		a.applyFilterImmediate("")
