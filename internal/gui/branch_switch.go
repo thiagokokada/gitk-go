@@ -5,7 +5,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/thiagokokada/gitk-go/internal/gui/selection"
 	. "modernc.org/tk9.0"
 )
 
@@ -241,13 +240,8 @@ func (a *Controller) switchBranchAsync(branch string) {
 			}
 
 			a.cancelPendingDiffLoad()
-			a.repo.headRef = ""
-			a.data.commits = nil
-			a.data.visible = nil
 			a.clearTreeRows()
-			a.state.tree = treeState{}
-			a.state.localDiff = localDiffCache{}
-			a.state.selection = selection.State{}
+			a.model.resetBranch()
 
 			a.setFileSections(nil)
 			a.setLocalRowVisibility(false, false)

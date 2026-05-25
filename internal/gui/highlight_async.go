@@ -44,16 +44,16 @@ func (a *Controller) startSyntaxHighlight(content string) {
 	if style == nil {
 		return
 	}
-	gen := atomic.AddUint64(&a.state.diff.syntaxGeneration, 1)
+	gen := atomic.AddUint64(&a.model.state.diff.syntaxGeneration, 1)
 	go a.computeSyntaxHighlight(content, style, gen)
 }
 
 func (a *Controller) cancelSyntaxHighlight() {
-	atomic.AddUint64(&a.state.diff.syntaxGeneration, 1)
+	atomic.AddUint64(&a.model.state.diff.syntaxGeneration, 1)
 }
 
 func (a *Controller) syntaxHighlightCanceled(gen uint64) bool {
-	return gen != atomic.LoadUint64(&a.state.diff.syntaxGeneration)
+	return gen != atomic.LoadUint64(&a.model.state.diff.syntaxGeneration)
 }
 
 func (a *Controller) computeSyntaxHighlight(content string, style *chroma.Style, gen uint64) {

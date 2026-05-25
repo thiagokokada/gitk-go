@@ -189,7 +189,7 @@ func (a *Controller) refreshSyntaxHighlight() {
 }
 
 func (a *Controller) shouldHighlightDiff() bool {
-	return len(a.state.diff.fileSections) > 0
+	return len(a.model.state.diff.fileSections) > 0
 }
 
 func (a *Controller) currentDiffText() string {

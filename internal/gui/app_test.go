@@ -40,20 +40,22 @@ func TestFilterEntries(t *testing.T) {
 
 func TestStatusSummary(t *testing.T) {
 	ctrl := &Controller{
-		repo: controllerRepo{
-			path:    "/repo/path",
-			headRef: "main",
-		},
-		data: controllerData{
-			commits: []*git.Entry{{}, {}},
-			visible: []*git.Entry{{}},
-		},
-		state: controllerState{
-			tree: treeState{
-				hasMore: true,
+		model: appModel{
+			repo: controllerRepo{
+				path:    "/repo/path",
+				headRef: "main",
 			},
-			filter: filterState{
-				value: "feature",
+			data: controllerData{
+				commits: []*git.Entry{{}, {}},
+				visible: []*git.Entry{{}},
+			},
+			state: controllerState{
+				tree: treeState{
+					hasMore: true,
+				},
+				filter: filterState{
+					value: "feature",
+				},
 			},
 		},
 	}
@@ -159,15 +161,15 @@ func TestVisibleSelectionIndex(t *testing.T) {
 	ctrl := &Controller{}
 	h1 := strings.Repeat("a", 40)
 	h2 := strings.Repeat("b", 40)
-	ctrl.data.visible = []*git.Entry{
+	ctrl.model.data.visible = []*git.Entry{
 		{Commit: &git.Commit{Hash: h1}},
 		{Commit: &git.Commit{Hash: h2}},
 	}
-	ctrl.state.selection.SetCommit(ctrl.data.visible[1], 1)
+	ctrl.model.state.selection.SetCommit(ctrl.model.data.visible[1], 1)
 	if idx := ctrl.visibleSelectionIndex(); idx != 1 {
 		t.Fatalf("expected selection index 1, got %d", idx)
 	}
-	ctrl.state.selection.SetCommit(&git.Entry{Commit: &git.Commit{Hash: strings.Repeat("c", 40)}}, 0)
+	ctrl.model.state.selection.SetCommit(&git.Entry{Commit: &git.Commit{Hash: strings.Repeat("c", 40)}}, 0)
 	if idx := ctrl.visibleSelectionIndex(); idx != -1 {
 		t.Fatalf("expected -1 for missing hash, got %d", idx)
 	}

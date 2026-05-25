@@ -3,10 +3,39 @@ package gui
 import (
 	"sync"
 
-	"github.com/thiagokokada/gitk-go/internal/debounce"
 	"github.com/thiagokokada/gitk-go/internal/git"
 	"github.com/thiagokokada/gitk-go/internal/gui/widgets"
 )
+
+func newAppModel(repoPath string) appModel {
+	return appModel{
+		repo: controllerRepo{
+			path: repoPath,
+		},
+		state: controllerState{
+			tree:      newTreeState(),
+			diff:      newDiffState(),
+			localDiff: newLocalDiffCache(),
+		},
+	}
+}
+
+func (m *appModel) resetRepository(repoPath string) {
+	*m = newAppModel(repoPath)
+}
+
+func (m *appModel) resetBranch() {
+	filterValue := m.state.filter.value
+	repoPath := m.repo.path
+	*m = newAppModel(repoPath)
+	m.state.filter.value = filterValue
+}
+
+func newDiffState() diffState {
+	return diffState{
+		syntaxTags: make(map[string]string),
+	}
+}
 
 type diffState struct {
 	syntaxGeneration      uint64
@@ -15,8 +44,6 @@ type diffState struct {
 	selectedFileIndex     int
 	suppressFileSelection bool
 	skipNextSync          bool
-
-	debounce debounce.Action[diffRequest]
 }
 
 type diffRequest struct {
@@ -37,6 +64,12 @@ type treeState struct {
 	graphCanvas *widgets.GraphCanvas
 }
 
+func newTreeState() treeState {
+	return treeState{
+		branchLabels: make(map[string][]string),
+	}
+}
+
 type treeRowState struct {
 	commitIDs     map[string]struct{}
 	visibleByID   map[string]int
@@ -48,8 +81,6 @@ type treeRowState struct {
 
 type filterState struct {
 	value string
-
-	debounce debounce.Action[string]
 }
 
 type scrollState struct {
@@ -60,6 +91,10 @@ type scrollState struct {
 type localDiffCache struct {
 	mu    sync.Mutex
 	items map[bool]*localDiffState
+}
+
+func newLocalDiffCache() localDiffCache {
+	return localDiffCache{items: make(map[bool]*localDiffState)}
 }
 
 func (c *localDiffCache) state(staged bool, create bool) *localDiffState {

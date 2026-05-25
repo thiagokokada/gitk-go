@@ -15,13 +15,13 @@ func (a *Controller) applyFilter(raw string) {
 }
 
 func (a *Controller) applyFilterState(raw string) {
-	a.state.filter.value = raw
-	a.data.visible = filterEntries(a.data.commits, raw)
-	a.state.tree.rows.setVisibleIndex(a.data.visible)
+	a.model.state.filter.value = raw
+	a.model.data.visible = filterEntries(a.model.data.commits, raw)
+	a.model.state.tree.rows.setVisibleIndex(a.model.data.visible)
 }
 
 func (a *Controller) applyFilterImmediate(raw string) {
-	a.state.filter.debounce.Stop()
+	a.runtime.actions.filterDebounce.Stop()
 	a.applyFilter(raw)
 }
 
@@ -31,10 +31,10 @@ func (a *Controller) applyFilterContent(raw string) {
 		return
 	}
 	autoLoad := shouldAutoLoadForFilter(
-		a.state.filter.value,
-		len(a.data.visible),
-		a.state.tree.hasMore,
-		a.state.tree.loadingBatch,
+		a.model.state.filter.value,
+		len(a.model.data.visible),
+		a.model.state.tree.hasMore,
+		a.model.state.tree.loadingBatch,
 	)
 	a.storeScrollState()
 	if autoLoad {
@@ -42,9 +42,9 @@ func (a *Controller) applyFilterContent(raw string) {
 	}
 	a.syncTreeRows()
 
-	if staged, ok := a.state.selection.LocalSelection(); ok {
+	if staged, ok := a.model.state.selection.LocalSelection(); ok {
 		id := localRowID(staged)
-		if a.state.tree.rows.hasSpecialItem(id) {
+		if a.model.state.tree.rows.hasSpecialItem(id) {
 			a.ui.treeView.Selection("set", id)
 			a.ui.treeView.Focus(id)
 			a.ui.treeView.See(id)
@@ -56,8 +56,8 @@ func (a *Controller) applyFilterContent(raw string) {
 		}
 	}
 
-	if len(a.data.visible) == 0 {
-		if len(a.data.commits) == 0 {
+	if len(a.model.data.visible) == 0 {
+		if len(a.model.data.commits) == 0 {
 			a.clearDetailText("Repository has no commits yet.")
 		} else {
 			a.clearDetailText("No commits match the current filter.")
@@ -67,7 +67,7 @@ func (a *Controller) applyFilterContent(raw string) {
 	}
 
 	index := a.visibleSelectionIndex()
-	if index < 0 && len(a.data.visible) > 0 {
+	if index < 0 && len(a.model.data.visible) > 0 {
 		index = 0
 	}
 	if index >= 0 {
@@ -78,7 +78,7 @@ func (a *Controller) applyFilterContent(raw string) {
 				a.ui.treeView.Focus(id)
 				a.ui.treeView.See(id)
 			}
-			if entry.Commit != nil && entry.Commit.Hash != a.state.selection.CommitHash() {
+			if entry.Commit != nil && entry.Commit.Hash != a.model.state.selection.CommitHash() {
 				a.showCommitDetails(entry, index)
 			}
 		}
@@ -90,17 +90,17 @@ func (a *Controller) applyFilterContent(raw string) {
 }
 
 func (a *Controller) storeScrollState() {
-	a.state.scroll.total = a.treeChildCount()
-	if a.state.scroll.total > 0 {
+	a.model.state.scroll.total = a.treeChildCount()
+	if a.model.state.scroll.total > 0 {
 		if start, _, err := a.treeYviewRange(); err == nil {
-			a.state.scroll.start = start
+			a.model.state.scroll.start = start
 		}
 	}
 }
 
 func (a *Controller) restoreScrollState() {
 	newTotal := a.treeChildCount()
-	target, ok := a.state.scroll.restoreTarget(newTotal)
+	target, ok := a.model.state.scroll.restoreTarget(newTotal)
 	if !ok {
 		return
 	}
@@ -116,7 +116,7 @@ func (a *Controller) treeChildCount() int {
 }
 
 func (a *Controller) visibleSelectionIndex() int {
-	return a.state.selection.CommitIndex(a.data.visible)
+	return a.model.state.selection.CommitIndex(a.model.data.visible)
 }
 
 func (a *Controller) scheduleFilterApply(raw string) {
@@ -125,16 +125,16 @@ func (a *Controller) scheduleFilterApply(raw string) {
 		return
 	}
 	slog.Debug("scheduleFilterApply", slog.String("value", raw))
-	a.state.filter.debounce.Trigger(raw)
+	a.runtime.actions.filterDebounce.Trigger(raw)
 }
 
 func (a *Controller) scheduleFilterApplyState(raw string) {
 	if raw == "" {
-		a.state.filter.debounce.Stop()
+		a.runtime.actions.filterDebounce.Stop()
 		a.applyFilterState("")
 		return
 	}
-	a.state.filter.debounce.SetPending(raw)
+	a.runtime.actions.filterDebounce.SetPending(raw)
 }
 
 func shouldAutoLoadForFilter(filterValue string, visibleLen int, hasMore bool, loadingBatch bool) bool {

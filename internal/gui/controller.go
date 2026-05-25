@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"github.com/thiagokokada/gitk-go/internal/debounce"
 	"github.com/thiagokokada/gitk-go/internal/git"
 	"github.com/thiagokokada/gitk-go/internal/gui/selection"
 )
@@ -9,15 +10,14 @@ type Controller struct {
 	svc *git.Service
 
 	cfg   controllerConfig
-	repo  controllerRepo
 	theme controllerTheme
 	fonts controllerFonts
 	prefs controllerPreferences
-	data  controllerData
 
 	ui appWidgets
 
-	state controllerState
+	model   appModel
+	runtime controllerRuntime
 }
 
 type controllerConfig struct {
@@ -45,6 +45,12 @@ type controllerPreferences struct {
 	fixedFontSpec []string
 }
 
+type appModel struct {
+	repo  controllerRepo
+	data  controllerData
+	state controllerState
+}
+
 type controllerData struct {
 	commits []*git.Entry
 	visible []*git.Entry
@@ -57,5 +63,14 @@ type controllerState struct {
 	localDiff localDiffCache
 	scroll    scrollState
 	selection selection.State
-	watch     autoReloadState
+}
+
+type controllerRuntime struct {
+	actions controllerActions
+	watch   autoReloadState
+}
+
+type controllerActions struct {
+	filterDebounce debounce.Action[string]
+	diffDebounce   debounce.Action[diffRequest]
 }
