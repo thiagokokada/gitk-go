@@ -103,16 +103,16 @@ func (a *Controller) promptBranchSwitch() {
 }
 
 func (a *Controller) showBranchSwitchDialog(branches []string, current string) {
-	if a.ui.branchWindow != nil {
-		Destroy(a.ui.branchWindow.Window)
-		a.ui.branchWindow = nil
+	if a.ui.BranchWindow != nil {
+		Destroy(a.ui.BranchWindow.Window)
+		a.ui.BranchWindow = nil
 	}
 
 	all := buildBranchChoices(branches, current)
 	visible := all
 
 	dialog := App.Toplevel()
-	a.ui.branchWindow = dialog
+	a.ui.BranchWindow = dialog
 	dialog.WmTitle("Switch Branch")
 	WmTransient(dialog.Window, App)
 	WmAttributes(dialog.Window, "-topmost", 1)
@@ -184,8 +184,8 @@ func (a *Controller) showBranchSwitchDialog(branches []string, current string) {
 	Bind(dialog.Window, "<KeyPress-Escape>", Command(func() { Destroy(dialog.Window) }))
 	Bind(dialog.Window, "<KeyPress-Return>", Command(func() { a.applyBranchChoiceSelection(dialog, list, visible) }))
 	Bind(dialog.Window, "<Destroy>", Command(func() {
-		if a.ui.branchWindow == dialog {
-			a.ui.branchWindow = nil
+		if a.ui.BranchWindow == dialog {
+			a.ui.BranchWindow = nil
 		}
 	}))
 
@@ -241,7 +241,7 @@ func (a *Controller) switchBranchAsync(branch string) {
 
 			a.cancelPendingDiffLoad()
 			a.clearTreeRows()
-			a.model.resetBranch()
+			a.model.ResetBranch()
 
 			a.setFileSections(nil)
 			a.setLocalRowVisibility(false, false)

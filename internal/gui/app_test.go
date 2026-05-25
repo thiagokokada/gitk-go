@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/thiagokokada/gitk-go/internal/git"
+	"github.com/thiagokokada/gitk-go/internal/gui/model"
 )
 
 func TestFormatGraphValue(t *testing.T) {
@@ -40,21 +41,21 @@ func TestFilterEntries(t *testing.T) {
 
 func TestStatusSummary(t *testing.T) {
 	ctrl := &Controller{
-		model: appModel{
-			repo: controllerRepo{
-				path:    "/repo/path",
-				headRef: "main",
+		model: model.App{
+			Repo: model.Repository{
+				Path:    "/repo/path",
+				HeadRef: "main",
 			},
-			data: controllerData{
-				commits: []*git.Entry{{}, {}},
-				visible: []*git.Entry{{}},
+			Data: model.Data{
+				Commits: []*git.Entry{{}, {}},
+				Visible: []*git.Entry{{}},
 			},
-			state: controllerState{
-				tree: treeState{
-					hasMore: true,
+			State: model.State{
+				Tree: model.TreeState{
+					HasMore: true,
 				},
-				filter: filterState{
-					value: "feature",
+				Filter: model.FilterState{
+					Value: "feature",
 				},
 			},
 		},

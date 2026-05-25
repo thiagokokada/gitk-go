@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/thiagokokada/gitk-go/internal/git"
+	"github.com/thiagokokada/gitk-go/internal/gui/model"
 	"github.com/thiagokokada/gitk-go/internal/gui/selection"
 )
 
@@ -14,18 +15,18 @@ func TestSelectionMatchesTreeID(t *testing.T) {
 	}
 
 	sel.SetLocal(false)
-	if !selectionMatchesTreeID(&sel, localUnstagedRowID) {
+	if !selectionMatchesTreeID(&sel, model.LocalUnstagedRowID) {
 		t.Fatalf("expected local unstaged selection to match")
 	}
-	if selectionMatchesTreeID(&sel, localStagedRowID) {
+	if selectionMatchesTreeID(&sel, model.LocalStagedRowID) {
 		t.Fatalf("expected local unstaged selection to not match staged row")
 	}
 
 	sel.SetLocal(true)
-	if !selectionMatchesTreeID(&sel, localStagedRowID) {
+	if !selectionMatchesTreeID(&sel, model.LocalStagedRowID) {
 		t.Fatalf("expected local staged selection to match")
 	}
-	if selectionMatchesTreeID(&sel, localUnstagedRowID) {
+	if selectionMatchesTreeID(&sel, model.LocalUnstagedRowID) {
 		t.Fatalf("expected local staged selection to not match unstaged row")
 	}
 
@@ -37,7 +38,7 @@ func TestSelectionMatchesTreeID(t *testing.T) {
 	if selectionMatchesTreeID(&sel, "def") {
 		t.Fatalf("expected commit selection to not match other hash")
 	}
-	if selectionMatchesTreeID(&sel, localUnstagedRowID) {
+	if selectionMatchesTreeID(&sel, model.LocalUnstagedRowID) {
 		t.Fatalf("expected commit selection to not match local row")
 	}
 }

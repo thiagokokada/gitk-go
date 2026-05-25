@@ -3,7 +3,9 @@ package gui
 import (
 	"github.com/thiagokokada/gitk-go/internal/debounce"
 	"github.com/thiagokokada/gitk-go/internal/git"
-	"github.com/thiagokokada/gitk-go/internal/gui/selection"
+	"github.com/thiagokokada/gitk-go/internal/gui/model"
+	"github.com/thiagokokada/gitk-go/internal/gui/view"
+	"github.com/thiagokokada/gitk-go/internal/gui/widgets"
 )
 
 type Controller struct {
@@ -13,9 +15,9 @@ type Controller struct {
 	theme controllerTheme
 	prefs controllerPreferences
 
-	ui appWidgets
+	ui view.App
 
-	model   appModel
+	model   model.App
 	runtime controllerRuntime
 }
 
@@ -25,11 +27,6 @@ type controllerConfig struct {
 	autoReloadRequested bool
 	syntaxHighlight     bool
 	verbose             bool
-}
-
-type controllerRepo struct {
-	path    string
-	headRef string
 }
 
 type controllerTheme struct {
@@ -44,32 +41,13 @@ type controllerPreferences struct {
 	fixedFontSpec []string
 }
 
-type appModel struct {
-	repo  controllerRepo
-	data  controllerData
-	state controllerState
-}
-
-type controllerData struct {
-	commits []*git.Entry
-	visible []*git.Entry
-}
-
-type controllerState struct {
-	tree      treeState
-	diff      diffState
-	filter    filterState
-	localDiff localDiffCache
-	scroll    scrollState
-	selection selection.State
-}
-
 type controllerRuntime struct {
-	actions controllerActions
-	watch   autoReloadState
+	actions     controllerActions
+	watch       autoReloadState
+	graphCanvas *widgets.GraphCanvas
 }
 
 type controllerActions struct {
 	filterDebounce debounce.Action[string]
-	diffDebounce   debounce.Action[diffRequest]
+	diffDebounce   debounce.Action[model.DiffRequest]
 }

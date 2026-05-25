@@ -4,19 +4,10 @@ import (
 	"strings"
 
 	"github.com/thiagokokada/gitk-go/internal/git"
+	"github.com/thiagokokada/gitk-go/internal/gui/model"
 )
 
-type treeRow struct {
-	ID     string
-	Graph  string
-	Commit string
-	Author string
-	Date   string
-}
-
-func (r treeRow) values() []string {
-	return []string{r.Graph, r.Commit, r.Author, r.Date}
-}
+type treeRow = model.TreeRow
 
 func buildTreeRows(entries []*git.Entry, labels map[string][]string, graphCanvas bool) []treeRow {
 	if len(entries) == 0 {

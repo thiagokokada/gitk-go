@@ -3,6 +3,8 @@ package gui
 import (
 	"testing"
 	"time"
+
+	"github.com/thiagokokada/gitk-go/internal/gui/model"
 )
 
 func TestScrollRestoreTarget(t *testing.T) {
@@ -25,8 +27,8 @@ func TestScrollRestoreTarget(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			state := scrollState{start: tc.prevStart, total: tc.prevTotal}
-			got, ok := state.restoreTarget(tc.newTotal)
+			state := model.ScrollState{Start: tc.prevStart, Total: tc.prevTotal}
+			got, ok := state.RestoreTarget(tc.newTotal)
 			if ok != tc.wantOK {
 				t.Fatalf("want ok=%v, got %v (target=%f)", tc.wantOK, ok, got)
 			}
@@ -50,7 +52,7 @@ func TestApplyFilterDoesNotStopDebounce(t *testing.T) {
 	if !a.runtime.actions.filterDebounce.Active() {
 		t.Fatalf("expected debouncer to remain set")
 	}
-	if got := a.model.state.filter.value; got != "foo" {
+	if got := a.model.State.Filter.Value; got != "foo" {
 		t.Fatalf("expected filter value %q, got %q", "foo", got)
 	}
 }
@@ -60,7 +62,7 @@ func TestScheduleFilterApplyEmptyStopsDebounce(t *testing.T) {
 	a.runtime.actions.filterDebounce.Configure(time.Hour, func(string) {})
 	a.runtime.actions.filterDebounce.Trigger("foo")
 	a.runtime.actions.filterDebounce.SetPending("foo")
-	a.model.state.filter.value = "foo"
+	a.model.State.Filter.Value = "foo"
 
 	a.scheduleFilterApplyState("")
 
@@ -70,7 +72,7 @@ func TestScheduleFilterApplyEmptyStopsDebounce(t *testing.T) {
 	if a.runtime.actions.filterDebounce.HasPending() {
 		t.Fatalf("expected pending filter to be cleared")
 	}
-	if got := a.model.state.filter.value; got != "" {
+	if got := a.model.State.Filter.Value; got != "" {
 		t.Fatalf("expected filter value cleared, got %q", got)
 	}
 }

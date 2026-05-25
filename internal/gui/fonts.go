@@ -102,10 +102,10 @@ func (a *Controller) applyStoredFontPreferences() {
 }
 
 func (a *Controller) applyFixedFontToDiff() {
-	if a.ui.diffDetail == nil {
+	if a.ui.DiffDetail == nil {
 		return
 	}
-	a.ui.diffDetail.Configure(Font(FixedFont))
+	a.ui.DiffDetail.Configure(Font(FixedFont))
 }
 
 func fontSelectionFromSpec(spec []string) (fontSelection, bool) {
@@ -225,25 +225,25 @@ func applyUIFontToStyles() {
 }
 
 func (a *Controller) applyUIFontToWidgets() {
-	if a.ui.diffFileList != nil {
-		a.ui.diffFileList.Configure(Font(DefaultFont))
+	if a.ui.DiffFileList != nil {
+		a.ui.DiffFileList.Configure(Font(DefaultFont))
 	}
-	if a.ui.treeContextMenu != nil {
-		a.ui.treeContextMenu.Configure(Font(DefaultFont))
+	if a.ui.TreeContextMenu != nil {
+		a.ui.TreeContextMenu.Configure(Font(DefaultFont))
 	}
-	if a.ui.diffContextMenu != nil {
-		a.ui.diffContextMenu.Configure(Font(DefaultFont))
+	if a.ui.DiffContextMenu != nil {
+		a.ui.DiffContextMenu.Configure(Font(DefaultFont))
 	}
-	if a.ui.menubar != nil {
-		a.ui.menubar.Configure(Font(DefaultFont))
+	if a.ui.Menubar != nil {
+		a.ui.Menubar.Configure(Font(DefaultFont))
 	}
-	if a.ui.fileMenu != nil {
-		a.ui.fileMenu.Configure(Font(DefaultFont))
+	if a.ui.FileMenu != nil {
+		a.ui.FileMenu.Configure(Font(DefaultFont))
 	}
-	if a.ui.viewMenu != nil {
-		a.ui.viewMenu.Configure(Font(DefaultFont))
+	if a.ui.ViewMenu != nil {
+		a.ui.ViewMenu.Configure(Font(DefaultFont))
 	}
-	if a.ui.helpMenu != nil {
-		a.ui.helpMenu.Configure(Font(DefaultFont))
+	if a.ui.HelpMenu != nil {
+		a.ui.HelpMenu.Configure(Font(DefaultFont))
 	}
 }

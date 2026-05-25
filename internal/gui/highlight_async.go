@@ -43,16 +43,16 @@ func (a *Controller) startSyntaxHighlight(content string) {
 	if style == nil {
 		return
 	}
-	gen := a.model.state.diff.syntaxGeneration.Add(1)
+	gen := a.model.State.Diff.SyntaxGeneration.Add(1)
 	go a.computeSyntaxHighlight(content, style, gen)
 }
 
 func (a *Controller) cancelSyntaxHighlight() {
-	a.model.state.diff.syntaxGeneration.Add(1)
+	a.model.State.Diff.SyntaxGeneration.Add(1)
 }
 
 func (a *Controller) syntaxHighlightCanceled(gen uint64) bool {
-	return gen != a.model.state.diff.syntaxGeneration.Load()
+	return gen != a.model.State.Diff.SyntaxGeneration.Load()
 }
 
 func (a *Controller) computeSyntaxHighlight(content string, style *chroma.Style, gen uint64) {
@@ -123,7 +123,7 @@ func (a *Controller) enqueueSyntaxSpans(spans []syntaxSpan, gen uint64) {
 }
 
 func (a *Controller) applySyntaxSpans(spans []syntaxSpan) {
-	if a.ui.diffDetail == nil {
+	if a.ui.DiffDetail == nil {
 		return
 	}
 	for _, span := range spans {
@@ -136,6 +136,6 @@ func (a *Controller) applySyntaxSpans(spans []syntaxSpan) {
 		}
 		start := fmt.Sprintf("%d.%d", span.line, span.startCol)
 		end := fmt.Sprintf("%d.%d", span.line, span.endCol)
-		a.ui.diffDetail.TagAdd(tag, start, end)
+		a.ui.DiffDetail.TagAdd(tag, start, end)
 	}
 }

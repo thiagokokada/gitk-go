@@ -1,4 +1,4 @@
-package gui
+package model
 
 import (
 	"testing"
@@ -8,28 +8,28 @@ import (
 
 func TestLocalChangePlanRepoNotReady(t *testing.T) {
 	status := git.LocalChanges{HasWorktree: true, HasStaged: true}
-	actions := (treeState{showLocalUnstaged: true, showLocalStaged: true}).localChangePlan(false, true, status)
-	if actions.showUnstaged || actions.showStaged {
+	actions := (TreeState{ShowLocalUnstaged: true, ShowLocalStaged: true}).LocalChangePlan(false, true, status)
+	if actions.ShowUnstaged || actions.ShowStaged {
 		t.Fatalf("expected no rows shown when repo is not ready, got %+v", actions)
 	}
-	if !actions.resetUnstaged || !actions.resetStaged {
+	if !actions.ResetUnstaged || !actions.ResetStaged {
 		t.Fatalf("expected both states reset when repo is not ready, got %+v", actions)
 	}
-	if actions.loadUnstaged || actions.loadStaged {
+	if actions.LoadUnstaged || actions.LoadStaged {
 		t.Fatalf("expected no loads when repo is not ready, got %+v", actions)
 	}
 }
 
 func TestLocalChangePlanPrefetch(t *testing.T) {
 	status := git.LocalChanges{HasWorktree: true, HasStaged: false}
-	actions := (treeState{showLocalUnstaged: false, showLocalStaged: true}).localChangePlan(true, true, status)
-	if !actions.showUnstaged || actions.showStaged {
+	actions := (TreeState{ShowLocalUnstaged: false, ShowLocalStaged: true}).LocalChangePlan(true, true, status)
+	if !actions.ShowUnstaged || actions.ShowStaged {
 		t.Fatalf("unexpected show flags: %+v", actions)
 	}
-	if !actions.loadUnstaged || actions.loadStaged {
+	if !actions.LoadUnstaged || actions.LoadStaged {
 		t.Fatalf("unexpected load flags: %+v", actions)
 	}
-	if actions.resetUnstaged || !actions.resetStaged {
+	if actions.ResetUnstaged || !actions.ResetStaged {
 		t.Fatalf("unexpected reset flags: %+v", actions)
 	}
 }
@@ -40,18 +40,18 @@ func TestLocalChangePlanNoPrefetchLoadsOnTransition(t *testing.T) {
 		status       git.LocalChanges
 		prevUnstaged bool
 		prevStaged   bool
-		want         localChangeActions
+		want         LocalChangeActions
 	}{
 		{
 			name:         "worktree becomes visible triggers load",
 			status:       git.LocalChanges{HasWorktree: true, HasStaged: false},
 			prevUnstaged: false,
 			prevStaged:   false,
-			want: localChangeActions{
-				showUnstaged: true,
-				showStaged:   false,
-				loadUnstaged: true,
-				resetStaged:  true,
+			want: LocalChangeActions{
+				ShowUnstaged: true,
+				ShowStaged:   false,
+				LoadUnstaged: true,
+				ResetStaged:  true,
 			},
 		},
 		{
@@ -59,9 +59,9 @@ func TestLocalChangePlanNoPrefetchLoadsOnTransition(t *testing.T) {
 			status:       git.LocalChanges{HasWorktree: true, HasStaged: true},
 			prevUnstaged: true,
 			prevStaged:   true,
-			want: localChangeActions{
-				showUnstaged: true,
-				showStaged:   true,
+			want: LocalChangeActions{
+				ShowUnstaged: true,
+				ShowStaged:   true,
 			},
 		},
 		{
@@ -69,11 +69,11 @@ func TestLocalChangePlanNoPrefetchLoadsOnTransition(t *testing.T) {
 			status:       git.LocalChanges{HasWorktree: false, HasStaged: true},
 			prevUnstaged: false,
 			prevStaged:   false,
-			want: localChangeActions{
-				showUnstaged:  false,
-				showStaged:    true,
-				loadStaged:    true,
-				resetUnstaged: true,
+			want: LocalChangeActions{
+				ShowUnstaged:  false,
+				ShowStaged:    true,
+				LoadStaged:    true,
+				ResetUnstaged: true,
 			},
 		},
 		{
@@ -81,18 +81,18 @@ func TestLocalChangePlanNoPrefetchLoadsOnTransition(t *testing.T) {
 			status:       git.LocalChanges{HasWorktree: false, HasStaged: false},
 			prevUnstaged: true,
 			prevStaged:   true,
-			want: localChangeActions{
-				showUnstaged:  false,
-				showStaged:    false,
-				resetUnstaged: true,
-				resetStaged:   true,
+			want: LocalChangeActions{
+				ShowUnstaged:  false,
+				ShowStaged:    false,
+				ResetUnstaged: true,
+				ResetStaged:   true,
 			},
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			tree := treeState{showLocalUnstaged: tc.prevUnstaged, showLocalStaged: tc.prevStaged}
-			got := tree.localChangePlan(true, false, tc.status)
+			tree := TreeState{ShowLocalUnstaged: tc.prevUnstaged, ShowLocalStaged: tc.prevStaged}
+			got := tree.LocalChangePlan(true, false, tc.status)
 			if got != tc.want {
 				t.Fatalf("want %+v, got %+v", tc.want, got)
 			}
