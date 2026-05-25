@@ -11,7 +11,6 @@ type Controller struct {
 
 	cfg   controllerConfig
 	theme controllerTheme
-	fonts controllerFonts
 	prefs controllerPreferences
 
 	ui appWidgets

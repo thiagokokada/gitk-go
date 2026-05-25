@@ -3,6 +3,7 @@ package gui
 import (
 	"log/slog"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
@@ -37,10 +38,6 @@ type fontSelection struct {
 	Slant      string
 	Underline  bool
 	Overstrike bool
-}
-
-type controllerFonts struct {
-	ui *FontFace
 }
 
 func diffDetailFontSpec() []any {
@@ -134,7 +131,6 @@ func (a *Controller) applyUIFontSelection(selection fontSelection) {
 	if font == nil {
 		return
 	}
-	a.replaceFontFace(&a.fonts.ui, font)
 	applyUIFontToStyles(font)
 	applyUIFontToOptions(font)
 	a.applyUIFontToWidgets(font)
@@ -155,11 +151,11 @@ func (a *Controller) applyStoredFontPreferences() {
 }
 
 func (a *Controller) setUIFontSpec(spec []string) {
-	a.prefs.uiFontSpec = cloneStringSlice(spec)
+	a.prefs.uiFontSpec = slices.Clone(spec)
 }
 
 func (a *Controller) setFixedFontSpec(spec []string) {
-	a.prefs.fixedFontSpec = cloneStringSlice(spec)
+	a.prefs.fixedFontSpec = slices.Clone(spec)
 }
 
 func fontSelectionFromSpec(spec []string) (fontSelection, bool) {
@@ -217,16 +213,6 @@ func newFontFaceFromSelection(selection fontSelection) *FontFace {
 		opts = append(opts, Overstrike(1))
 	}
 	return NewFont(opts...)
-}
-
-func (*Controller) replaceFontFace(target **FontFace, next *FontFace) {
-	if target == nil {
-		return
-	}
-	if *target != nil {
-		(*target).Delete()
-	}
-	*target = next
 }
 
 func applyFontSelectionToNamedFonts(selection fontSelection, names []string) {

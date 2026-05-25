@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 
 	. "modernc.org/tk9.0"
 )
@@ -28,15 +29,15 @@ func (a *Controller) loadPreferences() {
 		slog.Error("load preferences", slog.Any("error", err))
 		return
 	}
-	a.prefs.uiFontSpec = cloneStringSlice(prefs.UIFont)
-	a.prefs.fixedFontSpec = cloneStringSlice(prefs.FixedFont)
+	a.prefs.uiFontSpec = slices.Clone(prefs.UIFont)
+	a.prefs.fixedFontSpec = slices.Clone(prefs.FixedFont)
 	a.applyStoredFontPreferences()
 }
 
 func (a *Controller) savePreferences(announce bool) {
 	prefs := preferences{
-		UIFont:    cloneStringSlice(a.prefs.uiFontSpec),
-		FixedFont: cloneStringSlice(a.prefs.fixedFontSpec),
+		UIFont:    slices.Clone(a.prefs.uiFontSpec),
+		FixedFont: slices.Clone(a.prefs.fixedFontSpec),
 	}
 	if err := savePreferencesFile(prefs); err != nil {
 		MessageBox(
@@ -146,13 +147,4 @@ func writeFileAtomic(path string, data []byte) error {
 		return err
 	}
 	return nil
-}
-
-func cloneStringSlice(values []string) []string {
-	if len(values) == 0 {
-		return nil
-	}
-	out := make([]string, len(values))
-	copy(out, values)
-	return out
 }
