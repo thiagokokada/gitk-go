@@ -4,7 +4,7 @@ go 1.25.4
 
 require (
 	github.com/alecthomas/chroma/v2 v2.24.1
-	github.com/sgtdi/fswatcher v1.2.0
+	github.com/sgtdi/fswatcher v1.3.0
 	github.com/thiagokokada/dark-mode-go v0.0.2
 	modernc.org/tk9.0 v1.75.3
 )
@@ -23,7 +23,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	golang.org/x/image v0.39.0 // indirect
 	golang.org/x/net v0.53.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/tools v0.44.0 // indirect
 	modernc.org/fileutil v1.4.0 // indirect
 	modernc.org/fsm v1.3.2 // indirect
