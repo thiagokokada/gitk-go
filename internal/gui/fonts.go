@@ -3,10 +3,8 @@ package gui
 import (
 	"log/slog"
 	"runtime"
-	"slices"
+	"strconv"
 	"strings"
-
-	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 
 	. "modernc.org/tk9.0"
 )
@@ -22,18 +20,9 @@ var uiNamedFonts = []string{
 	TooltipFont,
 }
 
-type fontDialogTarget struct {
-	title      string
-	seedFont   string
-	seedSpec   []string
-	names      []string
-	onSpec     func([]string)
-	afterApply func(selection fontSelection)
-}
-
 type fontSelection struct {
 	Family     string
-	Size       string
+	Size       int
 	Weight     string
 	Slant      string
 	Underline  bool
@@ -48,75 +37,68 @@ func diffDetailFontSpec() []any {
 }
 
 func (a *Controller) showUIFontDialog() {
-	a.showFontDialog(a.uiFontDialogTarget())
+	showFontDialog("Select UI Font", DefaultFont, a.prefs.uiFontSpec, a.applyUIFontSpec)
 }
 
 func (a *Controller) showFixedFontDialog() {
-	a.showFontDialog(a.fixedFontDialogTarget())
+	showFontDialog("Select Fixed Font", FixedFont, a.prefs.fixedFontSpec, a.applyFixedFontSpec)
 }
 
-func (a *Controller) uiFontDialogTarget() fontDialogTarget {
-	return fontDialogTarget{
-		title:      "Select UI Font",
-		seedFont:   DefaultFont,
-		seedSpec:   a.prefs.uiFontSpec,
-		names:      uiNamedFonts,
-		onSpec:     a.setUIFontSpec,
-		afterApply: a.applyUIFontSelection,
-	}
-}
-
-func (a *Controller) fixedFontDialogTarget() fontDialogTarget {
-	return fontDialogTarget{
-		title:    "Select Fixed Font",
-		seedFont: FixedFont,
-		seedSpec: a.prefs.fixedFontSpec,
-		names:    []string{FixedFont},
-		onSpec:   a.setFixedFontSpec,
-		afterApply: func(selection fontSelection) {
-			a.applyFixedFontToDiff()
-		},
-	}
-}
-
-func (a *Controller) showFontDialog(target fontDialogTarget) {
-	seed := Font(target.seedFont)
-	if len(target.seedSpec) > 0 {
-		seed = Font(target.seedSpec)
-	}
+func showFontDialog(title string, seedFont string, seedSpec []string, apply func([]string, bool) bool) {
 	Fontchooser(
 		Parent(App),
-		Title(target.title),
-		seed,
+		Title(title),
+		fontChooserSeed(seedFont, seedSpec),
 		Command(func() {
-			a.applyFontDialogSelection(target)
+			if !apply(FontchooserFont(), true) {
+				slog.Debug("font selection missing or invalid", slog.String("title", title))
+			}
 		}),
 	)
 	FontchooserShow()
 }
 
-func (a *Controller) applyFontDialogSelection(target fontDialogTarget) {
-	if ok := a.applyFontSpec(target, FontchooserFont(), true); !ok {
-		slog.Debug("font selection missing or invalid")
-	}
-}
-
-func (a *Controller) applyFontSpec(target fontDialogTarget, spec []string, save bool) bool {
+func (a *Controller) applyUIFontSpec(spec []string, save bool) bool {
 	selection, ok := fontSelectionFromSpec(spec)
 	if !ok {
 		return false
 	}
-	if target.onSpec != nil {
-		target.onSpec(spec)
-	}
-	applyFontSelectionToNamedFonts(selection, target.names)
-	if target.afterApply != nil {
-		target.afterApply(selection)
-	}
+	a.prefs.uiFontSpec = selection.preferenceSpec()
+	selection.applyToNamedFonts(uiNamedFonts)
+	applyUIFontToStyles()
+	a.applyUIFontToWidgets()
+	a.scheduleGraphCanvasDraw()
 	if save {
 		a.savePreferences(false)
 	}
 	return true
+}
+
+func (a *Controller) applyFixedFontSpec(spec []string, save bool) bool {
+	selection, ok := fontSelectionFromSpec(spec)
+	if !ok {
+		return false
+	}
+	a.prefs.fixedFontSpec = selection.preferenceSpec()
+	selection.applyToNamedFonts([]string{FixedFont})
+	a.applyFixedFontToDiff()
+	if save {
+		a.savePreferences(false)
+	}
+	return true
+}
+
+func (a *Controller) applyStoredFontPreferences() {
+	if len(a.prefs.uiFontSpec) > 0 {
+		if !a.applyUIFontSpec(a.prefs.uiFontSpec, false) {
+			slog.Debug("stored ui font invalid")
+		}
+	}
+	if len(a.prefs.fixedFontSpec) > 0 {
+		if !a.applyFixedFontSpec(a.prefs.fixedFontSpec, false) {
+			slog.Debug("stored fixed font invalid")
+		}
+	}
 }
 
 func (a *Controller) applyFixedFontToDiff() {
@@ -124,38 +106,6 @@ func (a *Controller) applyFixedFontToDiff() {
 		return
 	}
 	a.ui.diffDetail.Configure(Font(FixedFont))
-}
-
-func (a *Controller) applyUIFontSelection(selection fontSelection) {
-	font := newFontFaceFromSelection(selection)
-	if font == nil {
-		return
-	}
-	applyUIFontToStyles(font)
-	applyUIFontToOptions(font)
-	a.applyUIFontToWidgets(font)
-	a.scheduleGraphCanvasDraw()
-}
-
-func (a *Controller) applyStoredFontPreferences() {
-	if len(a.prefs.uiFontSpec) > 0 {
-		if !a.applyFontSpec(a.uiFontDialogTarget(), a.prefs.uiFontSpec, false) {
-			slog.Debug("stored ui font invalid")
-		}
-	}
-	if len(a.prefs.fixedFontSpec) > 0 {
-		if !a.applyFontSpec(a.fixedFontDialogTarget(), a.prefs.fixedFontSpec, false) {
-			slog.Debug("stored fixed font invalid")
-		}
-	}
-}
-
-func (a *Controller) setUIFontSpec(spec []string) {
-	a.prefs.uiFontSpec = slices.Clone(spec)
-}
-
-func (a *Controller) setFixedFontSpec(spec []string) {
-	a.prefs.fixedFontSpec = slices.Clone(spec)
 }
 
 func fontSelectionFromSpec(spec []string) (fontSelection, bool) {
@@ -168,9 +118,13 @@ func fontSelectionFromSpec(spec []string) (fontSelection, bool) {
 	if family == "" || size == "" {
 		return selection, false
 	}
+	sizeValue, err := strconv.Atoi(size)
+	if err != nil || sizeValue == 0 {
+		return selection, false
+	}
 	selection = fontSelection{
 		Family: family,
-		Size:   size,
+		Size:   sizeValue,
 		Weight: NORMAL,
 		Slant:  ROMAN,
 	}
@@ -196,62 +150,67 @@ func fontSelectionFromSpec(spec []string) (fontSelection, bool) {
 	return selection, true
 }
 
-func newFontFaceFromSelection(selection fontSelection) *FontFace {
-	if selection.Family == "" || selection.Size == "" {
-		return nil
+func fontChooserSeed(seedFont string, seedSpec []string) Opt {
+	selection, ok := fontSelectionFromSpec(seedSpec)
+	if !ok {
+		return Font(seedFont)
 	}
-	opts := []Opt{
+	return selection.fontOpt()
+}
+
+func (selection fontSelection) fontOpt() Opt {
+	args := []any{selection.Family, selection.Size}
+	if selection.Weight == BOLD {
+		args = append(args, BOLD)
+	}
+	if selection.Slant == ITALIC {
+		args = append(args, ITALIC)
+	}
+	if selection.Underline {
+		args = append(args, UNDERLINE)
+	}
+	if selection.Overstrike {
+		args = append(args, OVERSTRIKE)
+	}
+	return Font(args...)
+}
+
+func (selection fontSelection) fontOptions() []any {
+	return []any{
 		Family(selection.Family),
 		Size(selection.Size),
 		Weight(selection.Weight),
 		Slant(selection.Slant),
+		Underline(selection.Underline),
+		Overstrike(selection.Overstrike),
+	}
+}
+
+func (selection fontSelection) preferenceSpec() []string {
+	spec := []string{selection.Family, strconv.Itoa(selection.Size)}
+	if selection.Weight == BOLD {
+		spec = append(spec, BOLD)
+	}
+	if selection.Slant == ITALIC {
+		spec = append(spec, ITALIC)
 	}
 	if selection.Underline {
-		opts = append(opts, Underline(1))
+		spec = append(spec, UNDERLINE)
 	}
 	if selection.Overstrike {
-		opts = append(opts, Overstrike(1))
+		spec = append(spec, OVERSTRIKE)
 	}
-	return NewFont(opts...)
+	return spec
 }
 
-func applyFontSelectionToNamedFonts(selection fontSelection, names []string) {
-	if len(names) == 0 {
-		return
-	}
-	underline := boolToInt(selection.Underline)
-	overstrike := boolToInt(selection.Overstrike)
+func (selection fontSelection) applyToNamedFonts(names []string) {
+	options := selection.fontOptions()
 	for _, name := range names {
-		_, err := tkutil.Evalf(
-			"font configure %s -family %s -size %s -weight %s -slant %s -underline %d -overstrike %d",
-			tkutil.TclSafeString(name),
-			tkutil.TclSafeString(selection.Family),
-			tkutil.TclSafeString(selection.Size),
-			tkutil.TclSafeString(selection.Weight),
-			tkutil.TclSafeString(selection.Slant),
-			underline,
-			overstrike,
-		)
-		if err != nil {
-			slog.Debug(
-				"configure named font failed",
-				slog.String("font", name),
-				slog.String("family", selection.Family),
-				slog.String("size", selection.Size),
-				slog.Any("error", err),
-			)
-		}
+		FontConfigure(name, options...)
 	}
 }
 
-func boolToInt(value bool) int {
-	if value {
-		return 1
-	}
-	return 0
-}
-
-func applyUIFontToStyles(font *FontFace) {
+func applyUIFontToStyles() {
 	styles := []string{
 		".",
 		"TLabel",
@@ -261,43 +220,30 @@ func applyUIFontToStyles(font *FontFace) {
 		"Treeview.Heading",
 	}
 	for _, style := range styles {
-		StyleConfigure(style, Font(font))
+		StyleConfigure(style, Font(DefaultFont))
 	}
 }
 
-func applyUIFontToOptions(font *FontFace) {
-	if font == nil {
-		return
-	}
-	fontName := tkutil.TclSafeString(font.String())
-	if _, err := tkutil.Evalf("option add *font %s", fontName); err != nil {
-		slog.Debug("option add font", slog.Any("error", err))
-	}
-	if _, err := tkutil.Evalf("option add *Menu.font %s", fontName); err != nil {
-		slog.Debug("option add menu font", slog.Any("error", err))
-	}
-}
-
-func (a *Controller) applyUIFontToWidgets(font *FontFace) {
+func (a *Controller) applyUIFontToWidgets() {
 	if a.ui.diffFileList != nil {
-		a.ui.diffFileList.Configure(Font(font))
+		a.ui.diffFileList.Configure(Font(DefaultFont))
 	}
 	if a.ui.treeContextMenu != nil {
-		a.ui.treeContextMenu.Configure(Font(font))
+		a.ui.treeContextMenu.Configure(Font(DefaultFont))
 	}
 	if a.ui.diffContextMenu != nil {
-		a.ui.diffContextMenu.Configure(Font(font))
+		a.ui.diffContextMenu.Configure(Font(DefaultFont))
 	}
 	if a.ui.menubar != nil {
-		a.ui.menubar.Configure(Font(font))
+		a.ui.menubar.Configure(Font(DefaultFont))
 	}
 	if a.ui.fileMenu != nil {
-		a.ui.fileMenu.Configure(Font(font))
+		a.ui.fileMenu.Configure(Font(DefaultFont))
 	}
 	if a.ui.viewMenu != nil {
-		a.ui.viewMenu.Configure(Font(font))
+		a.ui.viewMenu.Configure(Font(DefaultFont))
 	}
 	if a.ui.helpMenu != nil {
-		a.ui.helpMenu.Configure(Font(font))
+		a.ui.helpMenu.Configure(Font(DefaultFont))
 	}
 }
