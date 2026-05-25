@@ -204,28 +204,18 @@ func (a *Controller) showCommitDetails(entry *git.Entry, index int) {
 }
 
 func (a *Controller) selectFallbackCommit() {
-	if len(a.model.data.visible) == 0 {
-		a.model.state.selection.Clear()
-		if len(a.model.data.commits) == 0 {
-			a.clearDetailText("Repository has no commits yet.")
-		} else {
-			a.clearDetailText("No commits match the current filter.")
-		}
+	plan := a.model.fallbackSelectionPlan()
+	switch plan.kind {
+	case selectionDisplayMessage:
+		a.clearDetailText(plan.message)
 		a.setStatus(a.statusSummary())
 		return
-	}
-	entry, ok := a.commitEntryAt(0)
-	if !ok {
+	case selectionDisplayCommit:
+		a.selectCommitPlan(plan)
+		a.scheduleGraphCanvasDraw()
+	default:
 		return
 	}
-	id := commitRowID(entry)
-	if id != "" {
-		a.ui.treeView.Selection("set", id)
-		a.ui.treeView.Focus(id)
-		a.ui.treeView.See(id)
-	}
-	a.showCommitDetails(entry, 0)
-	a.scheduleGraphCanvasDraw()
 }
 
 func (a *Controller) showLocalChanges(staged bool) {

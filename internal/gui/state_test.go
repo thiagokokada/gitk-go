@@ -166,6 +166,93 @@ func TestAppModelAppendCommitsExtendsBatchState(t *testing.T) {
 	}
 }
 
+func TestAppModelFallbackSelectionPlan(t *testing.T) {
+	model := newAppModel("/repo")
+	plan := model.fallbackSelectionPlan()
+	if plan.kind != selectionDisplayMessage || plan.message != "Repository has no commits yet." {
+		t.Fatalf("unexpected empty repo plan: %+v", plan)
+	}
+
+	model.data.commits = []*git.Entry{{SearchText: "hidden"}}
+	plan = model.fallbackSelectionPlan()
+	if plan.kind != selectionDisplayMessage || plan.message != "No commits match the current filter." {
+		t.Fatalf("unexpected filtered repo plan: %+v", plan)
+	}
+
+	entry := &git.Entry{Commit: &git.Commit{Hash: "1111111111111111111111111111111111111111"}}
+	model.data.visible = []*git.Entry{entry}
+	plan = model.fallbackSelectionPlan()
+	if plan.kind != selectionDisplayCommit || plan.entry != entry || plan.index != 0 || !plan.loadDetail {
+		t.Fatalf("unexpected commit fallback plan: %+v", plan)
+	}
+}
+
+func TestAppModelFilterSelectionPlanPreservesVisibleLocalRow(t *testing.T) {
+	model := newAppModel("/repo")
+	model.state.selection.SetLocal(true)
+	model.state.tree.rows.addSpecialItem(localStagedRowID)
+
+	plan := model.filterSelectionPlan()
+
+	if plan.kind != selectionDisplayLocal || !plan.staged {
+		t.Fatalf("unexpected local plan: %+v", plan)
+	}
+}
+
+func TestAppModelFilterSelectionPlanChoosesCommit(t *testing.T) {
+	h1 := "1111111111111111111111111111111111111111"
+	h2 := "2222222222222222222222222222222222222222"
+	first := &git.Entry{Commit: &git.Commit{Hash: h1}}
+	second := &git.Entry{Commit: &git.Commit{Hash: h2}}
+	model := newAppModel("/repo")
+	model.data.commits = []*git.Entry{first, second}
+	model.data.visible = model.data.commits
+	model.state.tree.rows.setVisibleIndex(model.data.visible)
+	model.state.selection.SetCommit(second, 1)
+
+	plan := model.filterSelectionPlan()
+
+	if plan.kind != selectionDisplayCommit || plan.entry != second || plan.index != 1 || plan.loadDetail {
+		t.Fatalf("unexpected existing commit plan: %+v", plan)
+	}
+
+	model.data.visible = []*git.Entry{first}
+	model.state.tree.rows.setVisibleIndex(model.data.visible)
+	plan = model.filterSelectionPlan()
+	if plan.kind != selectionDisplayCommit || plan.entry != first || plan.index != 0 || !plan.loadDetail {
+		t.Fatalf("unexpected fallback commit plan: %+v", plan)
+	}
+}
+
+func TestAppModelTreeSelectionPlan(t *testing.T) {
+	hash := "1111111111111111111111111111111111111111"
+	entry := &git.Entry{Commit: &git.Commit{Hash: hash}}
+	model := newAppModel("/repo")
+	model.data.visible = []*git.Entry{entry}
+	model.state.tree.rows.setVisibleIndex(model.data.visible)
+
+	plan := model.treeSelectionPlan(hash)
+	if plan.kind != treeSelectionCommit || plan.entry != entry || plan.index != 0 {
+		t.Fatalf("unexpected commit tree plan: %+v", plan)
+	}
+
+	model.state.selection.SetCommit(entry, 0)
+	plan = model.treeSelectionPlan(hash)
+	if plan.kind != treeSelectionNone {
+		t.Fatalf("expected unchanged selection to be ignored, got %+v", plan)
+	}
+
+	plan = model.treeSelectionPlan(localUnstagedRowID)
+	if plan.kind != treeSelectionLocal || plan.staged {
+		t.Fatalf("unexpected local tree plan: %+v", plan)
+	}
+
+	plan = model.treeSelectionPlan(loadingIndicatorID)
+	if plan.kind != treeSelectionClear || model.state.selection.CommitHash() != "" {
+		t.Fatalf("unexpected clear tree plan: %+v", plan)
+	}
+}
+
 func TestTreeStateLocalRowVisibility(t *testing.T) {
 	state := newTreeState()
 	if !state.setLocalRowVisible(false, true) {

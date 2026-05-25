@@ -16,31 +16,19 @@ func (a *Controller) onTreeSelectionChanged() {
 	a.scheduleGraphCanvasDraw()
 	sel := a.ui.treeView.Selection("")
 	if len(sel) == 0 {
-		a.model.state.selection.Clear()
+		a.model.treeSelectionPlan("")
 		return
 	}
-	if selectionMatchesTreeID(&a.model.state.selection, sel[0]) {
+	plan := a.model.treeSelectionPlan(sel[0])
+	switch plan.kind {
+	case treeSelectionNone, treeSelectionClear:
 		return
+	case treeSelectionLocal:
+		a.showLocalChanges(plan.staged)
+		return
+	case treeSelectionCommit:
+		a.showCommitDetails(plan.entry, plan.index)
 	}
-	switch sel[0] {
-	case moreIndicatorID, loadingIndicatorID:
-		a.model.state.selection.Clear()
-		return
-	case localUnstagedRowID:
-		a.model.state.selection.SetLocal(false)
-		a.showLocalChanges(false)
-		return
-	case localStagedRowID:
-		a.model.state.selection.SetLocal(true)
-		a.showLocalChanges(true)
-		return
-	}
-	entry, idx, ok := a.commitEntryForTreeID(sel[0])
-	if !ok {
-		a.model.state.selection.Clear()
-		return
-	}
-	a.showCommitDetails(entry, idx)
 }
 
 func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
@@ -305,33 +293,6 @@ func (t treeState) shouldLoadMoreOnScroll(
 		return false
 	}
 	return yEnd >= autoLoadThreshold
-}
-
-func (a *Controller) commitEntryAt(idx int) (*git.Entry, bool) {
-	if idx < 0 || idx >= len(a.model.data.visible) {
-		return nil, false
-	}
-	entry := a.model.data.visible[idx]
-	if entry == nil || entry.Commit == nil {
-		return nil, false
-	}
-	return entry, true
-}
-
-func (a *Controller) commitEntryForTreeID(id string) (*git.Entry, int, bool) {
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return nil, 0, false
-	}
-	idx, ok := a.model.state.tree.rows.visibleByID[id]
-	if !ok {
-		return nil, 0, false
-	}
-	entry, ok := a.commitEntryAt(idx)
-	if !ok || entry.Commit == nil || entry.Commit.Hash != id {
-		return nil, 0, false
-	}
-	return entry, idx, true
 }
 
 func commitRowID(entry *git.Entry) string {

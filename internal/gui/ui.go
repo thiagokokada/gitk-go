@@ -410,6 +410,6 @@ func (a *Controller) showDiffContextMenu(e *Event) {
 }
 
 func (a *Controller) treeCommitIndex(id string) (int, bool) {
-	_, idx, ok := a.commitEntryForTreeID(id)
+	_, idx, ok := a.model.commitEntryForTreeID(strings.TrimSpace(id))
 	return idx, ok
 }

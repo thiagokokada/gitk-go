@@ -344,7 +344,7 @@ func (a *Controller) currentSelectionIndex() int {
 	if len(sel) == 0 || sel[0] == moreIndicatorID {
 		return 0
 	}
-	if _, idx, ok := a.commitEntryForTreeID(sel[0]); ok {
+	if _, idx, ok := a.model.commitEntryForTreeID(sel[0]); ok {
 		return idx
 	}
 	return 0
@@ -354,7 +354,7 @@ func (a *Controller) selectTreeIndex(idx int) {
 	if idx < 0 || idx >= len(a.model.data.visible) {
 		return
 	}
-	entry, ok := a.commitEntryAt(idx)
+	entry, ok := a.model.commitEntryAt(idx)
 	if !ok {
 		return
 	}

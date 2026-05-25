@@ -49,6 +49,149 @@ func (m *appModel) appendCommits(entries []*git.Entry, hasMore bool) {
 	m.state.tree.appendCommits(entries, hasMore)
 }
 
+func (m *appModel) commitEntryAt(idx int) (*git.Entry, bool) {
+	if idx < 0 || idx >= len(m.data.visible) {
+		return nil, false
+	}
+	entry := m.data.visible[idx]
+	if entry == nil || entry.Commit == nil {
+		return nil, false
+	}
+	return entry, true
+}
+
+func (m *appModel) commitEntryForTreeID(id string) (*git.Entry, int, bool) {
+	idx, ok := m.state.tree.rows.visibleByID[id]
+	if !ok {
+		return nil, 0, false
+	}
+	entry, ok := m.commitEntryAt(idx)
+	if !ok || entry.Commit.Hash != id {
+		return nil, 0, false
+	}
+	return entry, idx, true
+}
+
+type selectionDisplayKind int
+
+const (
+	selectionDisplayNone selectionDisplayKind = iota
+	selectionDisplayMessage
+	selectionDisplayLocal
+	selectionDisplayCommit
+)
+
+type selectionDisplayPlan struct {
+	kind       selectionDisplayKind
+	staged     bool
+	entry      *git.Entry
+	index      int
+	message    string
+	loadDetail bool
+}
+
+func (m *appModel) emptyCommitMessage() string {
+	if len(m.data.commits) == 0 {
+		return "Repository has no commits yet."
+	}
+	return "No commits match the current filter."
+}
+
+func (m *appModel) fallbackSelectionPlan() selectionDisplayPlan {
+	if len(m.data.visible) == 0 {
+		m.state.selection.Clear()
+		return selectionDisplayPlan{
+			kind:    selectionDisplayMessage,
+			message: m.emptyCommitMessage(),
+		}
+	}
+	entry, ok := m.commitEntryAt(0)
+	if !ok {
+		return selectionDisplayPlan{}
+	}
+	return selectionDisplayPlan{
+		kind:       selectionDisplayCommit,
+		entry:      entry,
+		index:      0,
+		loadDetail: true,
+	}
+}
+
+func (m *appModel) filterSelectionPlan() selectionDisplayPlan {
+	if staged, ok := m.state.selection.LocalSelection(); ok {
+		if m.state.tree.rows.hasSpecialItem(localRowID(staged)) {
+			return selectionDisplayPlan{kind: selectionDisplayLocal, staged: staged}
+		}
+	}
+	if len(m.data.visible) == 0 {
+		return selectionDisplayPlan{
+			kind:    selectionDisplayMessage,
+			message: m.emptyCommitMessage(),
+		}
+	}
+	index := m.state.selection.CommitIndex(m.data.visible)
+	if index < 0 {
+		index = 0
+	}
+	entry, ok := m.commitEntryAt(index)
+	if !ok {
+		return selectionDisplayPlan{}
+	}
+	return selectionDisplayPlan{
+		kind:       selectionDisplayCommit,
+		entry:      entry,
+		index:      index,
+		loadDetail: entry.Commit.Hash != m.state.selection.CommitHash(),
+	}
+}
+
+type treeSelectionKind int
+
+const (
+	treeSelectionNone treeSelectionKind = iota
+	treeSelectionClear
+	treeSelectionLocal
+	treeSelectionCommit
+)
+
+type treeSelectionPlan struct {
+	kind   treeSelectionKind
+	staged bool
+	entry  *git.Entry
+	index  int
+}
+
+func (m *appModel) treeSelectionPlan(id string) treeSelectionPlan {
+	if id == "" {
+		m.state.selection.Clear()
+		return treeSelectionPlan{kind: treeSelectionClear}
+	}
+	if selectionMatchesTreeID(&m.state.selection, id) {
+		return treeSelectionPlan{}
+	}
+	switch id {
+	case moreIndicatorID, loadingIndicatorID:
+		m.state.selection.Clear()
+		return treeSelectionPlan{kind: treeSelectionClear}
+	case localUnstagedRowID:
+		m.state.selection.SetLocal(false)
+		return treeSelectionPlan{kind: treeSelectionLocal}
+	case localStagedRowID:
+		m.state.selection.SetLocal(true)
+		return treeSelectionPlan{kind: treeSelectionLocal, staged: true}
+	}
+	entry, idx, ok := m.commitEntryForTreeID(id)
+	if !ok {
+		m.state.selection.Clear()
+		return treeSelectionPlan{kind: treeSelectionClear}
+	}
+	return treeSelectionPlan{
+		kind:  treeSelectionCommit,
+		entry: entry,
+		index: idx,
+	}
+}
+
 func newDiffState() diffState {
 	return diffState{
 		syntaxTags: make(map[string]string),
