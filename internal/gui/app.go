@@ -596,8 +596,7 @@ func (a *Controller) statusSummary() string {
 }
 
 func (a *Controller) onDiffScrolled() {
-	if a.model.state.diff.skipNextSync {
-		a.model.state.diff.skipNextSync = false
+	if a.model.state.diff.consumeSkipNextSync() {
 		return
 	}
 	a.syncFileSelectionToDiff()

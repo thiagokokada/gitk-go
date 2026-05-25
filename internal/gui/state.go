@@ -207,6 +207,61 @@ type diffState struct {
 	skipNextSync          bool
 }
 
+func (d *diffState) setFileSections(sections []git.FileSection) {
+	d.fileSections = sections
+	d.selectedFileIndex = -1
+}
+
+func (d *diffState) beginUserFileSelection(idx int) (line int, ok bool) {
+	if d.suppressFileSelection {
+		return 0, false
+	}
+	line, ok = diffSectionLine(d.fileSections, idx)
+	if !ok {
+		return 0, false
+	}
+	d.skipNextSync = true
+	return line, true
+}
+
+func (d *diffState) syncSelectionIndexForLine(line int) (idx int, ok bool) {
+	if line <= 0 {
+		return 0, false
+	}
+	return diffSectionIndexForLine(d.fileSections, line)
+}
+
+func (d *diffState) consumeSkipNextSync() bool {
+	if !d.skipNextSync {
+		return false
+	}
+	d.skipNextSync = false
+	return true
+}
+
+func (d *diffState) selectFileIndex(idx int) bool {
+	if idx < 0 || idx >= len(d.fileSections) {
+		return false
+	}
+	if d.selectedFileIndex == idx {
+		return false
+	}
+	d.suppressFileSelection = true
+	d.selectedFileIndex = idx
+	return true
+}
+
+func (d *diffState) finishProgrammaticFileSelection() {
+	d.suppressFileSelection = false
+}
+
+func (d diffState) selectedFilePath() (string, bool) {
+	if d.selectedFileIndex < 0 {
+		return "", false
+	}
+	return diffFilePathForIndex(d.fileSections, d.selectedFileIndex)
+}
+
 type diffRequest struct {
 	entry *git.Entry
 	hash  string

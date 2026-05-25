@@ -374,11 +374,7 @@ func (a *Controller) showDiffFileListContextMenu(e *Event) {
 }
 
 func (a *Controller) copySelectedDiffFilePath() {
-	idx := a.model.state.diff.selectedFileIndex
-	if idx < 0 {
-		return
-	}
-	path, ok := diffFilePathForIndex(a.model.state.diff.fileSections, idx)
+	path, ok := a.model.state.diff.selectedFilePath()
 	if !ok {
 		return
 	}

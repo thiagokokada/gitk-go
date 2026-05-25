@@ -14,6 +14,113 @@ func TestNewDiffStateInitializesSyntaxTags(t *testing.T) {
 	}
 }
 
+func TestDiffStateSetFileSectionsResetsSelection(t *testing.T) {
+	state := newDiffState()
+	state.selectedFileIndex = 2
+
+	state.setFileSections([]git.FileSection{{Path: "a.go", Line: 10}})
+
+	if state.selectedFileIndex != -1 {
+		t.Fatalf("selected index = %d, want -1", state.selectedFileIndex)
+	}
+	if len(state.fileSections) != 1 || state.fileSections[0].Path != "a.go" {
+		t.Fatalf("unexpected file sections: %+v", state.fileSections)
+	}
+}
+
+func TestDiffStateBeginUserFileSelection(t *testing.T) {
+	state := newDiffState()
+	state.setFileSections(newDiffViewModel([]git.FileSection{{Path: "a.go", Line: 7}}).sections)
+
+	line, ok := state.beginUserFileSelection(1)
+	if !ok {
+		t.Fatalf("expected file selection")
+	}
+	if line != 7 {
+		t.Fatalf("line = %d, want 7", line)
+	}
+	if !state.skipNextSync {
+		t.Fatalf("expected skip next sync")
+	}
+
+	if _, ok := state.beginUserFileSelection(-1); ok {
+		t.Fatalf("expected invalid selection to fail")
+	}
+	state.suppressFileSelection = true
+	if _, ok := state.beginUserFileSelection(1); ok {
+		t.Fatalf("expected suppressed selection to fail")
+	}
+}
+
+func TestDiffStateSelectFileIndex(t *testing.T) {
+	state := newDiffState()
+	state.setFileSections(newDiffViewModel([]git.FileSection{{Path: "a.go", Line: 7}}).sections)
+
+	if !state.selectFileIndex(1) {
+		t.Fatalf("expected selection to change")
+	}
+	if state.selectedFileIndex != 1 {
+		t.Fatalf("selected index = %d, want 1", state.selectedFileIndex)
+	}
+	if !state.suppressFileSelection {
+		t.Fatalf("expected suppress flag")
+	}
+	if state.selectFileIndex(1) {
+		t.Fatalf("expected unchanged selection")
+	}
+
+	state.finishProgrammaticFileSelection()
+	if state.suppressFileSelection {
+		t.Fatalf("expected suppress flag cleared")
+	}
+}
+
+func TestDiffStateSyncSelectionIndexForLine(t *testing.T) {
+	state := newDiffState()
+	state.setFileSections(newDiffViewModel([]git.FileSection{
+		{Path: "a.go", Line: 7},
+		{Path: "b.go", Line: 20},
+	}).sections)
+
+	idx, ok := state.syncSelectionIndexForLine(21)
+	if !ok {
+		t.Fatalf("expected index for line")
+	}
+	if idx != 2 {
+		t.Fatalf("index = %d, want 2", idx)
+	}
+	if _, ok := state.syncSelectionIndexForLine(0); ok {
+		t.Fatalf("expected invalid line")
+	}
+}
+
+func TestDiffStateSelectedFilePath(t *testing.T) {
+	state := newDiffState()
+	state.setFileSections(newDiffViewModel([]git.FileSection{{Path: "a.go", Line: 7}}).sections)
+	if _, ok := state.selectedFilePath(); ok {
+		t.Fatalf("expected no path without selection")
+	}
+	state.selectedFileIndex = 1
+	path, ok := state.selectedFilePath()
+	if !ok || path != "a.go" {
+		t.Fatalf("path = %q ok=%v, want a.go true", path, ok)
+	}
+}
+
+func TestDiffStateConsumeSkipNextSync(t *testing.T) {
+	state := newDiffState()
+	if state.consumeSkipNextSync() {
+		t.Fatalf("expected no skip")
+	}
+	state.skipNextSync = true
+	if !state.consumeSkipNextSync() {
+		t.Fatalf("expected skip")
+	}
+	if state.skipNextSync {
+		t.Fatalf("expected skip flag cleared")
+	}
+}
+
 func TestNewAppModelInitializesStateContainers(t *testing.T) {
 	model := newAppModel("/repo/path")
 	if model.repo.path != "/repo/path" {
