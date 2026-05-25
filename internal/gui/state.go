@@ -31,6 +31,24 @@ func (m *appModel) resetBranch() {
 	m.state.filter.value = filterValue
 }
 
+func (m *appModel) applyFilter(raw string) {
+	m.state.filter.value = raw
+	m.data.visible = filterEntries(m.data.commits, raw)
+	m.state.tree.rows.setVisibleIndex(m.data.visible)
+}
+
+func (m *appModel) setReloadedCommits(entries []*git.Entry, head string, hasMore bool) {
+	m.data.commits = entries
+	m.data.visible = entries
+	m.repo.headRef = head
+	m.state.tree.setReloadedCommits(entries, hasMore)
+}
+
+func (m *appModel) appendCommits(entries []*git.Entry, hasMore bool) {
+	m.data.commits = append(m.data.commits, entries...)
+	m.state.tree.appendCommits(entries, hasMore)
+}
+
 func newDiffState() diffState {
 	return diffState{
 		syntaxTags: make(map[string]string),
@@ -68,6 +86,34 @@ func newTreeState() treeState {
 	return treeState{
 		branchLabels: make(map[string][]string),
 	}
+}
+
+func (t *treeState) setReloadedCommits(entries []*git.Entry, hasMore bool) {
+	t.hasMore = hasMore
+	t.rows.setCommitIDs(entries)
+	t.rows.refreshValues = true
+}
+
+func (t *treeState) appendCommits(entries []*git.Entry, hasMore bool) {
+	t.hasMore = hasMore
+	t.rows.addCommitIDs(entries)
+	t.rows.refreshValues = true
+}
+
+func (t *treeState) markNoMoreCommits() {
+	t.hasMore = false
+}
+
+func (t *treeState) beginCommitBatchLoad(prefetch bool) bool {
+	if t.loadingBatch || (!prefetch && !t.hasMore) {
+		return false
+	}
+	t.loadingBatch = true
+	return true
+}
+
+func (t *treeState) finishCommitBatchLoad() {
+	t.loadingBatch = false
 }
 
 type treeRowState struct {

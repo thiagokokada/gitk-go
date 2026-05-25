@@ -88,6 +88,124 @@ func TestAppModelResetBranchPreservesFilter(t *testing.T) {
 	}
 }
 
+func TestAppModelApplyFilterUpdatesVisibleRows(t *testing.T) {
+	h1 := "1111111111111111111111111111111111111111"
+	h2 := "2222222222222222222222222222222222222222"
+	model := newAppModel("/repo")
+	model.data.commits = []*git.Entry{
+		{Commit: &git.Commit{Hash: h1}, SearchText: "feature branch"},
+		{Commit: &git.Commit{Hash: h2}, SearchText: "bug fix"},
+	}
+
+	model.applyFilter("FEATURE")
+
+	if model.state.filter.value != "FEATURE" {
+		t.Fatalf("filter value = %q, want %q", model.state.filter.value, "FEATURE")
+	}
+	if len(model.data.visible) != 1 || model.data.visible[0].Commit.Hash != h1 {
+		t.Fatalf("unexpected visible commits: %+v", model.data.visible)
+	}
+	if got := model.state.tree.rows.visibleByID[h1]; got != 0 {
+		t.Fatalf("visible index for h1 = %d, want 0", got)
+	}
+	if _, ok := model.state.tree.rows.visibleByID[h2]; ok {
+		t.Fatalf("filtered commit should not be indexed")
+	}
+}
+
+func TestAppModelSetReloadedCommitsResetsBatchState(t *testing.T) {
+	h1 := "1111111111111111111111111111111111111111"
+	entries := []*git.Entry{{Commit: &git.Commit{Hash: h1}}}
+	model := newAppModel("/repo")
+
+	model.setReloadedCommits(entries, "main", true)
+
+	if model.repo.headRef != "main" {
+		t.Fatalf("head ref = %q, want %q", model.repo.headRef, "main")
+	}
+	if len(model.data.commits) != 1 || model.data.commits[0] != entries[0] {
+		t.Fatalf("unexpected commits: %+v", model.data.commits)
+	}
+	if len(model.data.visible) != 1 || model.data.visible[0] != entries[0] {
+		t.Fatalf("unexpected visible commits: %+v", model.data.visible)
+	}
+	if !model.state.tree.hasMore {
+		t.Fatalf("expected hasMore set")
+	}
+	if _, ok := model.state.tree.rows.commitIDs[h1]; !ok {
+		t.Fatalf("expected commit id indexed")
+	}
+	if !model.state.tree.rows.refreshValues {
+		t.Fatalf("expected tree row refresh")
+	}
+}
+
+func TestAppModelAppendCommitsExtendsBatchState(t *testing.T) {
+	h1 := "1111111111111111111111111111111111111111"
+	h2 := "2222222222222222222222222222222222222222"
+	model := newAppModel("/repo")
+	model.setReloadedCommits([]*git.Entry{{Commit: &git.Commit{Hash: h1}}}, "main", true)
+	model.state.tree.rows.refreshValues = false
+
+	model.appendCommits([]*git.Entry{{Commit: &git.Commit{Hash: h2}}}, false)
+
+	if len(model.data.commits) != 2 {
+		t.Fatalf("commit count = %d, want 2", len(model.data.commits))
+	}
+	if model.state.tree.hasMore {
+		t.Fatalf("expected hasMore cleared")
+	}
+	if _, ok := model.state.tree.rows.commitIDs[h1]; !ok {
+		t.Fatalf("expected existing commit id retained")
+	}
+	if _, ok := model.state.tree.rows.commitIDs[h2]; !ok {
+		t.Fatalf("expected appended commit id indexed")
+	}
+	if !model.state.tree.rows.refreshValues {
+		t.Fatalf("expected tree row refresh")
+	}
+}
+
+func TestTreeStateMarkNoMoreCommits(t *testing.T) {
+	state := newTreeState()
+	state.hasMore = true
+
+	state.markNoMoreCommits()
+
+	if state.hasMore {
+		t.Fatalf("expected hasMore cleared")
+	}
+}
+
+func TestTreeStateCommitBatchLoadLifecycle(t *testing.T) {
+	state := newTreeState()
+	state.hasMore = true
+
+	if !state.beginCommitBatchLoad(false) {
+		t.Fatalf("expected load to begin")
+	}
+	if !state.loadingBatch {
+		t.Fatalf("expected loading batch")
+	}
+
+	if state.beginCommitBatchLoad(false) {
+		t.Fatalf("expected concurrent load to be rejected")
+	}
+
+	state.finishCommitBatchLoad()
+	if state.loadingBatch {
+		t.Fatalf("expected loading cleared")
+	}
+
+	state.hasMore = false
+	if state.beginCommitBatchLoad(false) {
+		t.Fatalf("expected foreground load without more commits to be rejected")
+	}
+	if !state.beginCommitBatchLoad(true) {
+		t.Fatalf("expected prefetch load to be allowed")
+	}
+}
+
 func TestLocalDiffCacheState(t *testing.T) {
 	var cache localDiffCache
 	if got := cache.state(false, false); got != nil {

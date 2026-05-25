@@ -15,9 +15,7 @@ func (a *Controller) applyFilter(raw string) {
 }
 
 func (a *Controller) applyFilterState(raw string) {
-	a.model.state.filter.value = raw
-	a.model.data.visible = filterEntries(a.model.data.commits, raw)
-	a.model.state.tree.rows.setVisibleIndex(a.model.data.visible)
+	a.model.applyFilter(raw)
 }
 
 func (a *Controller) applyFilterImmediate(raw string) {

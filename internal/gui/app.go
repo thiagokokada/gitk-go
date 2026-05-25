@@ -389,12 +389,7 @@ func (a *Controller) refreshCommitBatchState(prefetchLocalChanges bool) {
 }
 
 func (a *Controller) applyReloadedCommitBatch(entries []*git.Entry, head string, hasMore bool) {
-	a.model.data.commits = entries
-	a.model.data.visible = entries
-	a.model.repo.headRef = head
-	a.model.state.tree.hasMore = hasMore
-	a.model.state.tree.rows.setCommitIDs(entries)
-	a.model.state.tree.rows.refreshValues = true
+	a.model.setReloadedCommits(entries, head, hasMore)
 	slog.Debug("reloadCommitsAsync loaded",
 		slog.Int("count", len(entries)),
 		slog.String("head", head),
@@ -405,16 +400,13 @@ func (a *Controller) applyReloadedCommitBatch(entries []*git.Entry, head string,
 
 func (a *Controller) applyAppendedCommitBatch(entries []*git.Entry, hasMore bool, background bool) {
 	if len(entries) == 0 {
-		a.model.state.tree.hasMore = false
+		a.model.state.tree.markNoMoreCommits()
 		if !background {
 			a.setStatus("No more commits available.")
 		}
 		return
 	}
-	a.model.data.commits = append(a.model.data.commits, entries...)
-	a.model.state.tree.hasMore = hasMore
-	a.model.state.tree.rows.addCommitIDs(entries)
-	a.model.state.tree.rows.refreshValues = true
+	a.model.appendCommits(entries, hasMore)
 	slog.Debug("loadMoreCommitsAsync loaded",
 		slog.Int("added", len(entries)),
 		slog.Int("total", len(a.model.data.commits)),
@@ -428,10 +420,9 @@ func (a *Controller) applyAppendedCommitBatch(entries []*git.Entry, hasMore bool
 }
 
 func (a *Controller) reloadCommitsAsync() {
-	if a.model.state.tree.loadingBatch {
+	if !a.model.state.tree.beginCommitBatchLoad(true) {
 		return
 	}
-	a.model.state.tree.loadingBatch = true
 	slog.Debug("reloadCommitsAsync start",
 		slog.Uint64("batch", uint64(a.cfg.batch)),
 		slog.String("filter", a.model.state.filter.value),
@@ -439,7 +430,7 @@ func (a *Controller) reloadCommitsAsync() {
 	go func() {
 		entries, head, hasMore, err := a.svc.ScanCommits(0, a.cfg.batch)
 		PostEvent(func() {
-			a.model.state.tree.loadingBatch = false
+			a.model.state.tree.finishCommitBatchLoad()
 			if err != nil {
 				slog.Error("failed to reload commits", slog.Any("error", err))
 				a.setStatus(fmt.Sprintf("Failed to reload commits: %v", err))
@@ -451,10 +442,9 @@ func (a *Controller) reloadCommitsAsync() {
 }
 
 func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
-	if a.model.state.tree.loadingBatch || (!prefetch && !a.model.state.tree.hasMore) {
+	if !a.model.state.tree.beginCommitBatchLoad(prefetch) {
 		return
 	}
-	a.model.state.tree.loadingBatch = true
 	skip := len(a.model.data.commits)
 	slog.Debug("loadMoreCommitsAsync start",
 		slog.Int("skip", skip),
@@ -464,7 +454,7 @@ func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
 	go func(skipCount uint, background bool) {
 		entries, _, hasMore, err := a.svc.ScanCommits(skipCount, a.cfg.batch)
 		PostEvent(func() {
-			a.model.state.tree.loadingBatch = false
+			a.model.state.tree.finishCommitBatchLoad()
 			if err != nil {
 				slog.Error("failed to load more commits", slog.Any("error", err))
 				if !background {
