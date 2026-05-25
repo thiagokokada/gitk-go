@@ -20,8 +20,8 @@ func (t treeState) localChangePlan(repoReady bool, prefetch bool, status git.Loc
 			resetStaged:   true,
 		}
 	}
-	prevUnstaged := t.showLocalUnstaged
-	prevStaged := t.showLocalStaged
+	prevUnstaged := t.localRowVisible(false)
+	prevStaged := t.localRowVisible(true)
 	actions := localChangeActions{
 		showUnstaged:  status.HasWorktree,
 		showStaged:    status.HasStaged,

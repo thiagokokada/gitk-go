@@ -296,11 +296,11 @@ func (a *Controller) moveSelection(delta int) {
 	}
 	idx := a.currentSelectionIndex() + delta
 	if idx < 0 && delta < 0 {
-		if a.model.state.tree.showLocalStaged {
+		if a.model.state.tree.localRowVisible(true) {
 			a.selectSpecialRow(localStagedRowID)
 			return
 		}
-		if a.model.state.tree.showLocalUnstaged {
+		if a.model.state.tree.localRowVisible(false) {
 			a.selectSpecialRow(localUnstagedRowID)
 			return
 		}
@@ -375,7 +375,7 @@ func (a *Controller) handleSpecialRowNav(id string, delta int) bool {
 	switch id {
 	case localUnstagedRowID:
 		if delta > 0 {
-			if a.model.state.tree.showLocalStaged {
+			if a.model.state.tree.localRowVisible(true) {
 				a.selectSpecialRow(localStagedRowID)
 			} else if len(a.model.data.visible) > 0 {
 				a.selectTreeIndex(0)
@@ -384,7 +384,7 @@ func (a *Controller) handleSpecialRowNav(id string, delta int) bool {
 		return true
 	case localStagedRowID:
 		if delta < 0 {
-			if a.model.state.tree.showLocalUnstaged {
+			if a.model.state.tree.localRowVisible(false) {
 				a.selectSpecialRow(localUnstagedRowID)
 			}
 			return true

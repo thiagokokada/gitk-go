@@ -116,6 +116,46 @@ func (t *treeState) finishCommitBatchLoad() {
 	t.loadingBatch = false
 }
 
+func (t *treeState) setLocalRowVisible(staged bool, show bool) bool {
+	if staged {
+		if t.showLocalStaged == show {
+			return false
+		}
+		t.showLocalStaged = show
+		return true
+	}
+	if t.showLocalUnstaged == show {
+		return false
+	}
+	t.showLocalUnstaged = show
+	return true
+}
+
+func (t treeState) localRowVisible(staged bool) bool {
+	if staged {
+		return t.showLocalStaged
+	}
+	return t.showLocalUnstaged
+}
+
+func (t treeState) localRowInsertIndex(staged bool) int {
+	if staged && t.showLocalUnstaged {
+		return 1
+	}
+	return 0
+}
+
+func (t treeState) localRowIDs() []string {
+	ids := make([]string, 0, 2)
+	if t.showLocalUnstaged {
+		ids = append(ids, localUnstagedRowID)
+	}
+	if t.showLocalStaged {
+		ids = append(ids, localStagedRowID)
+	}
+	return ids
+}
+
 type treeRowState struct {
 	commitIDs     map[string]struct{}
 	visibleByID   map[string]int
@@ -123,6 +163,39 @@ type treeRowState struct {
 	values        map[string]treeRow
 	specialItems  map[string]struct{}
 	refreshValues bool
+}
+
+func (s *treeRowState) resetTracking() {
+	s.items = nil
+	s.values = nil
+	s.specialItems = nil
+}
+
+func (s treeRowState) trackedItemIDs() []string {
+	if len(s.items) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(s.items))
+	for id := range s.items {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+func (s *treeRowState) pruneStaleCommitRows() []string {
+	if len(s.items) == 0 || s.commitIDs == nil {
+		return nil
+	}
+	ids := make([]string, 0)
+	for id := range s.items {
+		if _, ok := s.commitIDs[id]; ok {
+			continue
+		}
+		ids = append(ids, id)
+		delete(s.items, id)
+		delete(s.values, id)
+	}
+	return ids
 }
 
 type filterState struct {

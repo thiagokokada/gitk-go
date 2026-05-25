@@ -44,19 +44,8 @@ func (a *Controller) onTreeSelectionChanged() {
 }
 
 func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
-	var current bool
-	if staged {
-		current = a.model.state.tree.showLocalStaged
-	} else {
-		current = a.model.state.tree.showLocalUnstaged
-	}
-	if current == show {
+	if !a.model.state.tree.setLocalRowVisible(staged, show) {
 		return
-	}
-	if staged {
-		a.model.state.tree.showLocalStaged = show
-	} else {
-		a.model.state.tree.showLocalUnstaged = show
 	}
 	id := localRowID(staged)
 	if show {
@@ -77,10 +66,7 @@ func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
 func (a *Controller) insertSingleLocalRow(staged bool) {
 	label := localRowLabel(staged)
 	tag := localRowTag(staged)
-	index := 0
-	if staged && a.model.state.tree.showLocalUnstaged {
-		index = 1
-	}
+	index := a.model.state.tree.localRowInsertIndex(staged)
 	vals := []string{"", label, "", ""}
 	a.ui.treeView.Insert("", index, Id(localRowID(staged)), Values(vals), Tags(tag))
 	a.model.state.tree.rows.addSpecialItem(localRowID(staged))
@@ -121,15 +107,13 @@ func (a *Controller) clearTreeRows() {
 		}
 		a.ui.treeView.Delete(args...)
 	}
-	for id := range a.model.state.tree.rows.items {
+	for _, id := range a.model.state.tree.rows.trackedItemIDs() {
 		if _, ok := attached[id]; ok {
 			continue
 		}
 		a.ui.treeView.Delete(id)
 	}
-	a.model.state.tree.rows.items = nil
-	a.model.state.tree.rows.values = nil
-	a.model.state.tree.rows.specialItems = nil
+	a.model.state.tree.rows.resetTracking()
 }
 
 func (a *Controller) syncTreeRows() {
@@ -141,12 +125,7 @@ func (a *Controller) syncTreeRows() {
 
 	refresh := a.model.state.tree.rows.refreshValues
 	ordered := make([]string, 0, len(a.model.data.visible)+3)
-	if a.model.state.tree.showLocalUnstaged {
-		ordered = append(ordered, localUnstagedRowID)
-	}
-	if a.model.state.tree.showLocalStaged {
-		ordered = append(ordered, localStagedRowID)
-	}
+	ordered = append(ordered, a.model.state.tree.localRowIDs()...)
 	for _, entry := range a.model.data.visible {
 		id := commitRowID(entry)
 		if id == "" {
@@ -154,7 +133,6 @@ func (a *Controller) syncTreeRows() {
 		}
 		if !a.model.state.tree.rows.hasItem(id) {
 			a.insertCommitRow(id, entry)
-			a.model.state.tree.rows.addItem(id)
 		} else if refresh {
 			a.updateCommitRow(id, entry)
 		}
@@ -176,15 +154,11 @@ func (a *Controller) syncTreeRows() {
 }
 
 func (a *Controller) ensureLocalRows() {
-	if a.model.state.tree.showLocalUnstaged {
-		if !a.model.state.tree.rows.hasSpecialItem(localUnstagedRowID) {
-			a.insertSingleLocalRow(false)
+	for _, id := range a.model.state.tree.localRowIDs() {
+		if a.model.state.tree.rows.hasSpecialItem(id) {
+			continue
 		}
-	}
-	if a.model.state.tree.showLocalStaged {
-		if !a.model.state.tree.rows.hasSpecialItem(localStagedRowID) {
-			a.insertSingleLocalRow(true)
-		}
+		a.insertSingleLocalRow(id == localStagedRowID)
 	}
 }
 
@@ -212,6 +186,7 @@ func (a *Controller) insertCommitRow(id string, entry *git.Entry) {
 		return
 	}
 	a.ui.treeView.Insert("", "end", Id(id), Values(row.values()))
+	a.model.state.tree.rows.addItem(id)
 	a.model.state.tree.rows.setItemValue(id, row)
 }
 
@@ -250,16 +225,8 @@ func (a *Controller) setTreeChildren(ids []string) {
 }
 
 func (a *Controller) pruneCommitRows() {
-	if len(a.model.state.tree.rows.items) == 0 || a.model.state.tree.rows.commitIDs == nil {
-		return
-	}
-	for id := range a.model.state.tree.rows.items {
-		if _, ok := a.model.state.tree.rows.commitIDs[id]; ok {
-			continue
-		}
+	for _, id := range a.model.state.tree.rows.pruneStaleCommitRows() {
 		a.ui.treeView.Delete(id)
-		delete(a.model.state.tree.rows.items, id)
-		delete(a.model.state.tree.rows.values, id)
 	}
 }
 

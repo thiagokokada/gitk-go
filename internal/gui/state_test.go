@@ -105,7 +105,7 @@ func TestAppModelApplyFilterUpdatesVisibleRows(t *testing.T) {
 	if len(model.data.visible) != 1 || model.data.visible[0].Commit.Hash != h1 {
 		t.Fatalf("unexpected visible commits: %+v", model.data.visible)
 	}
-	if got := model.state.tree.rows.visibleByID[h1]; got != 0 {
+	if got, ok := model.state.tree.rows.visibleByID[h1]; !ok || got != 0 {
 		t.Fatalf("visible index for h1 = %d, want 0", got)
 	}
 	if _, ok := model.state.tree.rows.visibleByID[h2]; ok {
@@ -163,6 +163,55 @@ func TestAppModelAppendCommitsExtendsBatchState(t *testing.T) {
 	}
 	if !model.state.tree.rows.refreshValues {
 		t.Fatalf("expected tree row refresh")
+	}
+}
+
+func TestTreeStateLocalRowVisibility(t *testing.T) {
+	state := newTreeState()
+	if !state.setLocalRowVisible(false, true) {
+		t.Fatalf("expected unstaged row change")
+	}
+	if state.setLocalRowVisible(false, true) {
+		t.Fatalf("expected unchanged unstaged row")
+	}
+	if !state.localRowVisible(false) {
+		t.Fatalf("expected unstaged row visible")
+	}
+	if got := state.localRowIDs(); len(got) != 1 || got[0] != localUnstagedRowID {
+		t.Fatalf("unexpected local row ids: %+v", got)
+	}
+
+	if !state.setLocalRowVisible(true, true) {
+		t.Fatalf("expected staged row change")
+	}
+	if !state.localRowVisible(true) {
+		t.Fatalf("expected staged row visible")
+	}
+	if idx := state.localRowInsertIndex(true); idx != 1 {
+		t.Fatalf("staged insert index = %d, want 1", idx)
+	}
+}
+
+func TestTreeStatePruneStaleCommitRows(t *testing.T) {
+	keep := "1111111111111111111111111111111111111111"
+	stale := "2222222222222222222222222222222222222222"
+	state := newTreeState()
+	state.setReloadedCommits([]*git.Entry{{Commit: &git.Commit{Hash: keep}}}, true)
+	state.rows.addItem(keep)
+	state.rows.setItemValue(keep, treeRow{Commit: "keep"})
+	state.rows.addItem(stale)
+	state.rows.setItemValue(stale, treeRow{Commit: "stale"})
+
+	got := state.rows.pruneStaleCommitRows()
+
+	if len(got) != 1 || got[0] != stale {
+		t.Fatalf("stale row ids = %+v, want %q", got, stale)
+	}
+	if !state.rows.hasItem(keep) {
+		t.Fatalf("expected kept row to remain tracked")
+	}
+	if state.rows.hasItem(stale) {
+		t.Fatalf("expected stale row to be removed")
 	}
 }
 
