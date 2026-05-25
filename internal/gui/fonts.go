@@ -82,7 +82,7 @@ func (a *Controller) fixedFontDialogTarget() fontDialogTarget {
 func (a *Controller) showFontDialog(target fontDialogTarget) {
 	seed := Font(target.seedFont)
 	if len(target.seedSpec) > 0 {
-		seed = Font(fontSpecToAny(target.seedSpec)...)
+		seed = Font(target.seedSpec)
 	}
 	Fontchooser(
 		Parent(App),
@@ -249,17 +249,6 @@ func boolToInt(value bool) int {
 		return 1
 	}
 	return 0
-}
-
-func fontSpecToAny(spec []string) []any {
-	if len(spec) == 0 {
-		return nil
-	}
-	out := make([]any, len(spec))
-	for i, value := range spec {
-		out[i] = value
-	}
-	return out
 }
 
 func applyUIFontToStyles(font *FontFace) {
