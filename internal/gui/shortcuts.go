@@ -291,16 +291,16 @@ func (a *Controller) moveSelection(delta int) {
 			return
 		}
 	}
-	if len(a.data.visible) == 0 {
+	if len(a.model.data.visible) == 0 {
 		return
 	}
 	idx := a.currentSelectionIndex() + delta
 	if idx < 0 && delta < 0 {
-		if a.state.tree.showLocalStaged {
+		if a.model.state.tree.localRowVisible(true) {
 			a.selectSpecialRow(localStagedRowID)
 			return
 		}
-		if a.state.tree.showLocalUnstaged {
+		if a.model.state.tree.localRowVisible(false) {
 			a.selectSpecialRow(localUnstagedRowID)
 			return
 		}
@@ -309,21 +309,21 @@ func (a *Controller) moveSelection(delta int) {
 		a.loadMoreCommitsAsync(false)
 	}
 	idx = max(0, idx)
-	a.selectTreeIndex(min(idx, len(a.data.visible)))
+	a.selectTreeIndex(min(idx, len(a.model.data.visible)))
 }
 
 func (a *Controller) selectFirst() {
-	if len(a.data.visible) == 0 {
+	if len(a.model.data.visible) == 0 {
 		return
 	}
 	a.selectTreeIndex(0)
 }
 
 func (a *Controller) selectLast() {
-	if len(a.data.visible) == 0 {
+	if len(a.model.data.visible) == 0 {
 		return
 	}
-	a.selectTreeIndex(len(a.data.visible) - 1)
+	a.selectTreeIndex(len(a.model.data.visible) - 1)
 }
 
 func (a *Controller) selectSpecialRow(id string) {
@@ -344,17 +344,17 @@ func (a *Controller) currentSelectionIndex() int {
 	if len(sel) == 0 || sel[0] == moreIndicatorID {
 		return 0
 	}
-	if _, idx, ok := a.commitEntryForTreeID(sel[0]); ok {
+	if _, idx, ok := a.model.commitEntryForTreeID(sel[0]); ok {
 		return idx
 	}
 	return 0
 }
 
 func (a *Controller) selectTreeIndex(idx int) {
-	if idx < 0 || idx >= len(a.data.visible) {
+	if idx < 0 || idx >= len(a.model.data.visible) {
 		return
 	}
-	entry, ok := a.commitEntryAt(idx)
+	entry, ok := a.model.commitEntryAt(idx)
 	if !ok {
 		return
 	}
@@ -375,22 +375,22 @@ func (a *Controller) handleSpecialRowNav(id string, delta int) bool {
 	switch id {
 	case localUnstagedRowID:
 		if delta > 0 {
-			if a.state.tree.showLocalStaged {
+			if a.model.state.tree.localRowVisible(true) {
 				a.selectSpecialRow(localStagedRowID)
-			} else if len(a.data.visible) > 0 {
+			} else if len(a.model.data.visible) > 0 {
 				a.selectTreeIndex(0)
 			}
 		}
 		return true
 	case localStagedRowID:
 		if delta < 0 {
-			if a.state.tree.showLocalUnstaged {
+			if a.model.state.tree.localRowVisible(false) {
 				a.selectSpecialRow(localUnstagedRowID)
 			}
 			return true
 		}
 		if delta > 0 {
-			if len(a.data.visible) > 0 {
+			if len(a.model.data.visible) > 0 {
 				a.selectTreeIndex(0)
 			}
 			return true
@@ -479,5 +479,5 @@ func formatShortcutsHelpText(bindings []shortcutBinding) string {
 }
 
 func (a *Controller) shouldLoadMoreCommits(idx int) bool {
-	return float64(idx)/float64(len(a.data.visible)) >= autoLoadThreshold
+	return float64(idx)/float64(len(a.model.data.visible)) >= autoLoadThreshold
 }

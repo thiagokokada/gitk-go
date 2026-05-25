@@ -6,10 +6,10 @@ func (a *Controller) scheduleGraphCanvasDraw() {
 	if !a.cfg.graphCanvas {
 		return
 	}
-	if a.state.tree.graphCanvas == nil {
+	if a.model.state.tree.graphCanvas == nil {
 		return
 	}
-	a.state.tree.graphCanvas.ScheduleDraw(func() {
+	a.model.state.tree.graphCanvas.ScheduleDraw(func() {
 		a.drawGraphCanvas()
 	})
 }
@@ -18,14 +18,14 @@ func (a *Controller) drawGraphCanvas() {
 	if !a.cfg.graphCanvas {
 		return
 	}
-	if a.state.tree.graphCanvas == nil {
+	if a.model.state.tree.graphCanvas == nil {
 		return
 	}
-	a.state.tree.graphCanvas.Draw(widgets.GraphCanvasDrawInput{
-		Visible:   a.data.visible,
-		Labels:    a.state.tree.branchLabels,
+	a.model.state.tree.graphCanvas.Draw(widgets.GraphCanvasDrawInput{
+		Visible:   a.model.data.visible,
+		Labels:    a.model.state.tree.branchLabels,
 		Theme:     graphCanvasThemeForPalette(a.theme.palette),
-		IndexByID: a.state.tree.rows.visibleByID,
+		IndexByID: a.model.state.tree.rows.visibleByID,
 	})
 }
 

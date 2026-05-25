@@ -456,8 +456,8 @@ func createTestRepo(t *testing.T, commitCount int) (path string, hashesNewestFir
 	// Standardize on main for tests that expect it.
 	runGit(t, dir, nil, "branch", "-M", "main")
 
-	for i := len(created) - 1; i >= 0; i-- {
-		hashesNewestFirst = append(hashesNewestFirst, created[i])
+	for _, v := range slices.Backward(created) {
+		hashesNewestFirst = append(hashesNewestFirst, v)
 	}
 	return dir, hashesNewestFirst
 }

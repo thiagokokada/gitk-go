@@ -151,15 +151,15 @@ func (a *Controller) buildCommitPane(listArea *TFrameWidget) {
 		graphCanvas, err := widgets.NewGraphCanvas(a.ui.graphCanvas, a.ui.treeView)
 		if err != nil {
 			slog.Error("graph canvas init", slog.Any("error", err))
-			a.state.tree.graphCanvas = nil
+			a.model.state.tree.graphCanvas = nil
 		} else {
-			a.state.tree.graphCanvas = graphCanvas
+			a.model.state.tree.graphCanvas = graphCanvas
 		}
 	} else {
-		a.state.tree.graphCanvas = nil
+		a.model.state.tree.graphCanvas = nil
 	}
-	if a.state.tree.graphCanvas != nil {
-		a.bindGraphCanvasHandlers(a.state.tree.graphCanvas)
+	if a.model.state.tree.graphCanvas != nil {
+		a.bindGraphCanvasHandlers(a.model.state.tree.graphCanvas)
 	}
 
 	Bind(a.ui.treeView, "<<TreeviewSelect>>", Command(a.onTreeSelectionChanged))
@@ -230,10 +230,10 @@ func (a *Controller) buildDiffPane(diffArea *TFrameWidget) {
 }
 
 func (a *Controller) showInitialLoadingRow() {
-	if len(a.data.commits) != 0 || len(a.data.visible) != 0 {
+	if len(a.model.data.commits) != 0 || len(a.model.data.visible) != 0 {
 		return
 	}
-	if a.state.tree.rows.hasSpecialItem(loadingIndicatorID) {
+	if a.model.state.tree.rows.hasSpecialItem(loadingIndicatorID) {
 		return
 	}
 	a.ensureLoadingIndicatorRow()
@@ -314,12 +314,12 @@ func (a *Controller) showTreeContextMenuAt(x, y, xRoot, yRoot int) {
 	}
 	a.ui.treeView.Selection("set", item)
 	a.ui.treeView.Focus(item)
-	a.state.tree.contextTargetID = item
+	a.model.state.tree.contextTargetID = item
 	Popup(a.ui.treeContextMenu.Window, xRoot, yRoot, nil)
 }
 
 func (a *Controller) copySelectedCommitReference() {
-	id := a.state.tree.contextTargetID
+	id := a.model.state.tree.contextTargetID
 	if id == "" {
 		if sel := a.ui.treeView.Selection(""); len(sel) > 0 {
 			id = sel[0]
@@ -329,7 +329,7 @@ func (a *Controller) copySelectedCommitReference() {
 	if !ok {
 		return
 	}
-	entry := a.data.visible[idx]
+	entry := a.model.data.visible[idx]
 	if entry == nil || entry.Commit == nil {
 		return
 	}
@@ -340,7 +340,7 @@ func (a *Controller) copySelectedCommitReference() {
 }
 
 func (a *Controller) updateRepoLabel() {
-	label := fmt.Sprintf("Repository: %s", a.repo.path)
+	label := fmt.Sprintf("Repository: %s", a.model.repo.path)
 	a.ui.repoLabel.Configure(Txt(label))
 }
 
@@ -366,7 +366,7 @@ func (a *Controller) showDiffFileListContextMenu(e *Event) {
 	if !ok {
 		return
 	}
-	if _, ok := diffFilePathForIndex(a.state.diff.fileSections, idx); !ok {
+	if _, ok := diffFilePathForIndex(a.model.state.diff.fileSections, idx); !ok {
 		return
 	}
 	a.setFileListSelection(idx)
@@ -374,11 +374,7 @@ func (a *Controller) showDiffFileListContextMenu(e *Event) {
 }
 
 func (a *Controller) copySelectedDiffFilePath() {
-	idx := a.state.diff.selectedFileIndex
-	if idx < 0 {
-		return
-	}
-	path, ok := diffFilePathForIndex(a.state.diff.fileSections, idx)
+	path, ok := a.model.state.diff.selectedFilePath()
 	if !ok {
 		return
 	}
@@ -410,6 +406,6 @@ func (a *Controller) showDiffContextMenu(e *Event) {
 }
 
 func (a *Controller) treeCommitIndex(id string) (int, bool) {
-	_, idx, ok := a.commitEntryForTreeID(id)
+	_, idx, ok := a.model.commitEntryForTreeID(strings.TrimSpace(id))
 	return idx, ok
 }

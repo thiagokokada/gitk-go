@@ -12,8 +12,7 @@ func (a *Controller) setFileSections(sections []git.FileSection) {
 		return
 	}
 	model := newDiffViewModel(sections)
-	a.state.diff.fileSections = model.sections
-	a.state.diff.selectedFileIndex = -1
+	a.model.state.diff.setFileSections(model.sections)
 	a.ui.diffFileList.Configure(State("normal"))
 	a.ui.diffFileList.Delete("1.0", END)
 	for i, row := range model.rows {
@@ -42,37 +41,21 @@ func (a *Controller) applyDiffFileRowTags(lineNo int, row diffViewRow) {
 }
 
 func (a *Controller) onFileSelectionChanged(e *Event) {
-	if a.state.diff.suppressFileSelection {
-		return
-	}
-	if len(a.state.diff.fileSections) == 0 {
-		return
-	}
 	idx, ok := a.diffFileListIndexAtY(e)
 	if !ok {
 		return
 	}
-	a.setFileListSelection(idx)
-	line, ok := diffSectionLine(a.state.diff.fileSections, idx)
+	line, ok := a.model.state.diff.beginUserFileSelection(idx)
 	if !ok {
 		return
 	}
-	a.state.diff.skipNextSync = true
+	a.setFileListSelection(idx)
 	a.scrollDiffToLine(line)
 }
 
 func (a *Controller) syncFileSelectionToDiff() {
-	if len(a.state.diff.fileSections) == 0 {
-		return
-	}
-	if a.state.diff.skipNextSync {
-		return
-	}
 	line := a.diffTopLine()
-	if line <= 0 {
-		return
-	}
-	idx, ok := diffSectionIndexForLine(a.state.diff.fileSections, line)
+	idx, ok := a.model.state.diff.syncSelectionIndexForLine(line)
 	if !ok {
 		return
 	}
@@ -80,13 +63,9 @@ func (a *Controller) syncFileSelectionToDiff() {
 }
 
 func (a *Controller) setFileListSelection(idx int) {
-	if idx < 0 || idx >= len(a.state.diff.fileSections) {
+	if !a.model.state.diff.selectFileIndex(idx) {
 		return
 	}
-	if a.state.diff.selectedFileIndex == idx {
-		return
-	}
-	a.state.diff.suppressFileSelection = true
 	a.ui.diffFileList.TagRemove("diffFileSelected", "1.0", END)
 	line := idx + 1
 	a.ui.diffFileList.TagAdd(
@@ -95,9 +74,8 @@ func (a *Controller) setFileListSelection(idx int) {
 		fmt.Sprintf("%d.end", line),
 	)
 	a.ui.diffFileList.See(fmt.Sprintf("%d.0", line))
-	a.state.diff.selectedFileIndex = idx
 	PostEvent(func() {
-		a.state.diff.suppressFileSelection = false
+		a.model.state.diff.finishProgrammaticFileSelection()
 	}, false)
 }
 
@@ -110,7 +88,7 @@ func (a *Controller) diffFileListIndexAtY(e *Event) (int, bool) {
 		return 0, false
 	}
 	idx := line - 1
-	if idx < 0 || idx >= len(a.state.diff.fileSections) {
+	if idx < 0 || idx >= len(a.model.state.diff.fileSections) {
 		return 0, false
 	}
 	return idx, true

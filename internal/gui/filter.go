@@ -15,13 +15,11 @@ func (a *Controller) applyFilter(raw string) {
 }
 
 func (a *Controller) applyFilterState(raw string) {
-	a.state.filter.value = raw
-	a.data.visible = filterEntries(a.data.commits, raw)
-	a.state.tree.rows.setVisibleIndex(a.data.visible)
+	a.model.applyFilter(raw)
 }
 
 func (a *Controller) applyFilterImmediate(raw string) {
-	a.state.filter.debounce.Stop()
+	a.runtime.actions.filterDebounce.Stop()
 	a.applyFilter(raw)
 }
 
@@ -31,10 +29,10 @@ func (a *Controller) applyFilterContent(raw string) {
 		return
 	}
 	autoLoad := shouldAutoLoadForFilter(
-		a.state.filter.value,
-		len(a.data.visible),
-		a.state.tree.hasMore,
-		a.state.tree.loadingBatch,
+		a.model.state.filter.value,
+		len(a.model.data.visible),
+		a.model.state.tree.hasMore,
+		a.model.state.tree.loadingBatch,
 	)
 	a.storeScrollState()
 	if autoLoad {
@@ -42,65 +40,67 @@ func (a *Controller) applyFilterContent(raw string) {
 	}
 	a.syncTreeRows()
 
-	if staged, ok := a.state.selection.LocalSelection(); ok {
-		id := localRowID(staged)
-		if a.state.tree.rows.hasSpecialItem(id) {
-			a.ui.treeView.Selection("set", id)
-			a.ui.treeView.Focus(id)
-			a.ui.treeView.See(id)
-			a.setStatus(a.statusSummary())
-			a.scheduleAutoLoadCheck()
-			a.restoreScrollState()
-			a.scheduleGraphCanvasDraw()
-			return
-		}
-	}
-
-	if len(a.data.visible) == 0 {
-		if len(a.data.commits) == 0 {
-			a.clearDetailText("Repository has no commits yet.")
-		} else {
-			a.clearDetailText("No commits match the current filter.")
-		}
-		a.setStatus(a.statusSummary())
+	plan := a.model.filterSelectionPlan()
+	if a.applyFilterSelectionPlan(plan) {
 		return
 	}
 
-	index := a.visibleSelectionIndex()
-	if index < 0 && len(a.data.visible) > 0 {
-		index = 0
-	}
-	if index >= 0 {
-		if entry, ok := a.commitEntryAt(index); ok {
-			id := commitRowID(entry)
-			if id != "" {
-				a.ui.treeView.Selection("set", id)
-				a.ui.treeView.Focus(id)
-				a.ui.treeView.See(id)
-			}
-			if entry.Commit != nil && entry.Commit.Hash != a.state.selection.CommitHash() {
-				a.showCommitDetails(entry, index)
-			}
-		}
-	}
 	a.setStatus(a.statusSummary())
 	a.scheduleAutoLoadCheck()
 	a.restoreScrollState()
 	a.scheduleGraphCanvasDraw()
 }
 
+func (a *Controller) applyFilterSelectionPlan(plan selectionDisplayPlan) bool {
+	switch plan.kind {
+	case selectionDisplayLocal:
+		a.focusTreeRow(localRowID(plan.staged))
+		a.setStatus(a.statusSummary())
+		a.scheduleAutoLoadCheck()
+		a.restoreScrollState()
+		a.scheduleGraphCanvasDraw()
+		return true
+	case selectionDisplayMessage:
+		a.clearDetailText(plan.message)
+		a.setStatus(a.statusSummary())
+		return true
+	case selectionDisplayCommit:
+		a.selectCommitPlan(plan)
+		return false
+	default:
+		return false
+	}
+}
+
+func (a *Controller) selectCommitPlan(plan selectionDisplayPlan) {
+	id := commitRowID(plan.entry)
+	a.focusTreeRow(id)
+	if plan.loadDetail {
+		a.showCommitDetails(plan.entry, plan.index)
+	}
+}
+
+func (a *Controller) focusTreeRow(id string) {
+	if id == "" {
+		return
+	}
+	a.ui.treeView.Selection("set", id)
+	a.ui.treeView.Focus(id)
+	a.ui.treeView.See(id)
+}
+
 func (a *Controller) storeScrollState() {
-	a.state.scroll.total = a.treeChildCount()
-	if a.state.scroll.total > 0 {
+	a.model.state.scroll.total = a.treeChildCount()
+	if a.model.state.scroll.total > 0 {
 		if start, _, err := a.treeYviewRange(); err == nil {
-			a.state.scroll.start = start
+			a.model.state.scroll.start = start
 		}
 	}
 }
 
 func (a *Controller) restoreScrollState() {
 	newTotal := a.treeChildCount()
-	target, ok := a.state.scroll.restoreTarget(newTotal)
+	target, ok := a.model.state.scroll.restoreTarget(newTotal)
 	if !ok {
 		return
 	}
@@ -115,26 +115,22 @@ func (a *Controller) treeChildCount() int {
 	return len(a.ui.treeView.Children(""))
 }
 
-func (a *Controller) visibleSelectionIndex() int {
-	return a.state.selection.CommitIndex(a.data.visible)
-}
-
 func (a *Controller) scheduleFilterApply(raw string) {
 	if raw == "" {
 		a.applyFilterImmediate("")
 		return
 	}
 	slog.Debug("scheduleFilterApply", slog.String("value", raw))
-	a.state.filter.debounce.Trigger(raw)
+	a.runtime.actions.filterDebounce.Trigger(raw)
 }
 
 func (a *Controller) scheduleFilterApplyState(raw string) {
 	if raw == "" {
-		a.state.filter.debounce.Stop()
+		a.runtime.actions.filterDebounce.Stop()
 		a.applyFilterState("")
 		return
 	}
-	a.state.filter.debounce.SetPending(raw)
+	a.runtime.actions.filterDebounce.SetPending(raw)
 }
 
 func shouldAutoLoadForFilter(filterValue string, visibleLen int, hasMore bool, loadingBatch bool) bool {

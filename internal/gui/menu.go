@@ -8,7 +8,6 @@ import (
 
 	"github.com/thiagokokada/gitk-go/internal/buildinfo"
 	"github.com/thiagokokada/gitk-go/internal/git"
-	"github.com/thiagokokada/gitk-go/internal/gui/selection"
 	. "modernc.org/tk9.0"
 )
 
@@ -50,10 +49,10 @@ func (a *Controller) promptRepositorySwitch() {
 	dir := strings.TrimSpace(ChooseDirectory(
 		Parent(App),
 		Title("Select Git repository"),
-		Initialdir(a.repo.path),
+		Initialdir(a.model.repo.path),
 		Mustexist(true),
 	))
-	if dir == "" || dir == a.repo.path {
+	if dir == "" || dir == a.model.repo.path {
 		return
 	}
 	a.switchRepository(dir)
@@ -91,25 +90,18 @@ func (a *Controller) switchRepository(path string) {
 		return
 	}
 
-	a.state.watch.mu.Lock()
-	wasConfigured := a.state.watch.configured
-	wasEnabled := a.state.watch.enabled
-	a.state.watch.mu.Unlock()
+	a.runtime.watch.mu.Lock()
+	wasConfigured := a.runtime.watch.configured
+	wasEnabled := a.runtime.watch.enabled
+	a.runtime.watch.mu.Unlock()
 
 	a.disableAutoReload()
 	a.cancelPendingDiffLoad()
 
 	a.svc = newSvc
-	a.repo.path = newSvc.RepoPath()
-	a.repo.headRef = ""
-	a.data.commits = nil
-	a.data.visible = nil
 	a.clearTreeRows()
-	a.state.tree = treeState{}
-	a.state.localDiff = localDiffCache{}
-	a.state.filter.debounce.Stop()
-	a.state.filter.value = ""
-	a.state.selection = selection.State{}
+	a.runtime.actions.filterDebounce.Stop()
+	a.model.resetRepository(newSvc.RepoPath())
 	if a.ui.filterEntry != nil {
 		a.ui.filterEntry.Configure(Textvariable(""))
 	}

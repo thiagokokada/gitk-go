@@ -42,15 +42,20 @@ type RunConfig struct {
 }
 
 func Run(cfg RunConfig) error {
+	app, err := NewController(cfg)
+	if err != nil {
+		return err
+	}
+	return app.Run()
+}
+
+func NewController(cfg RunConfig) (*Controller, error) {
 	if cfg.RepoPath == "" {
 		cfg.RepoPath = "."
 	}
-	if err := InitializeExtension("eval"); err != nil && err != AlreadyInitialized {
-		return fmt.Errorf("init eval extension: %v", err)
-	}
 	svc, err := git.Open(cfg.RepoPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	svc.SetGraphMaxColumns(int(cfg.GraphMaxColumns))
 	pref := cfg.ThemePreference
@@ -66,21 +71,18 @@ func Run(cfg RunConfig) error {
 			syntaxHighlight:     cfg.SyntaxHighlight,
 			verbose:             cfg.Verbose,
 		},
-		repo: controllerRepo{
-			path: svc.RepoPath(),
-		},
 		theme: controllerTheme{
 			pref:     pref,
 			activate: cfg.ThemeActivator,
 		},
+		model: newAppModel(svc.RepoPath()),
 	}
-	app.initDebouncedActions()
-	app.state.diff.syntaxTags = make(map[string]string)
-	return app.run()
+	app.configureDebouncedActions()
+	return app, nil
 }
 
-func (a *Controller) initDebouncedActions() {
-	a.state.filter.debounce.Configure(filterDebounceDelay, func(value string) {
+func (a *Controller) configureDebouncedActions() {
+	a.runtime.actions.filterDebounce.Configure(filterDebounceDelay, func(value string) {
 		if value == "" {
 			return
 		}
@@ -88,7 +90,7 @@ func (a *Controller) initDebouncedActions() {
 			a.applyFilter(value)
 		}, false)
 	})
-	a.state.diff.debounce.Configure(diffDebounceDelay, func(req diffRequest) {
+	a.runtime.actions.diffDebounce.Configure(diffDebounceDelay, func(req diffRequest) {
 		if req.entry == nil {
 			return
 		}
@@ -96,27 +98,52 @@ func (a *Controller) initDebouncedActions() {
 	})
 }
 
-func (a *Controller) run() error {
+func (a *Controller) Run() error {
 	defer a.shutdown()
-	a.applyThemePalette(paletteForPreference(a.theme.pref))
+
+	a.configureLogging()
+	if err := a.initializeTkRuntime(); err != nil {
+		return err
+	}
+	a.buildUI()
+	a.startRuntimeServices()
+	a.startInitialDataLoads()
+
+	App.WmTitle("gitk-go")
+	App.SetResizable(true, true)
+	App.Center().Wait()
+
+	return nil
+}
+
+func (a *Controller) configureLogging() {
 	level := slog.LevelInfo
 	if a.cfg.verbose {
 		level = slog.LevelDebug
 	}
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})))
+}
+
+func (a *Controller) initializeTkRuntime() error {
+	if err := InitializeExtension("eval"); err != nil && err != AlreadyInitialized {
+		return fmt.Errorf("init eval extension: %v", err)
+	}
+	a.applyThemePalette(paletteForPreference(a.theme.pref))
 	applyAppIcon()
-	a.buildUI()
+	return nil
+}
+
+func (a *Controller) startRuntimeServices() {
 	a.loadPreferences()
 	a.startThemeWatch()
 	a.initAutoReload(a.cfg.autoReloadRequested)
+}
+
+func (a *Controller) startInitialDataLoads() {
 	a.showInitialLoadingRow()
 	a.setStatus("Loading commits...")
 	a.refreshLocalChangesAsync(true)
 	a.reloadCommitsAsync()
-	App.WmTitle("gitk-go")
-	App.SetResizable(true, true)
-	App.Center().Wait()
-	return nil
 }
 
 func (a *Controller) loadBranchLabels() error {
@@ -124,7 +151,7 @@ func (a *Controller) loadBranchLabels() error {
 	if err != nil {
 		return err
 	}
-	a.state.tree.branchLabels = labels
+	a.model.state.tree.branchLabels = labels
 	return nil
 }
 
@@ -150,7 +177,7 @@ func (a *Controller) refreshLocalChangesAsync(prefetch bool) {
 }
 
 func (a *Controller) applyLocalChangeStatus(status git.LocalChanges, repoReady bool, prefetch bool) {
-	actions := a.state.tree.localChangePlan(repoReady, prefetch, status)
+	actions := a.model.state.tree.localChangePlan(repoReady, prefetch, status)
 	a.setLocalRowVisibility(false, actions.showUnstaged)
 	a.setLocalRowVisibility(true, actions.showStaged)
 	if actions.resetUnstaged {
@@ -170,39 +197,29 @@ func (a *Controller) applyLocalChangeStatus(status git.LocalChanges, repoReady b
 func (a *Controller) showCommitDetails(entry *git.Entry, index int) {
 	header := git.FormatCommitHeader(entry.Commit)
 	hash := entry.Commit.Hash
-	a.state.selection.SetCommit(entry, index)
+	a.model.state.selection.SetCommit(entry, index)
 	a.showDiffStatus(header, "Loading diff...")
 	a.scheduleDiffLoad(entry, hash)
 }
 
 func (a *Controller) selectFallbackCommit() {
-	if len(a.data.visible) == 0 {
-		a.state.selection.Clear()
-		if len(a.data.commits) == 0 {
-			a.clearDetailText("Repository has no commits yet.")
-		} else {
-			a.clearDetailText("No commits match the current filter.")
-		}
+	plan := a.model.fallbackSelectionPlan()
+	switch plan.kind {
+	case selectionDisplayMessage:
+		a.clearDetailText(plan.message)
 		a.setStatus(a.statusSummary())
 		return
-	}
-	entry, ok := a.commitEntryAt(0)
-	if !ok {
+	case selectionDisplayCommit:
+		a.selectCommitPlan(plan)
+		a.scheduleGraphCanvasDraw()
+	default:
 		return
 	}
-	id := commitRowID(entry)
-	if id != "" {
-		a.ui.treeView.Selection("set", id)
-		a.ui.treeView.Focus(id)
-		a.ui.treeView.See(id)
-	}
-	a.showCommitDetails(entry, 0)
-	a.scheduleGraphCanvasDraw()
 }
 
 func (a *Controller) showLocalChanges(staged bool) {
 	a.cancelPendingDiffLoad()
-	a.state.selection.SetLocal(staged)
+	a.model.state.selection.SetLocal(staged)
 	a.renderLocalChanges(staged, true)
 }
 
@@ -301,7 +318,7 @@ func (a *Controller) resetLocalDiffState(staged bool) {
 }
 
 func (a *Controller) localDiffState(staged bool, create bool) *localDiffState {
-	return a.state.localDiff.state(staged, create)
+	return a.model.state.localDiff.state(staged, create)
 }
 
 func (a *Controller) onLocalDiffLoaded(staged bool) {
@@ -343,30 +360,25 @@ func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
 		return
 	}
 	slog.Debug("scheduleDiffLoad", slog.String("hash", hash))
-	a.state.diff.debounce.Trigger(diffRequest{entry: entry, hash: hash})
+	a.runtime.actions.diffDebounce.Trigger(diffRequest{entry: entry, hash: hash})
 }
 
 func (a *Controller) cancelPendingDiffLoad() {
 	slog.Debug("cancelPendingDiffLoad")
-	a.state.diff.debounce.Stop()
+	a.runtime.actions.diffDebounce.Stop()
 }
 
 func (a *Controller) refreshCommitBatchState(prefetchLocalChanges bool) {
 	if err := a.loadBranchLabels(); err != nil {
 		slog.Error("failed to refresh branch labels", slog.Any("error", err))
 	}
-	a.applyFilterContent(a.state.filter.value)
+	a.applyFilterContent(a.model.state.filter.value)
 	a.refreshLocalChangesAsync(prefetchLocalChanges)
 	a.setStatus(a.statusSummary())
 }
 
 func (a *Controller) applyReloadedCommitBatch(entries []*git.Entry, head string, hasMore bool) {
-	a.data.commits = entries
-	a.data.visible = entries
-	a.repo.headRef = head
-	a.state.tree.hasMore = hasMore
-	a.state.tree.rows.setCommitIDs(entries)
-	a.state.tree.rows.refreshValues = true
+	a.model.setReloadedCommits(entries, head, hasMore)
 	slog.Debug("reloadCommitsAsync loaded",
 		slog.Int("count", len(entries)),
 		slog.String("head", head),
@@ -377,41 +389,37 @@ func (a *Controller) applyReloadedCommitBatch(entries []*git.Entry, head string,
 
 func (a *Controller) applyAppendedCommitBatch(entries []*git.Entry, hasMore bool, background bool) {
 	if len(entries) == 0 {
-		a.state.tree.hasMore = false
+		a.model.state.tree.markNoMoreCommits()
 		if !background {
 			a.setStatus("No more commits available.")
 		}
 		return
 	}
-	a.data.commits = append(a.data.commits, entries...)
-	a.state.tree.hasMore = hasMore
-	a.state.tree.rows.addCommitIDs(entries)
-	a.state.tree.rows.refreshValues = true
+	a.model.appendCommits(entries, hasMore)
 	slog.Debug("loadMoreCommitsAsync loaded",
 		slog.Int("added", len(entries)),
-		slog.Int("total", len(a.data.commits)),
+		slog.Int("total", len(a.model.data.commits)),
 		slog.Bool("has_more", hasMore),
 		slog.Bool("background", background),
 	)
 	a.refreshCommitBatchState(false)
-	if background && a.state.tree.hasMore {
+	if background && a.model.state.tree.hasMore {
 		go a.loadMoreCommitsAsync(true)
 	}
 }
 
 func (a *Controller) reloadCommitsAsync() {
-	if a.state.tree.loadingBatch {
+	if !a.model.state.tree.beginCommitBatchLoad(true) {
 		return
 	}
-	a.state.tree.loadingBatch = true
 	slog.Debug("reloadCommitsAsync start",
 		slog.Uint64("batch", uint64(a.cfg.batch)),
-		slog.String("filter", a.state.filter.value),
+		slog.String("filter", a.model.state.filter.value),
 	)
 	go func() {
 		entries, head, hasMore, err := a.svc.ScanCommits(0, a.cfg.batch)
 		PostEvent(func() {
-			a.state.tree.loadingBatch = false
+			a.model.state.tree.finishCommitBatchLoad()
 			if err != nil {
 				slog.Error("failed to reload commits", slog.Any("error", err))
 				a.setStatus(fmt.Sprintf("Failed to reload commits: %v", err))
@@ -423,20 +431,19 @@ func (a *Controller) reloadCommitsAsync() {
 }
 
 func (a *Controller) loadMoreCommitsAsync(prefetch bool) {
-	if a.state.tree.loadingBatch || (!prefetch && !a.state.tree.hasMore) {
+	if !a.model.state.tree.beginCommitBatchLoad(prefetch) {
 		return
 	}
-	a.state.tree.loadingBatch = true
-	skip := len(a.data.commits)
+	skip := len(a.model.data.commits)
 	slog.Debug("loadMoreCommitsAsync start",
 		slog.Int("skip", skip),
 		slog.Bool("prefetch", prefetch),
-		slog.String("filter", a.state.filter.value),
+		slog.String("filter", a.model.state.filter.value),
 	)
 	go func(skipCount uint, background bool) {
 		entries, _, hasMore, err := a.svc.ScanCommits(skipCount, a.cfg.batch)
 		PostEvent(func() {
-			a.state.tree.loadingBatch = false
+			a.model.state.tree.finishCommitBatchLoad()
 			if err != nil {
 				slog.Error("failed to load more commits", slog.Any("error", err))
 				if !background {
@@ -555,7 +562,7 @@ func (a *Controller) diffTopLine() int {
 }
 
 func (a *Controller) currentSelection() string {
-	return a.state.selection.CommitHash()
+	return a.model.state.selection.CommitHash()
 }
 
 func (a *Controller) setStatus(msg string) {
@@ -566,19 +573,19 @@ func (a *Controller) setStatus(msg string) {
 }
 
 func (a *Controller) statusSummary() string {
-	total := len(a.data.commits)
-	visible := len(a.data.visible)
-	head := a.repo.headRef
+	total := len(a.model.data.commits)
+	visible := len(a.model.data.visible)
+	head := a.model.repo.headRef
 	if head == "" {
 		head = "HEAD"
 	}
-	filterDesc := strings.TrimSpace(a.state.filter.value)
-	path := a.repo.path
+	filterDesc := strings.TrimSpace(a.model.state.filter.value)
+	path := a.model.repo.path
 	if path == "" && a.svc != nil {
 		path = a.svc.RepoPath()
 	}
 	base := fmt.Sprintf("Showing %d/%d loaded commits on %s — %s", visible, total, head, path)
-	if a.state.tree.hasMore {
+	if a.model.state.tree.hasMore {
 		base += " (more available)"
 	}
 	if filterDesc == "" {
@@ -588,8 +595,7 @@ func (a *Controller) statusSummary() string {
 }
 
 func (a *Controller) onDiffScrolled() {
-	if a.state.diff.skipNextSync {
-		a.state.diff.skipNextSync = false
+	if a.model.state.diff.consumeSkipNextSync() {
 		return
 	}
 	a.syncFileSelectionToDiff()

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync/atomic"
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/thiagokokada/gitk-go/internal/git"
@@ -44,16 +43,16 @@ func (a *Controller) startSyntaxHighlight(content string) {
 	if style == nil {
 		return
 	}
-	gen := atomic.AddUint64(&a.state.diff.syntaxGeneration, 1)
+	gen := a.model.state.diff.syntaxGeneration.Add(1)
 	go a.computeSyntaxHighlight(content, style, gen)
 }
 
 func (a *Controller) cancelSyntaxHighlight() {
-	atomic.AddUint64(&a.state.diff.syntaxGeneration, 1)
+	a.model.state.diff.syntaxGeneration.Add(1)
 }
 
 func (a *Controller) syntaxHighlightCanceled(gen uint64) bool {
-	return gen != atomic.LoadUint64(&a.state.diff.syntaxGeneration)
+	return gen != a.model.state.diff.syntaxGeneration.Load()
 }
 
 func (a *Controller) computeSyntaxHighlight(content string, style *chroma.Style, gen uint64) {
