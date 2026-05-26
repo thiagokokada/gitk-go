@@ -1,6 +1,8 @@
 package view
 
 import (
+	"fmt"
+	"slices"
 	"strings"
 
 	tk "modernc.org/tk9.0"
@@ -15,6 +17,59 @@ type BranchSwitchRow struct {
 type BranchSwitchDialogHandlers struct {
 	Filter func(string) []BranchSwitchRow
 	Submit func(string)
+}
+
+func BuildBranchSwitchRows(branches []string, current string) []BranchSwitchRow {
+	current = strings.TrimSpace(current)
+	unique := make(map[string]struct{}, len(branches))
+	var names []string
+	for _, b := range branches {
+		b = strings.TrimSpace(b)
+		if b == "" {
+			continue
+		}
+		if _, ok := unique[b]; ok {
+			continue
+		}
+		unique[b] = struct{}{}
+		names = append(names, b)
+	}
+	slices.Sort(names)
+
+	rows := make([]BranchSwitchRow, 0, len(names))
+	for _, name := range names {
+		isCurrent := current != "" && name == current
+		display := name
+		if isCurrent {
+			display = fmt.Sprintf("%s (current)", name)
+		}
+		rows = append(rows, BranchSwitchRow{Name: name, Display: display, IsCurrent: isCurrent})
+	}
+
+	if current == "" {
+		return rows
+	}
+	for i, row := range rows {
+		if row.IsCurrent {
+			rows[0], rows[i] = rows[i], rows[0]
+			break
+		}
+	}
+	return rows
+}
+
+func FilterBranchSwitchRows(rows []BranchSwitchRow, query string) []BranchSwitchRow {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return rows
+	}
+	out := make([]BranchSwitchRow, 0, len(rows))
+	for _, row := range rows {
+		if strings.Contains(strings.ToLower(row.Name), q) {
+			out = append(out, row)
+		}
+	}
+	return out
 }
 
 func (a *App) ShowBranchSwitchDialog(current string, rows []BranchSwitchRow, handlers BranchSwitchDialogHandlers) {
