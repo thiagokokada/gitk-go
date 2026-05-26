@@ -24,11 +24,6 @@ func (a *App) SetReloadButtonLabel(text string) {
 	a.ReloadButton.Configure(tk.Txt(text))
 }
 
-func (a *App) CopyToClipboard(text string) {
-	tk.ClipboardClear()
-	tk.ClipboardAppend(text)
-}
-
 func (a *App) ClearFilterText() {
 	if a.FilterEntry == nil {
 		return
