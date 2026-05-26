@@ -156,16 +156,12 @@ func (a *Controller) insertCommitRow(id string, entry *git.Entry) {
 	if !ok {
 		return
 	}
-	a.ui.TreeView.Insert("", "end", Id(id), Values(row.Values()))
+	a.ui.InsertCommitRow(id, row)
 	a.model.State.Tree.Rows.AddItem(id)
 	a.model.State.Tree.Rows.SetItemValue(id, row)
 }
 
 func (a *Controller) updateCommitRow(id string, entry *git.Entry) {
-	treePath := a.ui.TreeView.String()
-	if treePath == "" {
-		return
-	}
 	row, ok := treeRowData(entry, a.model.State.Tree.BranchLabels, a.cfg.graphCanvas)
 	if !ok {
 		return
@@ -173,7 +169,9 @@ func (a *Controller) updateCommitRow(id string, entry *git.Entry) {
 	if !a.model.State.Tree.Rows.ItemValueChanged(id, row) {
 		return
 	}
-	a.ui.TreeView.Item(id, Values(row.Values()))
+	if !a.ui.UpdateCommitRow(id, row) {
+		return
+	}
 	a.model.State.Tree.Rows.SetItemValue(id, row)
 }
 

@@ -23,3 +23,18 @@ func (a *App) InsertLoadingIndicatorRow() {
 	values := []string{"", "Loading commits...", "", ""}
 	a.TreeView.Insert("", "end", tk.Id(model.LoadingIndicatorID), tk.Values(values))
 }
+
+func (a *App) InsertCommitRow(id string, row model.TreeRow) {
+	if a.TreeView == nil {
+		return
+	}
+	a.TreeView.Insert("", "end", tk.Id(id), tk.Values(row.Values()))
+}
+
+func (a *App) UpdateCommitRow(id string, row model.TreeRow) bool {
+	if a.TreeView == nil || a.TreeView.String() == "" {
+		return false
+	}
+	a.TreeView.Item(id, tk.Values(row.Values()))
+	return true
+}
