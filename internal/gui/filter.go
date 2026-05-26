@@ -8,7 +8,7 @@ import (
 )
 
 func (a *Controller) applyFilter(raw string) {
-	if a.ui.FilterEntry.Textvariable() != raw {
+	if a.ui.FilterText() != raw {
 		return
 	}
 	a.applyFilterContent(raw)

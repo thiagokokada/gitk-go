@@ -7,13 +7,10 @@ import (
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/lexers"
-	. "modernc.org/tk9.0"
 )
 
 func (a *Controller) clearSyntaxHighlight() {
-	for _, tag := range a.model.State.Diff.SyntaxTags {
-		a.ui.DiffDetail.TagRemove(tag, "1.0", END)
-	}
+	a.ui.ClearSyntaxTags(a.model.State.Diff.SyntaxTags)
 }
 
 func (a *Controller) syntaxTagForColor(color string) string {
@@ -27,7 +24,7 @@ func (a *Controller) syntaxTagForColor(color string) string {
 		return tag
 	}
 	tag := fmt.Sprintf("syntax_%d", len(a.model.State.Diff.SyntaxTags))
-	a.ui.DiffDetail.TagConfigure(tag, Foreground(color))
+	a.ui.ConfigureSyntaxTag(tag, color)
 	a.model.State.Diff.SyntaxTags[color] = tag
 	return tag
 }

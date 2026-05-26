@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/thiagokokada/gitk-go/internal/gui/view"
+
 	. "modernc.org/tk9.0"
 )
 
@@ -36,37 +38,15 @@ func diffDetailFontSpec() []any {
 	return []any{CourierFont(), 11}
 }
 
-func (a *Controller) showUIFontDialog() {
-	showFontDialog("Select UI Font", DefaultFont, a.prefs.uiFontSpec, a.applyUIFontSpec)
-}
-
-func (a *Controller) showFixedFontDialog() {
-	showFontDialog("Select Fixed Font", FixedFont, a.prefs.fixedFontSpec, a.applyFixedFontSpec)
-}
-
-func showFontDialog(title string, seedFont string, seedSpec []string, apply func([]string, bool) bool) {
-	Fontchooser(
-		Parent(App),
-		Title(title),
-		fontChooserSeed(seedFont, seedSpec),
-		Command(func() {
-			if !apply(FontchooserFont(), true) {
-				slog.Debug("font selection missing or invalid", slog.String("title", title))
-			}
-		}),
-	)
-	FontchooserShow()
-}
-
 func (a *Controller) applyUIFontSpec(spec []string, save bool) bool {
 	selection, ok := fontSelectionFromSpec(spec)
 	if !ok {
 		return false
 	}
 	a.prefs.uiFontSpec = selection.preferenceSpec()
-	selection.applyToNamedFonts(uiNamedFonts)
-	applyUIFontToStyles()
-	a.applyUIFontToWidgets()
+	view.ApplyNamedFontOptions(uiNamedFonts, selection.fontOptions())
+	view.ApplyUIFontToStyles()
+	a.ui.ApplyUIFontToWidgets()
 	a.scheduleGraphCanvasDraw()
 	if save {
 		a.savePreferences(false)
@@ -80,8 +60,8 @@ func (a *Controller) applyFixedFontSpec(spec []string, save bool) bool {
 		return false
 	}
 	a.prefs.fixedFontSpec = selection.preferenceSpec()
-	selection.applyToNamedFonts([]string{FixedFont})
-	a.applyFixedFontToDiff()
+	view.ApplyNamedFontOptions([]string{FixedFont}, selection.fontOptions())
+	a.ui.ApplyFixedFontToDiff()
 	if save {
 		a.savePreferences(false)
 	}
@@ -99,13 +79,6 @@ func (a *Controller) applyStoredFontPreferences() {
 			slog.Debug("stored fixed font invalid")
 		}
 	}
-}
-
-func (a *Controller) applyFixedFontToDiff() {
-	if a.ui.DiffDetail == nil {
-		return
-	}
-	a.ui.DiffDetail.Configure(Font(FixedFont))
 }
 
 func fontSelectionFromSpec(spec []string) (fontSelection, bool) {
@@ -201,49 +174,4 @@ func (selection fontSelection) preferenceSpec() []string {
 		spec = append(spec, OVERSTRIKE)
 	}
 	return spec
-}
-
-func (selection fontSelection) applyToNamedFonts(names []string) {
-	options := selection.fontOptions()
-	for _, name := range names {
-		FontConfigure(name, options...)
-	}
-}
-
-func applyUIFontToStyles() {
-	styles := []string{
-		".",
-		"TLabel",
-		"TEntry",
-		"TButton",
-		"Treeview",
-		"Treeview.Heading",
-	}
-	for _, style := range styles {
-		StyleConfigure(style, Font(DefaultFont))
-	}
-}
-
-func (a *Controller) applyUIFontToWidgets() {
-	if a.ui.DiffFileList != nil {
-		a.ui.DiffFileList.Configure(Font(DefaultFont))
-	}
-	if a.ui.TreeContextMenu != nil {
-		a.ui.TreeContextMenu.Configure(Font(DefaultFont))
-	}
-	if a.ui.DiffContextMenu != nil {
-		a.ui.DiffContextMenu.Configure(Font(DefaultFont))
-	}
-	if a.ui.Menubar != nil {
-		a.ui.Menubar.Configure(Font(DefaultFont))
-	}
-	if a.ui.FileMenu != nil {
-		a.ui.FileMenu.Configure(Font(DefaultFont))
-	}
-	if a.ui.ViewMenu != nil {
-		a.ui.ViewMenu.Configure(Font(DefaultFont))
-	}
-	if a.ui.HelpMenu != nil {
-		a.ui.HelpMenu.Configure(Font(DefaultFont))
-	}
 }
