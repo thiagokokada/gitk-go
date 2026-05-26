@@ -338,9 +338,6 @@ func (a *Controller) selectSpecialRow(id string) {
 
 func (a *Controller) currentSelectionIndex() int {
 	id := a.ui.SelectedTreeRow()
-	if id == "" || id == model.MoreIndicatorID {
-		return 0
-	}
 	if _, idx, ok := a.model.CommitEntryForTreeID(id); ok {
 		return idx
 	}

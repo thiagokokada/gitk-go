@@ -68,9 +68,6 @@ func (d *DiffState) FinishProgrammaticFileSelection() {
 }
 
 func (d *DiffState) SelectedFilePath() (string, bool) {
-	if d.SelectedFileIndex < 0 {
-		return "", false
-	}
 	return DiffFilePathForIndex(d.FileSections, d.SelectedFileIndex)
 }
 
