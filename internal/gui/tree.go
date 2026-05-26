@@ -109,7 +109,7 @@ func (a *Controller) syncTreeRows() {
 	ordered := make([]string, 0, len(a.model.Data.Visible)+3)
 	ordered = append(ordered, a.model.State.Tree.LocalRowIDs()...)
 	for _, entry := range a.model.Data.Visible {
-		id := commitRowID(entry)
+		id := model.CommitRowID(entry)
 		if id == "" {
 			continue
 		}
@@ -268,23 +268,4 @@ func (a *Controller) treeYviewRange() (start float64, end float64, err error) {
 		return 0, 0, err
 	}
 	return start, end, nil
-}
-
-func commitRowID(entry *git.Entry) string {
-	return model.CommitRowID(entry)
-}
-
-func buildVisibleIndex(entries []*git.Entry) map[string]int {
-	return model.BuildVisibleIndex(entries)
-}
-
-func buildVisibleIndexInto(entries []*git.Entry, index map[string]int) map[string]int {
-	return model.BuildVisibleIndexInto(entries, index)
-}
-
-func treeRowEqual(a treeRow, b treeRow) bool {
-	return a.Graph == b.Graph &&
-		a.Commit == b.Commit &&
-		a.Author == b.Author &&
-		a.Date == b.Date
 }

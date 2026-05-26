@@ -18,7 +18,7 @@ func buildTreeRows(entries []*git.Entry, labels map[string][]string, graphCanvas
 		if entry == nil || entry.Commit == nil {
 			continue
 		}
-		id := commitRowID(entry)
+		id := model.CommitRowID(entry)
 		if id == "" {
 			continue
 		}

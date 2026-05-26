@@ -359,7 +359,7 @@ func (a *Controller) selectTreeIndex(idx int) {
 	if !ok {
 		return
 	}
-	id := commitRowID(entry)
+	id := model.CommitRowID(entry)
 	if id == "" {
 		return
 	}
