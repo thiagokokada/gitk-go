@@ -16,10 +16,18 @@ func (a *Controller) initMenubar() {
 		OpenRepository: a.promptRepositorySwitch,
 		SwitchBranch:   a.promptBranchSwitch,
 		UIFont: func() {
-			view.ShowFontDialog("Select UI Font", fontChooserSeed(tk.DefaultFont, a.prefs.uiFontSpec), a.applyUIFontSpec)
+			view.ShowFontDialog(
+				"Select UI Font",
+				fontChooserSeed(tk.DefaultFont, a.prefs.uiFontSpec),
+				a.applyUIFontSpec,
+			)
 		},
 		FixedFont: func() {
-			view.ShowFontDialog("Select Fixed Font", fontChooserSeed(tk.FixedFont, a.prefs.fixedFontSpec), a.applyFixedFontSpec)
+			view.ShowFontDialog(
+				"Select Fixed Font",
+				fontChooserSeed(tk.FixedFont, a.prefs.fixedFontSpec),
+				a.applyFixedFontSpec,
+			)
 		},
 		Shortcuts: a.showShortcutsDialog,
 		About:     a.showAboutDialog,

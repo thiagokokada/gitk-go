@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/thiagokokada/gitk-go/internal/gui/view"
+
 	. "modernc.org/tk9.0"
 )
 
@@ -42,8 +44,8 @@ func (a *Controller) applyUIFontSpec(spec []string, save bool) bool {
 		return false
 	}
 	a.prefs.uiFontSpec = selection.preferenceSpec()
-	a.ui.ApplyNamedFontOptions(uiNamedFonts, selection.fontOptions())
-	a.ui.ApplyUIFontToStyles()
+	view.ApplyNamedFontOptions(uiNamedFonts, selection.fontOptions())
+	view.ApplyUIFontToStyles()
 	a.ui.ApplyUIFontToWidgets()
 	a.scheduleGraphCanvasDraw()
 	if save {
@@ -58,7 +60,7 @@ func (a *Controller) applyFixedFontSpec(spec []string, save bool) bool {
 		return false
 	}
 	a.prefs.fixedFontSpec = selection.preferenceSpec()
-	a.ui.ApplyNamedFontOptions([]string{FixedFont}, selection.fontOptions())
+	view.ApplyNamedFontOptions([]string{FixedFont}, selection.fontOptions())
 	a.ui.ApplyFixedFontToDiff()
 	if save {
 		a.savePreferences(false)

@@ -17,14 +17,14 @@ func (a *App) BindEmacsEntryShortcuts(entry *tk.TEntryWidget) {
 	if entry == nil {
 		return
 	}
-	tk.Bind(entry, "<Control-KeyPress-w>", tk.Command(func(e *tk.Event) { a.onEntryCtrlW(entry, e) }))
-	tk.Bind(entry, "<Control-KeyPress-a>", tk.Command(func(e *tk.Event) { a.onEntryCtrlA(entry, e) }))
-	tk.Bind(entry, "<Control-KeyPress-e>", tk.Command(func(e *tk.Event) { a.onEntryCtrlE(entry, e) }))
-	tk.Bind(entry, "<Control-KeyPress-b>", tk.Command(func(e *tk.Event) { a.onEntryCtrlB(entry, e) }))
-	tk.Bind(entry, "<Control-KeyPress-f>", tk.Command(func(e *tk.Event) { a.onEntryCtrlF(entry, e) }))
-	tk.Bind(entry, "<Control-KeyPress-u>", tk.Command(func(e *tk.Event) { a.onEntryCtrlU(entry, e) }))
-	tk.Bind(entry, "<Control-KeyPress-k>", tk.Command(func(e *tk.Event) { a.onEntryCtrlK(entry, e) }))
-	tk.Bind(entry, "<Control-KeyPress-d>", tk.Command(func(e *tk.Event) { a.onEntryCtrlD(entry, e) }))
+	tk.Bind(entry, "<Control-KeyPress-w>", tk.Command(func(e *tk.Event) { onEntryCtrlW(entry, e) }))
+	tk.Bind(entry, "<Control-KeyPress-a>", tk.Command(func(e *tk.Event) { onEntryCtrlA(entry, e) }))
+	tk.Bind(entry, "<Control-KeyPress-e>", tk.Command(func(e *tk.Event) { onEntryCtrlE(entry, e) }))
+	tk.Bind(entry, "<Control-KeyPress-b>", tk.Command(func(e *tk.Event) { onEntryCtrlB(entry, e) }))
+	tk.Bind(entry, "<Control-KeyPress-f>", tk.Command(func(e *tk.Event) { onEntryCtrlF(entry, e) }))
+	tk.Bind(entry, "<Control-KeyPress-u>", tk.Command(func(e *tk.Event) { onEntryCtrlU(entry, e) }))
+	tk.Bind(entry, "<Control-KeyPress-k>", tk.Command(func(e *tk.Event) { onEntryCtrlK(entry, e) }))
+	tk.Bind(entry, "<Control-KeyPress-d>", tk.Command(func(e *tk.Event) { onEntryCtrlD(entry, e) }))
 }
 
 func (a *App) FilterText() string {
@@ -56,7 +56,7 @@ func (a *App) BlurFilterEntry() {
 	a.FocusTree()
 }
 
-func (a *App) onEntryCtrlW(entry *tk.TEntryWidget, e *tk.Event) {
+func onEntryCtrlW(entry *tk.TEntryWidget, e *tk.Event) {
 	if entry == nil {
 		return
 	}
@@ -78,7 +78,7 @@ func (a *App) onEntryCtrlW(entry *tk.TEntryWidget, e *tk.Event) {
 	e.SetReturnCodeBreak()
 }
 
-func (a *App) onEntryCtrlA(entry *tk.TEntryWidget, e *tk.Event) {
+func onEntryCtrlA(entry *tk.TEntryWidget, e *tk.Event) {
 	if entry == nil {
 		return
 	}
@@ -88,7 +88,7 @@ func (a *App) onEntryCtrlA(entry *tk.TEntryWidget, e *tk.Event) {
 	e.SetReturnCodeBreak()
 }
 
-func (a *App) onEntryCtrlE(entry *tk.TEntryWidget, e *tk.Event) {
+func onEntryCtrlE(entry *tk.TEntryWidget, e *tk.Event) {
 	if entry == nil {
 		return
 	}
@@ -99,7 +99,7 @@ func (a *App) onEntryCtrlE(entry *tk.TEntryWidget, e *tk.Event) {
 	e.SetReturnCodeBreak()
 }
 
-func (a *App) onEntryCtrlB(entry *tk.TEntryWidget, e *tk.Event) {
+func onEntryCtrlB(entry *tk.TEntryWidget, e *tk.Event) {
 	if entry == nil {
 		return
 	}
@@ -112,7 +112,7 @@ func (a *App) onEntryCtrlB(entry *tk.TEntryWidget, e *tk.Event) {
 	e.SetReturnCodeBreak()
 }
 
-func (a *App) onEntryCtrlF(entry *tk.TEntryWidget, e *tk.Event) {
+func onEntryCtrlF(entry *tk.TEntryWidget, e *tk.Event) {
 	if entry == nil {
 		return
 	}
@@ -125,7 +125,7 @@ func (a *App) onEntryCtrlF(entry *tk.TEntryWidget, e *tk.Event) {
 	e.SetReturnCodeBreak()
 }
 
-func (a *App) onEntryCtrlU(entry *tk.TEntryWidget, e *tk.Event) {
+func onEntryCtrlU(entry *tk.TEntryWidget, e *tk.Event) {
 	if entry == nil {
 		return
 	}
@@ -140,7 +140,7 @@ func (a *App) onEntryCtrlU(entry *tk.TEntryWidget, e *tk.Event) {
 	e.SetReturnCodeBreak()
 }
 
-func (a *App) onEntryCtrlK(entry *tk.TEntryWidget, e *tk.Event) {
+func onEntryCtrlK(entry *tk.TEntryWidget, e *tk.Event) {
 	if entry == nil {
 		return
 	}
@@ -155,7 +155,7 @@ func (a *App) onEntryCtrlK(entry *tk.TEntryWidget, e *tk.Event) {
 	e.SetReturnCodeBreak()
 }
 
-func (a *App) onEntryCtrlD(entry *tk.TEntryWidget, e *tk.Event) {
+func onEntryCtrlD(entry *tk.TEntryWidget, e *tk.Event) {
 	if entry == nil {
 		return
 	}

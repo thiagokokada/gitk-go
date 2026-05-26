@@ -20,13 +20,13 @@ func ShowFontDialog(title string, seed tk.Opt, apply func([]string, bool) bool) 
 	tk.FontchooserShow()
 }
 
-func (a *App) ApplyNamedFontOptions(names []string, options []any) {
+func ApplyNamedFontOptions(names []string, options []any) {
 	for _, name := range names {
 		tk.FontConfigure(name, options...)
 	}
 }
 
-func (a *App) ApplyUIFontToStyles() {
+func ApplyUIFontToStyles() {
 	styles := []string{
 		".",
 		"TLabel",
