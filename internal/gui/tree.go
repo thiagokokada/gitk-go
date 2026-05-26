@@ -54,10 +54,8 @@ func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
 
 func (a *Controller) insertSingleLocalRow(staged bool) {
 	label := localRowLabel(staged)
-	tag := localRowTag(staged)
 	index := a.model.State.Tree.LocalRowInsertIndex(staged)
-	vals := []string{"", label, "", ""}
-	a.ui.TreeView.Insert("", index, Id(model.LocalRowID(staged)), Values(vals), Tags(tag))
+	a.ui.InsertLocalRow(staged, index, label)
 	a.model.State.Tree.Rows.AddSpecialItem(model.LocalRowID(staged))
 }
 
@@ -66,13 +64,6 @@ func localRowLabel(staged bool) string {
 		return localStagedLabel
 	}
 	return localUnstagedLabel
-}
-
-func localRowTag(staged bool) string {
-	if staged {
-		return "localStaged"
-	}
-	return "localUnstaged"
 }
 
 func (a *Controller) clearTreeRows() {
@@ -148,8 +139,7 @@ func (a *Controller) ensureMoreIndicatorRow() {
 	if a.model.State.Tree.Rows.HasSpecialItem(model.MoreIndicatorID) {
 		return
 	}
-	vals := []string{"", "There are more commits...", "", ""}
-	a.ui.TreeView.Insert("", "end", Id(model.MoreIndicatorID), Values(vals))
+	a.ui.InsertMoreIndicatorRow()
 	a.model.State.Tree.Rows.AddSpecialItem(model.MoreIndicatorID)
 }
 
@@ -157,8 +147,7 @@ func (a *Controller) ensureLoadingIndicatorRow() {
 	if a.model.State.Tree.Rows.HasSpecialItem(model.LoadingIndicatorID) {
 		return
 	}
-	vals := []string{"", "Loading commits...", "", ""}
-	a.ui.TreeView.Insert("", "end", Id(model.LoadingIndicatorID), Values(vals))
+	a.ui.InsertLoadingIndicatorRow()
 	a.model.State.Tree.Rows.AddSpecialItem(model.LoadingIndicatorID)
 }
 
