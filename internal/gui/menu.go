@@ -102,9 +102,7 @@ func (a *Controller) switchRepository(path string) {
 	a.clearTreeRows()
 	a.runtime.actions.filterDebounce.Stop()
 	a.model.ResetRepository(newSvc.RepoPath())
-	if a.ui.FilterEntry != nil {
-		a.ui.FilterEntry.Configure(Textvariable(""))
-	}
+	a.ui.ClearFilterText()
 	a.setLocalRowVisibility(false, false)
 	a.setLocalRowVisibility(true, false)
 	a.updateRepoLabel()

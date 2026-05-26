@@ -1,9 +1,11 @@
 package view
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/thiagokokada/gitk-go/internal/gui/model"
+	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 	tk "modernc.org/tk9.0"
 )
 
@@ -60,6 +62,46 @@ func (a *App) ScrollDiffToLine(line int) {
 	}
 	totalLines := a.DetailLineCount()
 	a.DiffDetail.Yviewmoveto(model.DiffScrollFraction(line, totalLines))
+}
+
+func (a *App) ScrollDiff(delta int, unit ScrollUnit) error {
+	if a.DiffDetail == nil || delta == 0 {
+		return nil
+	}
+	switch unit {
+	case ScrollPages, ScrollUnits:
+	default:
+		return fmt.Errorf("unsupported diff scroll unit %q", unit)
+	}
+	_, err := tkutil.Evalf("%s yview scroll %d %s", a.DiffDetail, delta, unit)
+	return err
+}
+
+func (a *App) SelectedDiffText() string {
+	if a.DiffDetail == nil {
+		return ""
+	}
+	ranges := a.DiffDetail.TagRanges("sel")
+	if len(ranges) < 2 {
+		return ""
+	}
+	values := a.DiffDetail.Get(ranges[0], ranges[1])
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
+
+func StripDiffLineMarkers(text string) string {
+	lines := strings.Split(text, "\n")
+	filtered := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if len(line) > 0 && (line[0] == '+' || line[0] == '-') {
+			line = line[1:]
+		}
+		filtered = append(filtered, line)
+	}
+	return strings.Join(filtered, "\n")
 }
 
 func (a *App) DetailLineCount() int {

@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
-	. "modernc.org/tk9.0"
+	tk "modernc.org/tk9.0"
 
 	"github.com/thiagokokada/gitk-go/internal/gui/model"
 	"github.com/thiagokokada/gitk-go/internal/gui/view"
@@ -34,9 +34,7 @@ func (a *Controller) buildUI() {
 	a.applyDiffTagStyles()
 	a.applyDiffFileListStyles()
 	a.initGraphCanvas()
-	a.initTreeContextMenu()
-	a.initDiffContextMenu()
-	a.initDiffFileListContextMenu()
+	a.initContextMenus()
 	a.clearDetailText("Select a commit to view its details.")
 	a.bindShortcuts()
 }
@@ -69,16 +67,16 @@ func (a *Controller) showInitialLoadingRow() {
 	a.scheduleGraphCanvasDraw()
 }
 
-func (a *Controller) initTreeContextMenu() {
-	menu := App.Menu(Tearoff(false))
-	item := menu.AddCommand(Command(a.copySelectedCommitReference))
-	menu.EntryConfigure(item, Lbl("Copy commit reference"))
-	a.ui.TreeContextMenu = menu
-	handler := func(e *Event) {
-		a.showTreeContextMenu(e)
-	}
-	Bind(a.ui.TreeView, "<Button-2>", Command(handler))
-	Bind(a.ui.TreeView, "<Button-3>", Command(handler))
+func (a *Controller) initContextMenus() {
+	a.ui.InitContextMenus(view.ContextMenuHandlers{
+		Tree:                            a.showTreeContextMenu,
+		CopyCommitReference:             a.copySelectedCommitReference,
+		Diff:                            a.showDiffContextMenu,
+		CopySelection:                   func() { a.copyDetailSelection(false) },
+		CopySelectionWithoutLineMarkers: func() { a.copyDetailSelection(true) },
+		DiffFile:                        a.showDiffFileListContextMenu,
+		CopyFilePath:                    a.copySelectedDiffFilePath,
+	})
 }
 
 func (a *Controller) bindGraphCanvasHandlers(graphCanvas *widgets.GraphCanvas) {
@@ -99,16 +97,10 @@ func (a *Controller) bindGraphCanvasHandlers(graphCanvas *widgets.GraphCanvas) {
 }
 
 func (a *Controller) handleGraphCanvasClick(x, y int) {
-	if a.ui.TreeView == nil {
-		return
-	}
-	item := strings.TrimSpace(a.ui.TreeView.IdentifyItem(x, y))
+	item := a.ui.FocusTreeRowAt(x, y)
 	if item == "" {
 		return
 	}
-	Focus(a.ui.TreeView)
-	a.ui.TreeView.Selection("set", item)
-	a.ui.TreeView.Focus(item)
 }
 
 func (a *Controller) handleGraphCanvasWheel(delta int) {
@@ -126,7 +118,7 @@ func (a *Controller) handleGraphCanvasWheel(delta int) {
 	a.scrollTreeUnits(-steps)
 }
 
-func (a *Controller) showTreeContextMenu(e *Event) {
+func (a *Controller) showTreeContextMenu(e *tk.Event) {
 	if e == nil {
 		return
 	}
@@ -134,22 +126,19 @@ func (a *Controller) showTreeContextMenu(e *Event) {
 }
 
 func (a *Controller) showTreeContextMenuAt(x, y, xRoot, yRoot int) {
-	item := strings.TrimSpace(a.ui.TreeView.IdentifyItem(x, y))
+	item := a.ui.TreeRowAt(x, y)
 	if _, ok := a.treeCommitIndex(item); !ok {
 		return
 	}
-	a.ui.TreeView.Selection("set", item)
-	a.ui.TreeView.Focus(item)
+	a.ui.SelectTreeRow(item)
 	a.model.State.Tree.ContextTargetID = item
-	Popup(a.ui.TreeContextMenu.Window, xRoot, yRoot, nil)
+	a.ui.PopupTreeContextMenu(xRoot, yRoot)
 }
 
 func (a *Controller) copySelectedCommitReference() {
 	id := a.model.State.Tree.ContextTargetID
 	if id == "" {
-		if sel := a.ui.TreeView.Selection(""); len(sel) > 0 {
-			id = sel[0]
-		}
+		id = a.ui.SelectedTreeRow()
 	}
 	idx, ok := a.treeCommitIndex(id)
 	if !ok {
@@ -160,32 +149,20 @@ func (a *Controller) copySelectedCommitReference() {
 		return
 	}
 	hash := entry.Commit.Hash
-	ClipboardClear()
-	ClipboardAppend(hash)
+	copyToClipboard(hash)
 	a.setStatus(fmt.Sprintf("Copied %s to clipboard.", hash))
 }
 
 func (a *Controller) updateRepoLabel() {
 	label := fmt.Sprintf("Repository: %s", a.model.Repo.Path)
-	a.ui.RepoLabel.Configure(Txt(label))
+	a.ui.SetRepoLabel(label)
 }
 
-func (a *Controller) initDiffFileListContextMenu() {
-	menu := App.Menu(Tearoff(false))
-	menu.AddCommand(Lbl("Copy file path"), Command(a.copySelectedDiffFilePath))
-	a.ui.DiffFileContextMenu = menu
-	handler := func(e *Event) {
-		a.showDiffFileListContextMenu(e)
-	}
-	Bind(a.ui.DiffFileList, "<Button-2>", Command(handler))
-	Bind(a.ui.DiffFileList, "<Button-3>", Command(handler))
-}
-
-func (a *Controller) showDiffFileListContextMenu(e *Event) {
+func (a *Controller) showDiffFileListContextMenu(e *tk.Event) {
 	if e == nil {
 		return
 	}
-	idx, ok := a.diffFileListIndexAtY(e)
+	idx, ok := a.ui.DiffFileListIndexAtY(e.Y, len(a.model.State.Diff.FileSections))
 	if !ok {
 		return
 	}
@@ -193,7 +170,7 @@ func (a *Controller) showDiffFileListContextMenu(e *Event) {
 		return
 	}
 	a.setFileListSelection(idx)
-	Popup(a.ui.DiffFileContextMenu.Window, e.XRoot, e.YRoot, nil)
+	a.ui.PopupDiffFileContextMenu(e.XRoot, e.YRoot)
 }
 
 func (a *Controller) copySelectedDiffFilePath() {
@@ -201,31 +178,23 @@ func (a *Controller) copySelectedDiffFilePath() {
 	if !ok {
 		return
 	}
-	ClipboardClear()
-	ClipboardAppend(path)
+	copyToClipboard(path)
 	a.setStatus(fmt.Sprintf("Copied %s to clipboard.", path))
 }
 
-func (a *Controller) initDiffContextMenu() {
-	menu := App.Menu(Tearoff(false))
-	menu.AddCommand(Lbl("Copy selection"), Command(func() { a.copyDetailSelection(false) }))
-	menu.AddCommand(Lbl("Copy selection without +/- markers"), Command(func() { a.copyDetailSelection(true) }))
-	a.ui.DiffContextMenu = menu
-	handler := func(e *Event) {
-		a.showDiffContextMenu(e)
-	}
-	Bind(a.ui.DiffDetail, "<Button-2>", Command(handler))
-	Bind(a.ui.DiffDetail, "<Button-3>", Command(handler))
-}
-
-func (a *Controller) showDiffContextMenu(e *Event) {
+func (a *Controller) showDiffContextMenu(e *tk.Event) {
 	if e == nil {
 		return
 	}
-	Popup(a.ui.DiffContextMenu.Window, e.XRoot, e.YRoot, nil)
+	a.ui.PopupDiffContextMenu(e.XRoot, e.YRoot)
 }
 
 func (a *Controller) treeCommitIndex(id string) (int, bool) {
 	_, idx, ok := a.model.CommitEntryForTreeID(strings.TrimSpace(id))
 	return idx, ok
+}
+
+func copyToClipboard(text string) {
+	tk.ClipboardClear()
+	tk.ClipboardAppend(text)
 }

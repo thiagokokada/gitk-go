@@ -9,6 +9,7 @@ import (
 
 	"github.com/thiagokokada/gitk-go/internal/git"
 	"github.com/thiagokokada/gitk-go/internal/gui/model"
+	"github.com/thiagokokada/gitk-go/internal/gui/view"
 
 	. "modernc.org/tk9.0"
 	_ "modernc.org/tk9.0/themes/azure" // load theme
@@ -289,8 +290,7 @@ func (a *Controller) onLocalDiffLoaded(staged bool) {
 		}
 	}
 	targetID := model.LocalRowID(staged)
-	sel := a.ui.TreeView.Selection("")
-	if len(sel) == 0 || sel[0] != targetID {
+	if a.ui.SelectedTreeRow() != targetID {
 		return
 	}
 	topLine := a.ui.DiffTopLine()
@@ -425,30 +425,17 @@ func (a *Controller) writeDetailText(content string, highlightDiff bool) {
 }
 
 func (a *Controller) copyDetailSelection(stripMarkers bool) {
-	ranges := a.ui.DiffDetail.TagRanges("sel")
-	if len(ranges) < 2 {
-		return
-	}
-	text := a.ui.DiffDetail.Get(ranges[0], ranges[1])[0]
+	text := a.ui.SelectedDiffText()
 	if text == "" {
 		return
 	}
 	if stripMarkers {
-		lines := strings.Split(text, "\n")
-		filtered := make([]string, 0, len(lines))
-		for _, line := range lines {
-			if len(line) > 0 && (line[0] == '+' || line[0] == '-') {
-				line = line[1:]
-			}
-			filtered = append(filtered, line)
-		}
-		text = strings.Join(filtered, "\n")
+		text = view.StripDiffLineMarkers(text)
 	}
 	if text == "" {
 		return
 	}
-	ClipboardClear()
-	ClipboardAppend(text)
+	copyToClipboard(text)
 	if stripMarkers {
 		a.setStatus("Copied selection without +/- markers.")
 	} else {
@@ -461,10 +448,7 @@ func (a *Controller) currentSelection() string {
 }
 
 func (a *Controller) setStatus(msg string) {
-	text := msg
-	PostEvent(func() {
-		a.ui.Status.Configure(Txt(text))
-	}, false)
+	a.ui.SetStatus(msg)
 }
 
 func (a *Controller) statusSummary() string {

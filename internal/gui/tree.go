@@ -1,26 +1,22 @@
 package gui
 
 import (
-	"fmt"
 	"log/slog"
-	"strconv"
-	"strings"
 
 	. "modernc.org/tk9.0"
 
 	"github.com/thiagokokada/gitk-go/internal/git"
 	"github.com/thiagokokada/gitk-go/internal/gui/model"
-	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 )
 
 func (a *Controller) onTreeSelectionChanged() {
 	a.scheduleGraphCanvasDraw()
-	sel := a.ui.TreeView.Selection("")
-	if len(sel) == 0 {
+	id := a.ui.SelectedTreeRow()
+	if id == "" {
 		a.model.TreeSelectionPlan("")
 		return
 	}
-	plan := a.model.TreeSelectionPlan(sel[0])
+	plan := a.model.TreeSelectionPlan(id)
 	switch plan.Kind {
 	case model.TreeSelectionLocal:
 		a.showLocalChanges(plan.Staged)
@@ -44,7 +40,7 @@ func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
 		return
 	}
 	if a.model.State.Tree.Rows.HasSpecialItem(id) {
-		a.ui.TreeView.Delete(id)
+		a.ui.DeleteTreeRows([]string{id})
 		a.model.State.Tree.Rows.RemoveSpecialItem(id)
 	}
 	if stagedSelection, ok := a.model.State.Selection.LocalSelection(); ok && stagedSelection == staged {
@@ -54,10 +50,8 @@ func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
 
 func (a *Controller) insertSingleLocalRow(staged bool) {
 	label := localRowLabel(staged)
-	tag := localRowTag(staged)
 	index := a.model.State.Tree.LocalRowInsertIndex(staged)
-	vals := []string{"", label, "", ""}
-	a.ui.TreeView.Insert("", index, Id(model.LocalRowID(staged)), Values(vals), Tags(tag))
+	a.ui.InsertLocalRow(staged, index, label)
 	a.model.State.Tree.Rows.AddSpecialItem(model.LocalRowID(staged))
 }
 
@@ -68,33 +62,8 @@ func localRowLabel(staged bool) string {
 	return localUnstagedLabel
 }
 
-func localRowTag(staged bool) string {
-	if staged {
-		return "localStaged"
-	}
-	return "localUnstaged"
-}
-
 func (a *Controller) clearTreeRows() {
-	children := a.ui.TreeView.Children("")
-	attached := make(map[string]struct{}, len(children))
-	if len(children) == 0 {
-		children = nil
-	}
-	if len(children) > 0 {
-		args := make([]any, len(children))
-		for i, child := range children {
-			args[i] = child
-			attached[child] = struct{}{}
-		}
-		a.ui.TreeView.Delete(args...)
-	}
-	for _, id := range a.model.State.Tree.Rows.TrackedItemIDs() {
-		if _, ok := attached[id]; ok {
-			continue
-		}
-		a.ui.TreeView.Delete(id)
-	}
+	a.ui.ClearTreeRows(a.model.State.Tree.Rows.TrackedItemIDs())
 	a.model.State.Tree.Rows.ResetTracking()
 }
 
@@ -103,7 +72,7 @@ func (a *Controller) syncTreeRows() {
 		return
 	}
 	a.ensureLocalRows()
-	a.pruneCommitRows()
+	a.ui.DeleteTreeRows(a.model.State.Tree.Rows.PruneStaleCommitRows())
 
 	refresh := a.model.State.Tree.Rows.RefreshValues
 	ordered := make([]string, 0, len(a.model.Data.Visible)+3)
@@ -131,7 +100,9 @@ func (a *Controller) syncTreeRows() {
 		ordered = append(ordered, model.LoadingIndicatorID)
 	}
 
-	a.setTreeChildren(ordered)
+	if err := a.ui.SetTreeChildren(ordered); err != nil {
+		slog.Debug("tree children set", slog.Any("error", err))
+	}
 	a.model.State.Tree.Rows.RefreshValues = false
 }
 
@@ -148,8 +119,7 @@ func (a *Controller) ensureMoreIndicatorRow() {
 	if a.model.State.Tree.Rows.HasSpecialItem(model.MoreIndicatorID) {
 		return
 	}
-	vals := []string{"", "There are more commits...", "", ""}
-	a.ui.TreeView.Insert("", "end", Id(model.MoreIndicatorID), Values(vals))
+	a.ui.InsertMoreIndicatorRow()
 	a.model.State.Tree.Rows.AddSpecialItem(model.MoreIndicatorID)
 }
 
@@ -157,8 +127,7 @@ func (a *Controller) ensureLoadingIndicatorRow() {
 	if a.model.State.Tree.Rows.HasSpecialItem(model.LoadingIndicatorID) {
 		return
 	}
-	vals := []string{"", "Loading commits...", "", ""}
-	a.ui.TreeView.Insert("", "end", Id(model.LoadingIndicatorID), Values(vals))
+	a.ui.InsertLoadingIndicatorRow()
 	a.model.State.Tree.Rows.AddSpecialItem(model.LoadingIndicatorID)
 }
 
@@ -167,16 +136,12 @@ func (a *Controller) insertCommitRow(id string, entry *git.Entry) {
 	if !ok {
 		return
 	}
-	a.ui.TreeView.Insert("", "end", Id(id), Values(row.Values()))
+	a.ui.InsertCommitRow(id, row)
 	a.model.State.Tree.Rows.AddItem(id)
 	a.model.State.Tree.Rows.SetItemValue(id, row)
 }
 
 func (a *Controller) updateCommitRow(id string, entry *git.Entry) {
-	treePath := a.ui.TreeView.String()
-	if treePath == "" {
-		return
-	}
 	row, ok := treeRowData(entry, a.model.State.Tree.BranchLabels, a.cfg.graphCanvas)
 	if !ok {
 		return
@@ -184,32 +149,10 @@ func (a *Controller) updateCommitRow(id string, entry *git.Entry) {
 	if !a.model.State.Tree.Rows.ItemValueChanged(id, row) {
 		return
 	}
-	a.ui.TreeView.Item(id, Values(row.Values()))
+	if !a.ui.UpdateCommitRow(id, row) {
+		return
+	}
 	a.model.State.Tree.Rows.SetItemValue(id, row)
-}
-
-func (a *Controller) setTreeChildren(ids []string) {
-	treePath := a.ui.TreeView.String()
-	if treePath == "" {
-		return
-	}
-	if len(ids) == 0 {
-		if _, err := tkutil.Evalf("%s children {} {}", treePath); err != nil {
-			slog.Debug("tree children clear", slog.Any("error", err))
-		}
-		return
-	}
-	// XXX: Workaround a bug in Tk-go, ideally we would use a.ui.TreeView.Children("", ids...) instead
-	children := tkutil.TclSafeStrings(ids...)
-	if _, err := tkutil.Evalf("%s children {} {%s}", treePath, children); err != nil {
-		slog.Debug("tree children set", slog.Any("error", err))
-	}
-}
-
-func (a *Controller) pruneCommitRows() {
-	for _, id := range a.model.State.Tree.Rows.PruneStaleCommitRows() {
-		a.ui.TreeView.Delete(id)
-	}
 }
 
 func (a *Controller) scheduleAutoLoadCheck() {
@@ -230,7 +173,7 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 	if a.model.State.Tree.LoadingBatch || !a.model.State.Tree.HasMore {
 		return
 	}
-	start, end, err := a.treeYviewRange()
+	start, end, err := a.ui.TreeYviewRange()
 	if err != nil {
 		slog.Error("tree yview", slog.Any("error", err))
 		return
@@ -244,28 +187,4 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 	) {
 		a.loadMoreCommitsAsync(false)
 	}
-}
-
-func (a *Controller) treeYviewRange() (start float64, end float64, err error) {
-	path := a.ui.TreeView.String()
-	if path == "" {
-		return 0, 0, fmt.Errorf("tree widget has empty path")
-	}
-	out, err := tkutil.Evalf("%s yview", path)
-	if err != nil {
-		return 0, 0, err
-	}
-	fields := strings.Fields(strings.TrimSpace(out))
-	if len(fields) < 2 {
-		return 0, 0, fmt.Errorf("unexpected treeview yview output %q", out)
-	}
-	start, err = strconv.ParseFloat(fields[0], 64)
-	if err != nil {
-		return 0, 0, err
-	}
-	end, err = strconv.ParseFloat(fields[1], 64)
-	if err != nil {
-		return 0, 0, err
-	}
-	return start, end, nil
 }

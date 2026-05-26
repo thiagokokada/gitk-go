@@ -3,17 +3,14 @@ package view
 import tk "modernc.org/tk9.0"
 
 type Handlers struct {
-	ApplyFilter         func(string)
-	ClearFilter         func()
-	Reload              func()
-	TreeSelection       func()
-	TreeScrolled        func()
-	DiffScrolled        func()
-	FileSelection       func(*tk.Event)
-	ScheduleGraphDraw   func()
-	TreeContextMenu     func(*tk.Event)
-	DiffContextMenu     func(*tk.Event)
-	DiffFileContextMenu func(*tk.Event)
+	ApplyFilter       func(string)
+	ClearFilter       func()
+	Reload            func()
+	TreeSelection     func()
+	TreeScrolled      func()
+	DiffScrolled      func()
+	FileSelection     func(*tk.Event)
+	ScheduleGraphDraw func()
 }
 
 type App struct {
