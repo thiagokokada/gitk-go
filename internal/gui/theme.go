@@ -1,25 +1,21 @@
 package gui
 
 import (
-	"log/slog"
 	"strings"
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/styles"
-
-	darkmode "github.com/thiagokokada/dark-mode-go"
 )
 
 type ThemePreference int
 
 const (
-	ThemeAuto ThemePreference = iota
-	ThemeLight
+	ThemeLight ThemePreference = iota
 	ThemeDark
 )
 
 func (p ThemePreference) String() string {
-	return []string{"auto", "light", "dark"}[p]
+	return []string{"light", "dark"}[p]
 }
 
 type graphLabelPalette struct {
@@ -97,53 +93,22 @@ var (
 			DefaultLabel:    graphLabelPalette{Fill: "#1f3b2a", Text: "#eaeaea"},
 		},
 	}
-	detectDarkMode = darkmode.IsDarkMode
-	watchDarkMode  = darkmode.WatchDarkMode
 )
 
 func ThemePreferenceFromString(raw string) ThemePreference {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case ThemeDark.String():
-		return ThemeDark
 	case ThemeLight.String():
 		return ThemeLight
 	default:
-		return ThemeAuto
+		return ThemeDark
 	}
-}
-
-func paletteForDarkMode(dark bool) colorPalette {
-	if dark {
-		return darkPalette
-	}
-	return lightPalette
-}
-
-func paletteForThemeChange(pref ThemePreference, current colorPalette, dark bool) (colorPalette, bool) {
-	if pref != ThemeAuto {
-		return current, false
-	}
-	next := paletteForDarkMode(dark)
-	if next == current {
-		return current, false
-	}
-	return next, true
 }
 
 func paletteForPreference(pref ThemePreference) colorPalette {
 	switch pref {
-	case ThemeDark:
-		return darkPalette
 	case ThemeLight:
 		return lightPalette
 	default:
-		if detectDarkMode != nil {
-			if dark, err := detectDarkMode(); err == nil {
-				return paletteForDarkMode(dark)
-			} else {
-				slog.Error("detect dark-mode", slog.Any("error", err))
-			}
-		}
 		return darkPalette
 	}
 }
