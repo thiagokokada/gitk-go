@@ -3,41 +3,10 @@ package gui
 import (
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/thiagokokada/gitk-go/internal/git"
 	"github.com/thiagokokada/gitk-go/internal/gui/model"
 )
-
-func TestFormatGraphValue(t *testing.T) {
-	entry := &git.Entry{Graph: "* |"}
-	graph := formatGraphValue(entry, []string{"HEAD -> main", "feature"}, false)
-	expected := "* | [HEAD -> main, feature]"
-	if graph != expected {
-		t.Fatalf("unexpected graph string: %q", graph)
-	}
-
-	entry = &git.Entry{}
-	graph = formatGraphValue(entry, nil, false)
-	if graph != "*" {
-		t.Fatalf("expected fallback graph '*', got %q", graph)
-	}
-}
-
-func TestFilterEntries(t *testing.T) {
-	entries := []*git.Entry{
-		{SearchText: "hello world"},
-		{SearchText: "feature branch"},
-	}
-	filtered := filterEntries(entries, "HELLO")
-	if len(filtered) != 1 || filtered[0] != entries[0] {
-		t.Fatalf("expected first entry match, got %#v", filtered)
-	}
-	filtered = filterEntries(entries, " ")
-	if len(filtered) != len(entries) {
-		t.Fatalf("expected no filtering on blank query")
-	}
-}
 
 func TestStatusSummary(t *testing.T) {
 	ctrl := &Controller{
@@ -69,58 +38,6 @@ func TestStatusSummary(t *testing.T) {
 	}
 	if !strings.Contains(summary, "/repo/path") {
 		t.Fatalf("expected repo path in summary: %s", summary)
-	}
-}
-
-func TestBuildTreeRows(t *testing.T) {
-	now := time.Date(2025, 2, 1, 12, 0, 0, 0, time.UTC)
-	entry1 := &git.Entry{
-		Commit: &git.Commit{
-			Hash:   "1111111111111111111111111111111111111111",
-			Author: git.Signature{Name: "Alice", Email: "alice@example.com", When: now},
-			Committer: git.Signature{
-				Name:  "Alice",
-				Email: "alice@example.com",
-				When:  now,
-			},
-			Message: "first message",
-		},
-		Graph: "* |",
-	}
-	entry2 := &git.Entry{
-		Commit: &git.Commit{
-			Hash:   "2222222222222222222222222222222222222222",
-			Author: git.Signature{Name: "Bob", Email: "bob@example.com", When: now.Add(-time.Hour)},
-			Committer: git.Signature{
-				Name:  "Bob",
-				Email: "bob@example.com",
-				When:  now.Add(-2 * time.Hour),
-			},
-			Message: "second message line\nmore",
-		},
-		Graph: "|/",
-	}
-	labels := map[string][]string{
-		entry1.Commit.Hash: {"HEAD -> main"},
-	}
-	rows := buildTreeRows([]*git.Entry{entry1, entry2}, labels, false)
-	if len(rows) != 2 {
-		t.Fatalf("expected two rows, got %d", len(rows))
-	}
-	if rows[0].ID != entry1.Commit.Hash || rows[1].ID != entry2.Commit.Hash {
-		t.Fatalf("unexpected row ids: %#v", rows)
-	}
-	if rows[0].Graph != "* | [HEAD -> main]" {
-		t.Fatalf("unexpected graph: %q", rows[0].Graph)
-	}
-	if !strings.Contains(rows[0].Commit, "first message") {
-		t.Fatalf("missing commit message in row: %q", rows[0].Commit)
-	}
-	if !strings.Contains(rows[1].Author, "Bob") || !strings.Contains(rows[1].Author, "bob@example.com") {
-		t.Fatalf("unexpected author column: %q", rows[1].Author)
-	}
-	if !strings.Contains(rows[1].Date, "2025-02-01 10:00") {
-		t.Fatalf("unexpected date column: %q", rows[1].Date)
 	}
 }
 

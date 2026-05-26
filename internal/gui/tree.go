@@ -132,7 +132,7 @@ func (a *Controller) ensureLoadingIndicatorRow() {
 }
 
 func (a *Controller) insertCommitRow(id string, entry *git.Entry) {
-	row, ok := treeRowData(entry, a.model.State.Tree.BranchLabels, a.cfg.graphCanvas)
+	row, ok := model.TreeRowData(entry, a.model.State.Tree.BranchLabels, a.cfg.graphCanvas)
 	if !ok {
 		return
 	}
@@ -142,7 +142,7 @@ func (a *Controller) insertCommitRow(id string, entry *git.Entry) {
 }
 
 func (a *Controller) updateCommitRow(id string, entry *git.Entry) {
-	row, ok := treeRowData(entry, a.model.State.Tree.BranchLabels, a.cfg.graphCanvas)
+	row, ok := model.TreeRowData(entry, a.model.State.Tree.BranchLabels, a.cfg.graphCanvas)
 	if !ok {
 		return
 	}
