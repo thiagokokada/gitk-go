@@ -6,7 +6,7 @@ import (
 	tk "modernc.org/tk9.0"
 )
 
-func (a *App) ShowFontDialog(title string, seed tk.Opt, apply func([]string, bool) bool) {
+func ShowFontDialog(title string, seed tk.Opt, apply func([]string, bool) bool) {
 	tk.Fontchooser(
 		tk.Parent(tk.App),
 		tk.Title(title),

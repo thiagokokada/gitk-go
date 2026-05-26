@@ -70,16 +70,16 @@ func filterBranchChoices(choices []branchChoice, query string) []branchChoice {
 
 func (a *Controller) promptBranchSwitch() {
 	if a.svc == nil || a.svc.RepoPath() == "" {
-		a.ui.ShowMessage("Switch Branch", "error", "No repository is currently open.")
+		view.ShowMessage("Switch Branch", "error", "No repository is currently open.")
 		return
 	}
 	branches, head, err := a.svc.LocalBranchNames()
 	if err != nil {
-		a.ui.ShowMessage("Switch Branch", "error", fmt.Sprintf("Unable to list branches:\n\n%v", err))
+		view.ShowMessage("Switch Branch", "error", fmt.Sprintf("Unable to list branches:\n\n%v", err))
 		return
 	}
 	if len(branches) == 0 {
-		a.ui.ShowMessage("Switch Branch", "info", "This repository has no local branches.")
+		view.ShowMessage("Switch Branch", "info", "This repository has no local branches.")
 		return
 	}
 	a.showBranchSwitchDialog(branches, head)
@@ -120,7 +120,7 @@ func (a *Controller) switchBranchAsync(branch string) {
 		err := a.svc.SwitchBranch(branch)
 		tk.PostEvent(func() {
 			if err != nil {
-				a.ui.ShowMessage("Switch Branch", "error", fmt.Sprintf("Unable to switch branches:\n\n%v", err))
+				view.ShowMessage("Switch Branch", "error", fmt.Sprintf("Unable to switch branches:\n\n%v", err))
 				a.setStatus(fmt.Sprintf("Failed to switch branches: %v", err))
 				return
 			}

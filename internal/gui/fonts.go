@@ -36,14 +36,6 @@ func diffDetailFontSpec() []any {
 	return []any{CourierFont(), 11}
 }
 
-func (a *Controller) showUIFontDialog() {
-	a.ui.ShowFontDialog("Select UI Font", fontChooserSeed(DefaultFont, a.prefs.uiFontSpec), a.applyUIFontSpec)
-}
-
-func (a *Controller) showFixedFontDialog() {
-	a.ui.ShowFontDialog("Select Fixed Font", fontChooserSeed(FixedFont, a.prefs.fixedFontSpec), a.applyFixedFontSpec)
-}
-
 func (a *Controller) applyUIFontSpec(spec []string, save bool) bool {
 	selection, ok := fontSelectionFromSpec(spec)
 	if !ok {

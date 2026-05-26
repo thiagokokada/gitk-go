@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+
+	"github.com/thiagokokada/gitk-go/internal/gui/view"
 )
 
 type preferences struct {
@@ -38,7 +40,7 @@ func (a *Controller) savePreferences(announce bool) {
 		FixedFont: slices.Clone(a.prefs.fixedFontSpec),
 	}
 	if err := savePreferencesFile(prefs); err != nil {
-		a.ui.ShowMessage("Save Preferences", "error", fmt.Sprintf("Unable to save preferences:\n\n%v", err))
+		view.ShowMessage("Save Preferences", "error", fmt.Sprintf("Unable to save preferences:\n\n%v", err))
 		return
 	}
 	if announce {

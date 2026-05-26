@@ -38,7 +38,7 @@ func (a *App) ShowShortcutsDialog(content string) {
 	dialog.Center()
 }
 
-func (a *App) ShowMessage(title string, icon string, message string) {
+func ShowMessage(title string, icon string, message string) {
 	tk.MessageBox(
 		tk.Parent(tk.App),
 		tk.Title(title),
@@ -48,7 +48,7 @@ func (a *App) ShowMessage(title string, icon string, message string) {
 	)
 }
 
-func (a *App) ChooseRepositoryDirectory(title string, initialDir string) string {
+func ChooseRepositoryDirectory(title string, initialDir string) string {
 	return tk.ChooseDirectory(
 		tk.Parent(tk.App),
 		tk.Title(title),
