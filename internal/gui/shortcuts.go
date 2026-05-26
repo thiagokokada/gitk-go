@@ -14,7 +14,7 @@ import (
 func (a *Controller) bindShortcuts() {
 	bindNav := func(sequence string, handler func()) {
 		Bind(App, sequence, Command(func() {
-			if a.filterHasFocus() {
+			if a.ui.FilterHasFocus() {
 				return
 			}
 			handler()
@@ -145,7 +145,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			description: "Focus the filter box",
 			sequences:   []string{"<KeyPress-/>"},
 			navigation:  false,
-			handler:     a.focusFilterEntry,
+			handler:     a.ui.FocusFilterEntry,
 		},
 		{
 			category:    "General",
@@ -153,7 +153,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			description: "Leave the filter box",
 			sequences:   []string{"<KeyPress-Escape>"},
 			navigation:  false,
-			handler:     a.blurFilterEntry,
+			handler:     a.ui.BlurFilterEntry,
 		},
 		{
 			category:    "Filter box",
@@ -209,7 +209,9 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			description: "Show shortcut list",
 			sequences:   []string{"<F1>"},
 			navigation:  false,
-			handler:     a.showShortcutsDialog,
+			handler: func() {
+				a.ui.ShowShortcutsDialog(formatShortcutsHelpText(a.shortcutBindings()))
+			},
 		},
 		{
 			category:    "General",
@@ -243,14 +245,6 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			handler:     func() { Destroy(App) },
 		},
 	}
-}
-
-func (a *Controller) filterHasFocus() bool {
-	return a.ui.FilterHasFocus()
-}
-
-func (a *Controller) showShortcutsDialog() {
-	a.ui.ShowShortcutsDialog(formatShortcutsHelpText(a.shortcutBindings()))
 }
 
 func (a *Controller) moveSelection(delta int) {
@@ -371,14 +365,6 @@ func (a *Controller) scrollDetail(delta int, unit view.ScrollUnit) {
 	if err := a.ui.ScrollDiff(delta, unit); err != nil {
 		slog.Error("detail scroll", slog.Any("error", err))
 	}
-}
-
-func (a *Controller) focusFilterEntry() {
-	a.ui.FocusFilterEntry()
-}
-
-func (a *Controller) blurFilterEntry() {
-	a.ui.BlurFilterEntry()
 }
 
 func formatShortcutsHelpText(bindings []shortcutBinding) string {

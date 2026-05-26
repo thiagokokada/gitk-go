@@ -29,8 +29,10 @@ func (a *Controller) initMenubar() {
 				a.applyFixedFontSpec,
 			)
 		},
-		Shortcuts: a.showShortcutsDialog,
-		About:     showAboutDialog,
+		Shortcuts: func() {
+			a.ui.ShowShortcutsDialog(formatShortcutsHelpText(a.shortcutBindings()))
+		},
+		About: showAboutDialog,
 	})
 }
 
