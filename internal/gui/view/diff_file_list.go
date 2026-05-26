@@ -36,3 +36,28 @@ func (a *App) applyDiffFileRowTags(lineNo int, row model.DiffViewRow) {
 		fmt.Sprintf("%d.%d", lineNo, row.DelEnd),
 	)
 }
+
+func (a *App) DiffFileListIndexAtY(y int, sectionCount int) (int, bool) {
+	if a.DiffFileList == nil {
+		return 0, false
+	}
+	line, ok := TextIndexLineNumber(a.DiffFileList.Index(fmt.Sprintf("@0,%d", y)))
+	if !ok {
+		return 0, false
+	}
+	idx := line - 1
+	if idx < 0 || idx >= sectionCount {
+		return 0, false
+	}
+	return idx, true
+}
+
+func (a *App) SetDiffFileListSelection(idx int) {
+	if a.DiffFileList == nil {
+		return
+	}
+	a.DiffFileList.TagRemove("diffFileSelected", "1.0", tk.END)
+	line := idx + 1
+	a.DiffFileList.TagAdd("diffFileSelected", textIndex(line, 0), textEndIndex(line))
+	a.DiffFileList.See(textIndex(line, 0))
+}

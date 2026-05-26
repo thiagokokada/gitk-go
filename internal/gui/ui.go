@@ -185,7 +185,7 @@ func (a *Controller) showDiffFileListContextMenu(e *Event) {
 	if e == nil {
 		return
 	}
-	idx, ok := a.diffFileListIndexAtY(e)
+	idx, ok := a.ui.DiffFileListIndexAtY(e.Y, len(a.model.State.Diff.FileSections))
 	if !ok {
 		return
 	}
