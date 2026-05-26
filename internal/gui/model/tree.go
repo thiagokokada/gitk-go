@@ -182,11 +182,14 @@ func (s *TreeRowState) ResetTracking() {
 }
 
 func (s TreeRowState) TrackedItemIDs() []string {
-	if len(s.Items) == 0 {
+	if len(s.Items) == 0 && len(s.SpecialItems) == 0 {
 		return nil
 	}
-	ids := make([]string, 0, len(s.Items))
+	ids := make([]string, 0, len(s.Items)+len(s.SpecialItems))
 	for id := range s.Items {
+		ids = append(ids, id)
+	}
+	for id := range s.SpecialItems {
 		ids = append(ids, id)
 	}
 	return ids

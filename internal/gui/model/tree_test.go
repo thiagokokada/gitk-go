@@ -175,3 +175,20 @@ func TestTreeRowStateSpecialItems(t *testing.T) {
 		t.Fatalf("expected special item to be removed")
 	}
 }
+
+func TestTreeRowStateTrackedItemIDsIncludesSpecialItems(t *testing.T) {
+	var state TreeRowState
+	state.AddItem("commit")
+	state.AddSpecialItem(LoadingIndicatorID)
+
+	ids := state.TrackedItemIDs()
+	got := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		got[id] = struct{}{}
+	}
+	for _, id := range []string{"commit", LoadingIndicatorID} {
+		if _, ok := got[id]; !ok {
+			t.Fatalf("expected tracked ids to include %q, got %v", id, ids)
+		}
+	}
+}
