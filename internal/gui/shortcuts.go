@@ -7,6 +7,7 @@ import (
 
 	"github.com/thiagokokada/gitk-go/internal/gui/model"
 	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
+	"github.com/thiagokokada/gitk-go/internal/gui/view"
 
 	. "modernc.org/tk9.0"
 )
@@ -89,7 +90,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			description: "Scroll commit list up a page",
 			sequences:   []string{"<Control-Prior>", "<Command-Prior>"},
 			navigation:  true,
-			handler:     func() { a.scrollTreePages(-1) },
+			handler:     func() { a.scrollTree(-1, view.ScrollPages) },
 		},
 		{
 			category:    "Commit list",
@@ -97,7 +98,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			description: "Scroll commit list down a page",
 			sequences:   []string{"<Control-Next>", "<Command-Next>"},
 			navigation:  true,
-			handler:     func() { a.scrollTreePages(1) },
+			handler:     func() { a.scrollTree(1, view.ScrollPages) },
 		},
 		{
 			category:    "Diff view",
@@ -105,7 +106,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			description: "Scroll diff up one page",
 			sequences:   []string{"<KeyPress-Delete>", "<KeyPress-BackSpace>", "<KeyPress-b>", "<KeyPress-B>"},
 			navigation:  true,
-			handler:     func() { a.scrollDetailPages(-1) },
+			handler:     func() { a.scrollDetail(-1, view.ScrollPages) },
 		},
 		{
 			category:    "Diff view",
@@ -113,7 +114,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			description: "Scroll diff down one page",
 			sequences:   []string{"<KeyPress-space>"},
 			navigation:  true,
-			handler:     func() { a.scrollDetailPages(1) },
+			handler:     func() { a.scrollDetail(1, view.ScrollPages) },
 		},
 		{
 			category:    "Diff view",
@@ -121,7 +122,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			description: "Scroll diff up 18 lines",
 			sequences:   []string{"<KeyPress-u>", "<KeyPress-U>"},
 			navigation:  true,
-			handler:     func() { a.scrollDetailLines(-18) },
+			handler:     func() { a.scrollDetail(-18, view.ScrollUnits) },
 		},
 		{
 			category:    "Diff view",
@@ -129,7 +130,7 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 			description: "Scroll diff down 18 lines",
 			sequences:   []string{"<KeyPress-d>", "<KeyPress-D>"},
 			navigation:  true,
-			handler:     func() { a.scrollDetailLines(18) },
+			handler:     func() { a.scrollDetail(18, view.ScrollUnits) },
 		},
 		{
 			category:    "Diff view",
@@ -347,9 +348,6 @@ func (a *Controller) currentSelectionIndex() int {
 }
 
 func (a *Controller) selectTreeIndex(idx int) {
-	if idx < 0 || idx >= len(a.model.Data.Visible) {
-		return
-	}
 	entry, ok := a.model.CommitEntryAt(idx)
 	if !ok {
 		return
@@ -395,37 +393,18 @@ func (a *Controller) handleSpecialRowNav(id string, delta int) bool {
 	}
 }
 
-func (a *Controller) scrollTreePages(delta int) {
-	if delta == 0 {
-		return
-	}
-	if err := a.ui.ScrollTreeYview(delta, "pages"); err != nil {
+func (a *Controller) scrollTree(delta int, unit view.ScrollUnit) {
+	if err := a.ui.ScrollTreeYview(delta, unit); err != nil {
 		slog.Error("tree scroll", slog.Any("error", err))
 	}
 }
 
 func (a *Controller) scrollTreeUnits(delta int) {
-	if delta == 0 {
-		return
-	}
-	if err := a.ui.ScrollTreeYview(delta, "units"); err != nil {
-		slog.Error("tree scroll", slog.Any("error", err))
-	}
+	a.scrollTree(delta, view.ScrollUnits)
 }
 
-func (a *Controller) scrollDetailPages(delta int) {
-	a.scrollDetail(delta, "pages")
-}
-
-func (a *Controller) scrollDetailLines(delta int) {
-	a.scrollDetail(delta, "units")
-}
-
-func (a *Controller) scrollDetail(delta int, unit string) {
-	if delta == 0 {
-		return
-	}
-	if _, err := tkutil.Evalf("%s yview scroll %d %s", a.ui.DiffDetail, delta, unit); err != nil {
+func (a *Controller) scrollDetail(delta int, unit view.ScrollUnit) {
+	if err := a.ui.ScrollDiff(delta, unit); err != nil {
 		slog.Error("detail scroll", slog.Any("error", err))
 	}
 }

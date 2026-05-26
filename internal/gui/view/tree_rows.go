@@ -165,9 +165,14 @@ func (a *App) MoveTreeYview(target float64) error {
 	return err
 }
 
-func (a *App) ScrollTreeYview(delta int, unit string) error {
+func (a *App) ScrollTreeYview(delta int, unit ScrollUnit) error {
 	if a.TreeView == nil || a.TreeView.String() == "" || delta == 0 {
 		return nil
+	}
+	switch unit {
+	case ScrollPages, ScrollUnits:
+	default:
+		return fmt.Errorf("unsupported tree scroll unit %q", unit)
 	}
 	_, err := tkutil.Evalf("%s yview scroll %d %s", a.TreeView, delta, unit)
 	return err
