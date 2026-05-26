@@ -9,8 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-
-	. "modernc.org/tk9.0"
 )
 
 type preferences struct {
@@ -40,13 +38,7 @@ func (a *Controller) savePreferences(announce bool) {
 		FixedFont: slices.Clone(a.prefs.fixedFontSpec),
 	}
 	if err := savePreferencesFile(prefs); err != nil {
-		MessageBox(
-			Parent(App),
-			Title("Save Preferences"),
-			Icon("error"),
-			Msg(fmt.Sprintf("Unable to save preferences:\n\n%v", err)),
-			Type("ok"),
-		)
+		a.ui.ShowMessage("Save Preferences", "error", fmt.Sprintf("Unable to save preferences:\n\n%v", err))
 		return
 	}
 	if announce {
