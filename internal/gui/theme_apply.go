@@ -1,80 +1,10 @@
 package gui
 
 import (
-	"context"
 	"log/slog"
-	"sync"
 
 	"github.com/thiagokokada/gitk-go/internal/gui/view"
-	. "modernc.org/tk9.0"
 )
-
-type themeWatchState struct {
-	mu      sync.Mutex
-	cancel  context.CancelFunc
-	running bool
-}
-
-func (a *Controller) startThemeWatch() {
-	if a.theme.pref != ThemeAuto || watchDarkMode == nil {
-		return
-	}
-	a.theme.watch.mu.Lock()
-	if a.theme.watch.running {
-		a.theme.watch.mu.Unlock()
-		return
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	a.theme.watch.cancel = cancel
-	a.theme.watch.running = true
-	a.theme.watch.mu.Unlock()
-
-	events, errs, err := watchDarkMode(ctx)
-	if err != nil {
-		slog.Error("watch dark-mode", slog.Any("error", err))
-		a.stopThemeWatch()
-		return
-	}
-	go a.themeWatchLoop(events, errs)
-}
-
-func (a *Controller) stopThemeWatch() {
-	a.theme.watch.mu.Lock()
-	defer a.theme.watch.mu.Unlock()
-	if a.theme.watch.cancel != nil {
-		a.theme.watch.cancel()
-		a.theme.watch.cancel = nil
-	}
-	a.theme.watch.running = false
-}
-
-func (a *Controller) themeWatchLoop(events <-chan bool, errs <-chan error) {
-	defer a.stopThemeWatch()
-	for {
-		select {
-		case dark, ok := <-events:
-			if !ok {
-				return
-			}
-			PostEvent(func() {
-				a.onSystemThemeChanged(dark)
-			}, false)
-		case err, ok := <-errs:
-			if ok && err != nil {
-				slog.Error("dark-mode watch", slog.Any("error", err))
-			}
-			return
-		}
-	}
-}
-
-func (a *Controller) onSystemThemeChanged(dark bool) {
-	next, changed := paletteForThemeChange(a.theme.pref, a.theme.palette, dark)
-	if !changed {
-		return
-	}
-	a.applyThemePalette(next)
-}
 
 func (a *Controller) applyThemePalette(palette colorPalette) {
 	if a.theme.palette == palette {

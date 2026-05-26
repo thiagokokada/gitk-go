@@ -113,7 +113,6 @@ func (a *Controller) disableAutoReload() {
 
 func (a *Controller) shutdown() {
 	a.disableAutoReload()
-	a.stopThemeWatch()
 }
 
 func (a *Controller) watchLoop(w <-chan fswatcher.WatchEvent) {

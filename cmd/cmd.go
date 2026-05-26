@@ -11,6 +11,8 @@ import (
 	"github.com/thiagokokada/gitk-go/internal/gui"
 )
 
+const themeModeEnvVar = "GITK_GO_MODE"
+
 func Run() error {
 	return run(os.Args[1:])
 }
@@ -34,7 +36,7 @@ func run(args []string) error {
 		"max number of graph columns to render (lower uses less CPU/memory)",
 	)
 	textGraph := fs.Bool("text-graph", false, "render commit graph as text (disables canvas graph)")
-	mode := fs.String("mode", gui.ThemeAuto.String(), "color mode: auto, light, or dark")
+	mode := fs.String("mode", themeModeDefault(), "color mode: light or dark")
 	noWatch := fs.Bool("nowatch", false, "disable automatic reload when repository changes")
 	noSyntax := fs.Bool("nosyntax", false, "disable syntax highlighting in the diff viewer")
 	verbose := fs.Bool("verbose", false, "enable verbose logging")
@@ -93,4 +95,11 @@ func run(args []string) error {
 		SyntaxHighlight: !*noSyntax,
 		Verbose:         *verbose,
 	})
+}
+
+func themeModeDefault() string {
+	if raw := os.Getenv(themeModeEnvVar); raw != "" {
+		return gui.ThemePreferenceFromString(raw).String()
+	}
+	return gui.ThemeDark.String()
 }

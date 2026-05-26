@@ -57,8 +57,8 @@ func NewController(cfg RunConfig) (*Controller, error) {
 	}
 	svc.SetGraphMaxColumns(int(cfg.GraphMaxColumns))
 	pref := cfg.ThemePreference
-	if pref < ThemeAuto || pref > ThemeDark {
-		pref = ThemeAuto
+	if pref < ThemeLight || pref > ThemeDark {
+		pref = ThemeDark
 	}
 	app := &Controller{
 		svc: svc,
@@ -133,7 +133,6 @@ func (a *Controller) initializeTkRuntime() error {
 
 func (a *Controller) startRuntimeServices() {
 	a.loadPreferences()
-	a.startThemeWatch()
 	a.initAutoReload(a.cfg.autoReloadRequested)
 }
 

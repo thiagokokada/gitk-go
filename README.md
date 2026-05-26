@@ -21,7 +21,7 @@ much of `gitk` using
   reload). Press `F1` to see all shortcuts
 - Automatic reload watcher (with UI toggle) to keep history fresh as the
   repository changes
-- Auto-detects OS dark mode with optional manual override
+- Light and dark color modes selected with `-mode` or `GITK_GO_MODE`
 
 ### Requirements
 
@@ -37,7 +37,7 @@ Usage of gitk-go:
   -limit uint
     	number of commits to load per batch (larger uses more CPU/memory) (default 1000)
   -mode string
-    	color mode: auto, light, or dark (default "auto")
+    	color mode: light or dark (default "dark")
   -nosyntax
     	disable syntax highlighting in the diff viewer
   -nowatch

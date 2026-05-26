@@ -33,7 +33,6 @@ type controllerTheme struct {
 	pref     ThemePreference
 	palette  colorPalette
 	activate func(string) error
-	watch    themeWatchState
 }
 
 type controllerPreferences struct {
