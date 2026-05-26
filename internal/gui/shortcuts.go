@@ -286,11 +286,8 @@ func (a *Controller) showShortcutsDialog() {
 }
 
 func (a *Controller) moveSelection(delta int) {
-	sel := a.ui.TreeView.Selection("")
-	if len(sel) > 0 {
-		if a.handleSpecialRowNav(sel[0], delta) {
-			return
-		}
+	if a.handleSpecialRowNav(a.ui.SelectedTreeRow(), delta) {
+		return
 	}
 	if len(a.model.Data.Visible) == 0 {
 		return
@@ -328,9 +325,7 @@ func (a *Controller) selectLast() {
 }
 
 func (a *Controller) selectSpecialRow(id string) {
-	a.ui.TreeView.Selection("set", id)
-	a.ui.TreeView.Focus(id)
-	a.ui.TreeView.See(id)
+	a.ui.SelectTreeRow(id)
 	switch id {
 	case model.LocalUnstagedRowID:
 		a.showLocalChanges(false)
@@ -341,11 +336,11 @@ func (a *Controller) selectSpecialRow(id string) {
 }
 
 func (a *Controller) currentSelectionIndex() int {
-	sel := a.ui.TreeView.Selection("")
-	if len(sel) == 0 || sel[0] == model.MoreIndicatorID {
+	id := a.ui.SelectedTreeRow()
+	if id == "" || id == model.MoreIndicatorID {
 		return 0
 	}
-	if _, idx, ok := a.model.CommitEntryForTreeID(sel[0]); ok {
+	if _, idx, ok := a.model.CommitEntryForTreeID(id); ok {
 		return idx
 	}
 	return 0
@@ -363,9 +358,7 @@ func (a *Controller) selectTreeIndex(idx int) {
 	if id == "" {
 		return
 	}
-	a.ui.TreeView.Selection("set", id)
-	a.ui.TreeView.Focus(id)
-	a.ui.TreeView.See(id)
+	a.ui.SelectTreeRow(id)
 	a.showCommitDetails(entry, idx)
 }
 
@@ -406,7 +399,7 @@ func (a *Controller) scrollTreePages(delta int) {
 	if delta == 0 {
 		return
 	}
-	if _, err := tkutil.Evalf("%s yview scroll %d pages", a.ui.TreeView, delta); err != nil {
+	if err := a.ui.ScrollTreeYview(delta, "pages"); err != nil {
 		slog.Error("tree scroll", slog.Any("error", err))
 	}
 }
@@ -415,7 +408,7 @@ func (a *Controller) scrollTreeUnits(delta int) {
 	if delta == 0 {
 		return
 	}
-	if _, err := tkutil.Evalf("%s yview scroll %d units", a.ui.TreeView, delta); err != nil {
+	if err := a.ui.ScrollTreeYview(delta, "units"); err != nil {
 		slog.Error("tree scroll", slog.Any("error", err))
 	}
 }
@@ -452,11 +445,7 @@ func (a *Controller) blurFilterEntry() {
 	if !a.filterHasFocus() {
 		return
 	}
-	if a.ui.TreeView == nil || a.ui.TreeView.String() == "" {
-		Focus(App)
-		return
-	}
-	Focus(a.ui.TreeView)
+	a.ui.FocusTree()
 }
 
 func formatShortcutsHelpText(bindings []shortcutBinding) string {

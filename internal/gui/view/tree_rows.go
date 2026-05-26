@@ -1,6 +1,10 @@
 package view
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/thiagokokada/gitk-go/internal/gui/model"
 	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 	tk "modernc.org/tk9.0"
@@ -87,4 +91,111 @@ func (a *App) SetTreeChildren(ids []string) error {
 	children := tkutil.TclSafeStrings(ids...)
 	_, err := tkutil.Evalf("%s children {} {%s}", treePath, children)
 	return err
+}
+
+func (a *App) TreeExists() bool {
+	if a.TreeView == nil {
+		return false
+	}
+	path := a.TreeView.String()
+	if path == "" {
+		return false
+	}
+	return tkutil.WidgetExists(path)
+}
+
+func (a *App) SelectedTreeRow() string {
+	if a.TreeView == nil {
+		return ""
+	}
+	sel := a.TreeView.Selection("")
+	if len(sel) == 0 {
+		return ""
+	}
+	return sel[0]
+}
+
+func (a *App) SelectTreeRow(id string) {
+	if a.TreeView == nil || id == "" {
+		return
+	}
+	a.TreeView.Selection("set", id)
+	a.TreeView.Focus(id)
+	a.TreeView.See(id)
+}
+
+func (a *App) FocusTree() {
+	if a.TreeView == nil || a.TreeView.String() == "" {
+		tk.Focus(tk.App)
+		return
+	}
+	tk.Focus(a.TreeView)
+}
+
+func (a *App) FocusTreeRowAt(x int, y int) string {
+	id := a.TreeRowAt(x, y)
+	if id == "" {
+		return ""
+	}
+	tk.Focus(a.TreeView)
+	a.TreeView.Selection("set", id)
+	a.TreeView.Focus(id)
+	return id
+}
+
+func (a *App) TreeRowAt(x int, y int) string {
+	if a.TreeView == nil {
+		return ""
+	}
+	return strings.TrimSpace(a.TreeView.IdentifyItem(x, y))
+}
+
+func (a *App) TreeChildCount() int {
+	if a.TreeView == nil || a.TreeView.String() == "" {
+		return 0
+	}
+	return len(a.TreeView.Children(""))
+}
+
+func (a *App) MoveTreeYview(target float64) error {
+	if a.TreeView == nil || a.TreeView.String() == "" {
+		return nil
+	}
+	_, err := tkutil.Evalf("%s yview moveto %f", a.TreeView, target)
+	return err
+}
+
+func (a *App) ScrollTreeYview(delta int, unit string) error {
+	if a.TreeView == nil || a.TreeView.String() == "" || delta == 0 {
+		return nil
+	}
+	_, err := tkutil.Evalf("%s yview scroll %d %s", a.TreeView, delta, unit)
+	return err
+}
+
+func (a *App) TreeYviewRange() (start float64, end float64, err error) {
+	if a.TreeView == nil {
+		return 0, 0, fmt.Errorf("tree widget is nil")
+	}
+	path := a.TreeView.String()
+	if path == "" {
+		return 0, 0, fmt.Errorf("tree widget has empty path")
+	}
+	out, err := tkutil.Evalf("%s yview", path)
+	if err != nil {
+		return 0, 0, err
+	}
+	fields := strings.Fields(strings.TrimSpace(out))
+	if len(fields) < 2 {
+		return 0, 0, fmt.Errorf("unexpected treeview yview output %q", out)
+	}
+	start, err = strconv.ParseFloat(fields[0], 64)
+	if err != nil {
+		return 0, 0, err
+	}
+	end, err = strconv.ParseFloat(fields[1], 64)
+	if err != nil {
+		return 0, 0, err
+	}
+	return start, end, nil
 }

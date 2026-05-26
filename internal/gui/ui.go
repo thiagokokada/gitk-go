@@ -99,16 +99,10 @@ func (a *Controller) bindGraphCanvasHandlers(graphCanvas *widgets.GraphCanvas) {
 }
 
 func (a *Controller) handleGraphCanvasClick(x, y int) {
-	if a.ui.TreeView == nil {
-		return
-	}
-	item := strings.TrimSpace(a.ui.TreeView.IdentifyItem(x, y))
+	item := a.ui.FocusTreeRowAt(x, y)
 	if item == "" {
 		return
 	}
-	Focus(a.ui.TreeView)
-	a.ui.TreeView.Selection("set", item)
-	a.ui.TreeView.Focus(item)
 }
 
 func (a *Controller) handleGraphCanvasWheel(delta int) {
@@ -134,12 +128,11 @@ func (a *Controller) showTreeContextMenu(e *Event) {
 }
 
 func (a *Controller) showTreeContextMenuAt(x, y, xRoot, yRoot int) {
-	item := strings.TrimSpace(a.ui.TreeView.IdentifyItem(x, y))
+	item := a.ui.TreeRowAt(x, y)
 	if _, ok := a.treeCommitIndex(item); !ok {
 		return
 	}
-	a.ui.TreeView.Selection("set", item)
-	a.ui.TreeView.Focus(item)
+	a.ui.SelectTreeRow(item)
 	a.model.State.Tree.ContextTargetID = item
 	Popup(a.ui.TreeContextMenu.Window, xRoot, yRoot, nil)
 }
@@ -147,9 +140,7 @@ func (a *Controller) showTreeContextMenuAt(x, y, xRoot, yRoot int) {
 func (a *Controller) copySelectedCommitReference() {
 	id := a.model.State.Tree.ContextTargetID
 	if id == "" {
-		if sel := a.ui.TreeView.Selection(""); len(sel) > 0 {
-			id = sel[0]
-		}
+		id = a.ui.SelectedTreeRow()
 	}
 	idx, ok := a.treeCommitIndex(id)
 	if !ok {

@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/thiagokokada/gitk-go/internal/gui/model"
-	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 )
 
 func (a *Controller) applyFilter(raw string) {
@@ -26,7 +25,7 @@ func (a *Controller) applyFilterImmediate(raw string) {
 
 func (a *Controller) applyFilterContent(raw string) {
 	a.applyFilterState(raw)
-	if a.ui.TreeView == nil || !tkutil.WidgetExists(a.ui.TreeView.String()) {
+	if !a.ui.TreeExists() {
 		return
 	}
 	autoLoad := shouldAutoLoadForFilter(
@@ -55,7 +54,7 @@ func (a *Controller) applyFilterContent(raw string) {
 func (a *Controller) applyFilterSelectionPlan(plan model.SelectionDisplayPlan) bool {
 	switch plan.Kind {
 	case model.SelectionDisplayLocal:
-		a.focusTreeRow(model.LocalRowID(plan.Staged))
+		a.ui.SelectTreeRow(model.LocalRowID(plan.Staged))
 		a.setStatus(a.statusSummary())
 		a.scheduleAutoLoadCheck()
 		a.restoreScrollState()
@@ -75,45 +74,30 @@ func (a *Controller) applyFilterSelectionPlan(plan model.SelectionDisplayPlan) b
 
 func (a *Controller) selectCommitPlan(plan model.SelectionDisplayPlan) {
 	id := model.CommitRowID(plan.Entry)
-	a.focusTreeRow(id)
+	a.ui.SelectTreeRow(id)
 	if plan.LoadDetail {
 		a.showCommitDetails(plan.Entry, plan.Index)
 	}
 }
 
-func (a *Controller) focusTreeRow(id string) {
-	if id == "" {
-		return
-	}
-	a.ui.TreeView.Selection("set", id)
-	a.ui.TreeView.Focus(id)
-	a.ui.TreeView.See(id)
-}
-
 func (a *Controller) storeScrollState() {
-	a.model.State.Scroll.Total = a.treeChildCount()
+	a.model.State.Scroll.Total = a.ui.TreeChildCount()
 	if a.model.State.Scroll.Total > 0 {
-		if start, _, err := a.treeYviewRange(); err == nil {
+		if start, _, err := a.ui.TreeYviewRange(); err == nil {
 			a.model.State.Scroll.Start = start
 		}
 	}
 }
 
 func (a *Controller) restoreScrollState() {
-	newTotal := a.treeChildCount()
+	newTotal := a.ui.TreeChildCount()
 	target, ok := a.model.State.Scroll.RestoreTarget(newTotal)
 	if !ok {
 		return
 	}
-	tkutil.MustEvalf("%s yview moveto %f", a.ui.TreeView, target)
-}
-
-func (a *Controller) treeChildCount() int {
-	path := a.ui.TreeView.String()
-	if path == "" {
-		return 0
+	if err := a.ui.MoveTreeYview(target); err != nil {
+		slog.Debug("tree yview restore", slog.Any("error", err))
 	}
-	return len(a.ui.TreeView.Children(""))
 }
 
 func (a *Controller) scheduleFilterApply(raw string) {

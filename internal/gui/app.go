@@ -289,8 +289,7 @@ func (a *Controller) onLocalDiffLoaded(staged bool) {
 		}
 	}
 	targetID := model.LocalRowID(staged)
-	sel := a.ui.TreeView.Selection("")
-	if len(sel) == 0 || sel[0] != targetID {
+	if a.ui.SelectedTreeRow() != targetID {
 		return
 	}
 	topLine := a.ui.DiffTopLine()

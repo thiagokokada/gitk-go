@@ -1,26 +1,22 @@
 package gui
 
 import (
-	"fmt"
 	"log/slog"
-	"strconv"
-	"strings"
 
 	. "modernc.org/tk9.0"
 
 	"github.com/thiagokokada/gitk-go/internal/git"
 	"github.com/thiagokokada/gitk-go/internal/gui/model"
-	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 )
 
 func (a *Controller) onTreeSelectionChanged() {
 	a.scheduleGraphCanvasDraw()
-	sel := a.ui.TreeView.Selection("")
-	if len(sel) == 0 {
+	id := a.ui.SelectedTreeRow()
+	if id == "" {
 		a.model.TreeSelectionPlan("")
 		return
 	}
-	plan := a.model.TreeSelectionPlan(sel[0])
+	plan := a.model.TreeSelectionPlan(id)
 	switch plan.Kind {
 	case model.TreeSelectionLocal:
 		a.showLocalChanges(plan.Staged)
@@ -177,7 +173,7 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 	if a.model.State.Tree.LoadingBatch || !a.model.State.Tree.HasMore {
 		return
 	}
-	start, end, err := a.treeYviewRange()
+	start, end, err := a.ui.TreeYviewRange()
 	if err != nil {
 		slog.Error("tree yview", slog.Any("error", err))
 		return
@@ -191,28 +187,4 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 	) {
 		a.loadMoreCommitsAsync(false)
 	}
-}
-
-func (a *Controller) treeYviewRange() (start float64, end float64, err error) {
-	path := a.ui.TreeView.String()
-	if path == "" {
-		return 0, 0, fmt.Errorf("tree widget has empty path")
-	}
-	out, err := tkutil.Evalf("%s yview", path)
-	if err != nil {
-		return 0, 0, err
-	}
-	fields := strings.Fields(strings.TrimSpace(out))
-	if len(fields) < 2 {
-		return 0, 0, fmt.Errorf("unexpected treeview yview output %q", out)
-	}
-	start, err = strconv.ParseFloat(fields[0], 64)
-	if err != nil {
-		return 0, 0, err
-	}
-	end, err = strconv.ParseFloat(fields[1], 64)
-	if err != nil {
-		return 0, 0, err
-	}
-	return start, end, nil
 }
