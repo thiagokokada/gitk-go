@@ -56,6 +56,29 @@ func (a *App) clearDiffLineTags() {
 	a.DiffDetail.TagRemove("diffHeader", "1.0", tk.END)
 }
 
+func (a *App) ClearSyntaxTags(tags map[string]string) {
+	if a.DiffDetail == nil {
+		return
+	}
+	for _, tag := range tags {
+		a.DiffDetail.TagRemove(tag, "1.0", tk.END)
+	}
+}
+
+func (a *App) ConfigureSyntaxTag(tag string, color string) {
+	if a.DiffDetail == nil || tag == "" || color == "" {
+		return
+	}
+	a.DiffDetail.TagConfigure(tag, tk.Foreground(color))
+}
+
+func (a *App) ApplySyntaxSpan(tag string, line int, startCol int, endCol int) {
+	if a.DiffDetail == nil || tag == "" {
+		return
+	}
+	a.DiffDetail.TagAdd(tag, textIndex(line, startCol), textIndex(line, endCol))
+}
+
 func (a *App) ScrollDiffToLine(line int) {
 	if a.DiffDetail == nil || line <= 0 {
 		return

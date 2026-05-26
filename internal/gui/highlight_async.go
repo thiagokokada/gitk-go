@@ -123,9 +123,6 @@ func (a *Controller) enqueueSyntaxSpans(spans []syntaxSpan, gen uint64) {
 }
 
 func (a *Controller) applySyntaxSpans(spans []syntaxSpan) {
-	if a.ui.DiffDetail == nil {
-		return
-	}
 	for _, span := range spans {
 		if span.color == "" {
 			continue
@@ -134,8 +131,6 @@ func (a *Controller) applySyntaxSpans(spans []syntaxSpan) {
 		if tag == "" {
 			continue
 		}
-		start := fmt.Sprintf("%d.%d", span.line, span.startCol)
-		end := fmt.Sprintf("%d.%d", span.line, span.endCol)
-		a.ui.DiffDetail.TagAdd(tag, start, end)
+		a.ui.ApplySyntaxSpan(tag, span.line, span.startCol, span.endCol)
 	}
 }
