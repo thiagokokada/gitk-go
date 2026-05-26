@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/thiagokokada/gitk-go/internal/gui/model"
-	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 	"github.com/thiagokokada/gitk-go/internal/gui/view"
 
 	. "modernc.org/tk9.0"
@@ -247,43 +246,11 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 }
 
 func (a *Controller) filterHasFocus() bool {
-	return Focus() == a.ui.FilterEntry.String()
+	return a.ui.FilterHasFocus()
 }
 
 func (a *Controller) showShortcutsDialog() {
-	if a.ui.ShortcutsWindow != nil {
-		Destroy(a.ui.ShortcutsWindow.Window)
-		a.ui.ShortcutsWindow = nil
-	}
-	dialog := App.Toplevel()
-	a.ui.ShortcutsWindow = dialog
-	dialog.WmTitle("Keyboard Shortcuts")
-	WmTransient(dialog.Window, App)
-	WmAttributes(dialog.Window, "-topmost", 1)
-
-	frame := dialog.TFrame(Padding("12p"))
-	Grid(frame, Row(0), Column(0), Sticky(NEWS))
-	GridColumnConfigure(frame.Window, 0, Weight(1))
-	GridRowConfigure(frame.Window, 1, Weight(1))
-
-	header := frame.TLabel(Txt("Keyboard Shortcuts"), Anchor(W))
-	Grid(header, Row(0), Column(0), Sticky(W), Pady("0 8p"))
-
-	text := frame.Text(Width(62), Height(18), Wrap(WORD), Exportselection(false))
-	text.Insert("1.0", formatShortcutsHelpText(a.shortcutBindings()))
-	text.Configure(State("disabled"))
-	Grid(text, Row(1), Column(0), Sticky(NEWS))
-
-	closeBtn := frame.TButton(Txt("Close"), Command(func() { Destroy(dialog.Window) }))
-	Grid(closeBtn, Row(2), Column(0), Sticky(E), Pady("8p 0"))
-
-	Bind(dialog.Window, "<KeyPress-Escape>", Command(func() { Destroy(dialog.Window) }))
-	Bind(dialog.Window, "<Destroy>", Command(func() {
-		if a.ui.ShortcutsWindow == dialog {
-			a.ui.ShortcutsWindow = nil
-		}
-	}))
-	dialog.Center()
+	a.ui.ShowShortcutsDialog(formatShortcutsHelpText(a.shortcutBindings()))
 }
 
 func (a *Controller) moveSelection(delta int) {
@@ -407,21 +374,11 @@ func (a *Controller) scrollDetail(delta int, unit view.ScrollUnit) {
 }
 
 func (a *Controller) focusFilterEntry() {
-	if a.filterHasFocus() {
-		return
-	}
-	Focus(a.ui.FilterEntry)
-	if _, err := tkutil.Evalf("%s selection range 0 end", a.ui.FilterEntry); err != nil {
-		slog.Error("select filter", slog.Any("error", err))
-	}
-	a.ui.FilterEntry.Icursor("end")
+	a.ui.FocusFilterEntry()
 }
 
 func (a *Controller) blurFilterEntry() {
-	if !a.filterHasFocus() {
-		return
-	}
-	a.ui.FocusTree()
+	a.ui.BlurFilterEntry()
 }
 
 func formatShortcutsHelpText(bindings []shortcutBinding) string {
