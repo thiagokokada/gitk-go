@@ -29,7 +29,7 @@ func (a *Controller) buildUI() {
 	})
 
 	a.updateRepoLabel()
-	a.bindEmacsEntryShortcuts(a.ui.FilterEntry)
+	a.ui.BindFilterEntryShortcuts()
 	a.applyTreeRowStyles()
 	a.applyDiffTagStyles()
 	a.applyDiffFileListStyles()
