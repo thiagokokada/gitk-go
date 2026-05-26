@@ -184,7 +184,7 @@ func (a *Controller) updateReloadButtonLabel() {
 		}
 		label = fmt.Sprintf("Reload (Auto %s)", state)
 	}
-	a.ui.ReloadButton.Configure(Txt(label))
+	a.ui.SetReloadButtonLabel(label)
 }
 
 func (a *Controller) onReloadButton() {

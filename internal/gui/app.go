@@ -446,8 +446,7 @@ func (a *Controller) copyDetailSelection(stripMarkers bool) {
 	if text == "" {
 		return
 	}
-	ClipboardClear()
-	ClipboardAppend(text)
+	a.ui.CopyToClipboard(text)
 	if stripMarkers {
 		a.setStatus("Copied selection without +/- markers.")
 	} else {
@@ -460,10 +459,7 @@ func (a *Controller) currentSelection() string {
 }
 
 func (a *Controller) setStatus(msg string) {
-	text := msg
-	PostEvent(func() {
-		a.ui.Status.Configure(Txt(text))
-	}, false)
+	a.ui.SetStatus(msg)
 }
 
 func (a *Controller) statusSummary() string {
