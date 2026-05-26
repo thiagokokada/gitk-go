@@ -2,6 +2,7 @@ package view
 
 import (
 	"github.com/thiagokokada/gitk-go/internal/gui/model"
+	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 	tk "modernc.org/tk9.0"
 )
 
@@ -37,4 +38,53 @@ func (a *App) UpdateCommitRow(id string, row model.TreeRow) bool {
 	}
 	a.TreeView.Item(id, tk.Values(row.Values()))
 	return true
+}
+
+func (a *App) ClearTreeRows(trackedIDs []string) {
+	if a.TreeView == nil {
+		return
+	}
+	children := a.TreeView.Children("")
+	attached := make(map[string]struct{}, len(children))
+	if len(children) > 0 {
+		args := make([]any, len(children))
+		for i, child := range children {
+			args[i] = child
+			attached[child] = struct{}{}
+		}
+		a.TreeView.Delete(args...)
+	}
+	for _, id := range trackedIDs {
+		if _, ok := attached[id]; ok {
+			continue
+		}
+		a.TreeView.Delete(id)
+	}
+}
+
+func (a *App) DeleteTreeRows(ids []string) {
+	if a.TreeView == nil {
+		return
+	}
+	for _, id := range ids {
+		a.TreeView.Delete(id)
+	}
+}
+
+func (a *App) SetTreeChildren(ids []string) error {
+	if a.TreeView == nil {
+		return nil
+	}
+	treePath := a.TreeView.String()
+	if treePath == "" {
+		return nil
+	}
+	if len(ids) == 0 {
+		_, err := tkutil.Evalf("%s children {} {}", treePath)
+		return err
+	}
+	// XXX: Workaround a bug in Tk-go, ideally we would use a.TreeView.Children("", ids...) instead.
+	children := tkutil.TclSafeStrings(ids...)
+	_, err := tkutil.Evalf("%s children {} {%s}", treePath, children)
+	return err
 }

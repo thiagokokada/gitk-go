@@ -44,7 +44,7 @@ func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
 		return
 	}
 	if a.model.State.Tree.Rows.HasSpecialItem(id) {
-		a.ui.TreeView.Delete(id)
+		a.ui.DeleteTreeRows([]string{id})
 		a.model.State.Tree.Rows.RemoveSpecialItem(id)
 	}
 	if stagedSelection, ok := a.model.State.Selection.LocalSelection(); ok && stagedSelection == staged {
@@ -67,25 +67,7 @@ func localRowLabel(staged bool) string {
 }
 
 func (a *Controller) clearTreeRows() {
-	children := a.ui.TreeView.Children("")
-	attached := make(map[string]struct{}, len(children))
-	if len(children) == 0 {
-		children = nil
-	}
-	if len(children) > 0 {
-		args := make([]any, len(children))
-		for i, child := range children {
-			args[i] = child
-			attached[child] = struct{}{}
-		}
-		a.ui.TreeView.Delete(args...)
-	}
-	for _, id := range a.model.State.Tree.Rows.TrackedItemIDs() {
-		if _, ok := attached[id]; ok {
-			continue
-		}
-		a.ui.TreeView.Delete(id)
-	}
+	a.ui.ClearTreeRows(a.model.State.Tree.Rows.TrackedItemIDs())
 	a.model.State.Tree.Rows.ResetTracking()
 }
 
@@ -94,7 +76,7 @@ func (a *Controller) syncTreeRows() {
 		return
 	}
 	a.ensureLocalRows()
-	a.pruneCommitRows()
+	a.ui.DeleteTreeRows(a.model.State.Tree.Rows.PruneStaleCommitRows())
 
 	refresh := a.model.State.Tree.Rows.RefreshValues
 	ordered := make([]string, 0, len(a.model.Data.Visible)+3)
@@ -122,7 +104,9 @@ func (a *Controller) syncTreeRows() {
 		ordered = append(ordered, model.LoadingIndicatorID)
 	}
 
-	a.setTreeChildren(ordered)
+	if err := a.ui.SetTreeChildren(ordered); err != nil {
+		slog.Debug("tree children set", slog.Any("error", err))
+	}
 	a.model.State.Tree.Rows.RefreshValues = false
 }
 
@@ -173,30 +157,6 @@ func (a *Controller) updateCommitRow(id string, entry *git.Entry) {
 		return
 	}
 	a.model.State.Tree.Rows.SetItemValue(id, row)
-}
-
-func (a *Controller) setTreeChildren(ids []string) {
-	treePath := a.ui.TreeView.String()
-	if treePath == "" {
-		return
-	}
-	if len(ids) == 0 {
-		if _, err := tkutil.Evalf("%s children {} {}", treePath); err != nil {
-			slog.Debug("tree children clear", slog.Any("error", err))
-		}
-		return
-	}
-	// XXX: Workaround a bug in Tk-go, ideally we would use a.ui.TreeView.Children("", ids...) instead
-	children := tkutil.TclSafeStrings(ids...)
-	if _, err := tkutil.Evalf("%s children {} {%s}", treePath, children); err != nil {
-		slog.Debug("tree children set", slog.Any("error", err))
-	}
-}
-
-func (a *Controller) pruneCommitRows() {
-	for _, id := range a.model.State.Tree.Rows.PruneStaleCommitRows() {
-		a.ui.TreeView.Delete(id)
-	}
 }
 
 func (a *Controller) scheduleAutoLoadCheck() {
