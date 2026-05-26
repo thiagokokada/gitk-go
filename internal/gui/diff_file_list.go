@@ -5,6 +5,7 @@ import (
 
 	"github.com/thiagokokada/gitk-go/internal/git"
 	"github.com/thiagokokada/gitk-go/internal/gui/model"
+	"github.com/thiagokokada/gitk-go/internal/gui/view"
 	. "modernc.org/tk9.0"
 )
 
@@ -28,11 +29,11 @@ func (a *Controller) onFileSelectionChanged(e *Event) {
 		return
 	}
 	a.setFileListSelection(idx)
-	a.scrollDiffToLine(line)
+	a.ui.ScrollDiffToLine(line)
 }
 
 func (a *Controller) syncFileSelectionToDiff() {
-	line := a.diffTopLine()
+	line := a.ui.DiffTopLine()
 	idx, ok := a.model.State.Diff.SyncSelectionIndexForLine(line)
 	if !ok {
 		return
@@ -61,7 +62,7 @@ func (a *Controller) diffFileListIndexAtY(e *Event) (int, bool) {
 	if e == nil || a.ui.DiffFileList == nil {
 		return 0, false
 	}
-	line, ok := textIndexLineNumber(a.ui.DiffFileList.Index(fmt.Sprintf("@0,%d", e.Y)))
+	line, ok := view.TextIndexLineNumber(a.ui.DiffFileList.Index(fmt.Sprintf("@0,%d", e.Y)))
 	if !ok {
 		return 0, false
 	}

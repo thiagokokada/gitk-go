@@ -293,10 +293,10 @@ func (a *Controller) onLocalDiffLoaded(staged bool) {
 	if len(sel) == 0 || sel[0] != targetID {
 		return
 	}
-	topLine := a.diffTopLine()
+	topLine := a.ui.DiffTopLine()
 	a.renderLocalChanges(staged, false)
 	if topLine > 0 {
-		a.scrollDiffToLine(topLine)
+		a.ui.ScrollDiffToLine(topLine)
 	}
 }
 
@@ -420,41 +420,8 @@ func (a *Controller) clearDetailText(msg string) {
 }
 
 func (a *Controller) writeDetailText(content string, highlightDiff bool) {
-	a.ui.DiffDetail.Configure(State(NORMAL))
-	a.ui.DiffDetail.Delete("1.0", END)
-	a.ui.DiffDetail.Insert("1.0", content)
-	if highlightDiff {
-		a.highlightDiffLines(content)
-	} else {
-		a.ui.DiffDetail.TagRemove("diffAdd", "1.0", END)
-		a.ui.DiffDetail.TagRemove("diffDel", "1.0", END)
-		a.ui.DiffDetail.TagRemove("diffHeader", "1.0", END)
-	}
+	a.ui.WriteDetailText(content, highlightDiff, diffLineTag)
 	a.maybeStartSyntaxHighlight(content, highlightDiff)
-	a.ui.DiffDetail.Configure(State("disabled"))
-}
-
-func (a *Controller) highlightDiffLines(content string) {
-	a.ui.DiffDetail.TagRemove("diffAdd", "1.0", END)
-	a.ui.DiffDetail.TagRemove("diffDel", "1.0", END)
-	a.ui.DiffDetail.TagRemove("diffHeader", "1.0", END)
-	lines := strings.Split(content, "\n")
-	for i, line := range lines {
-		if len(line) == 0 {
-			continue
-		}
-		tag := diffLineTag(line)
-		if tag == "" {
-			continue
-		}
-		lineNo := i + 1
-		start := fmt.Sprintf("%d.0", lineNo)
-		end := fmt.Sprintf("%d.0", lineNo+1)
-		if lineNo == len(lines) {
-			end = fmt.Sprintf("%d.end", lineNo)
-		}
-		a.ui.DiffDetail.TagAdd(tag, start, end)
-	}
 }
 
 func (a *Controller) copyDetailSelection(stripMarkers bool) {
@@ -487,36 +454,6 @@ func (a *Controller) copyDetailSelection(stripMarkers bool) {
 	} else {
 		a.setStatus("Copied selection.")
 	}
-}
-
-func (a *Controller) scrollDiffToLine(line int) {
-	if line <= 0 {
-		return
-	}
-	totalLines := a.textLineCount()
-	a.ui.DiffDetail.Yviewmoveto(model.DiffScrollFraction(line, totalLines))
-}
-
-func (a *Controller) textLineCount() int {
-	lines, ok := textIndexLineNumber(a.ui.DiffDetail.Index(END))
-	if !ok {
-		return 0
-	}
-	if lines > 0 {
-		lines--
-	}
-	return lines
-}
-
-func (a *Controller) diffTopLine() int {
-	if a.ui.DiffDetail == nil {
-		return 0
-	}
-	line, ok := textIndexLineNumber(a.ui.DiffDetail.Index("@0,0"))
-	if !ok {
-		return 0
-	}
-	return line
 }
 
 func (a *Controller) currentSelection() string {
