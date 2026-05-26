@@ -10,10 +10,10 @@ import (
 )
 
 func (a *App) BindFilterEntryShortcuts() {
-	a.BindEmacsEntryShortcuts(a.FilterEntry)
+	BindEmacsEntryShortcuts(a.FilterEntry)
 }
 
-func (a *App) BindEmacsEntryShortcuts(entry *tk.TEntryWidget) {
+func BindEmacsEntryShortcuts(entry *tk.TEntryWidget) {
 	if entry == nil {
 		return
 	}

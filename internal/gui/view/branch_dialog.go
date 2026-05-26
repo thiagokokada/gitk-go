@@ -82,7 +82,7 @@ func (a *App) ShowBranchSwitchDialog(current string, rows []BranchSwitchRow, han
 		}
 		renderBranchRows(list, visible)
 	}))
-	a.BindEmacsEntryShortcuts(filter)
+	BindEmacsEntryShortcuts(filter)
 	tk.Bind(list, "<Double-Button-1>", tk.Command(submit))
 	tk.Bind(dialog.Window, "<KeyPress-Escape>", tk.Command(func() { tk.Destroy(dialog.Window) }))
 	tk.Bind(dialog.Window, "<KeyPress-Return>", tk.Command(submit))

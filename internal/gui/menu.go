@@ -30,7 +30,7 @@ func (a *Controller) initMenubar() {
 			)
 		},
 		Shortcuts: a.showShortcutsDialog,
-		About:     a.showAboutDialog,
+		About:     showAboutDialog,
 	})
 }
 
@@ -42,7 +42,7 @@ func (a *Controller) promptRepositorySwitch() {
 	a.switchRepository(dir)
 }
 
-func (a *Controller) showAboutDialog() {
+func showAboutDialog() {
 	message := fmt.Sprintf("gitk-go %s", buildinfo.VersionWithTags())
 	if gitVer, err := git.GitVersion(); gitVer != "" {
 		message += "\n" + gitVer
