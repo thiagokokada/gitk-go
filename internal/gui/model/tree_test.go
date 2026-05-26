@@ -1,4 +1,4 @@
-package gui
+package model
 
 import (
 	"testing"
@@ -13,7 +13,7 @@ func TestBuildVisibleIndex(t *testing.T) {
 		{Commit: &git.Commit{Hash: "b"}},
 		{Commit: nil},
 	}
-	index := buildVisibleIndex(entries)
+	index := BuildVisibleIndex(entries)
 	if len(index) != 2 {
 		t.Fatalf("expected 2 entries in index, got %d", len(index))
 	}
@@ -30,12 +30,12 @@ func TestBuildVisibleIndexIntoReuse(t *testing.T) {
 		{Commit: &git.Commit{Hash: "a"}},
 		{Commit: &git.Commit{Hash: "b"}},
 	}
-	index := buildVisibleIndexInto(entries, nil)
+	index := BuildVisibleIndexInto(entries, nil)
 	if len(index) != 2 {
 		t.Fatalf("expected 2 entries in index, got %d", len(index))
 	}
 	next := []*git.Entry{{Commit: &git.Commit{Hash: "c"}}}
-	index = buildVisibleIndexInto(next, index)
+	index = BuildVisibleIndexInto(next, index)
 	if len(index) != 1 {
 		t.Fatalf("expected 1 entry in index, got %d", len(index))
 	}
@@ -53,7 +53,7 @@ func TestBuildCommitIDSet(t *testing.T) {
 		{Commit: &git.Commit{Hash: "b"}},
 		nil,
 	}
-	ids := buildCommitIDSet(entries)
+	ids := BuildCommitIDSet(entries)
 	if len(ids) != 2 {
 		t.Fatalf("expected 2 ids, got %d", len(ids))
 	}
@@ -66,43 +66,43 @@ func TestBuildCommitIDSet(t *testing.T) {
 }
 
 func TestTreeRowStateSetCommitIDsEmpty(t *testing.T) {
-	var state treeRowState
-	state.setCommitIDs(nil)
-	if state.commitIDs == nil {
+	var state TreeRowState
+	state.SetCommitIDs(nil)
+	if state.CommitIDs == nil {
 		t.Fatalf("expected commitIDs to be initialized")
 	}
-	if len(state.commitIDs) != 0 {
-		t.Fatalf("expected empty commitIDs map, got %d", len(state.commitIDs))
+	if len(state.CommitIDs) != 0 {
+		t.Fatalf("expected empty commitIDs map, got %d", len(state.CommitIDs))
 	}
 }
 
 func TestTreeRowStateItemValueChanged(t *testing.T) {
-	var state treeRowState
-	row := treeRow{Graph: "*", Commit: "c1", Author: "a1", Date: "d1"}
-	if !state.itemValueChanged("id", row) {
+	var state TreeRowState
+	row := TreeRow{Graph: "*", Commit: "c1", Author: "a1", Date: "d1"}
+	if !state.ItemValueChanged("id", row) {
 		t.Fatalf("expected itemValueChanged to be true for missing entry")
 	}
-	state.setItemValue("id", row)
-	if state.itemValueChanged("id", row) {
+	state.SetItemValue("id", row)
+	if state.ItemValueChanged("id", row) {
 		t.Fatalf("expected itemValueChanged to be false for unchanged entry")
 	}
-	changed := treeRow{Graph: "*", Commit: "c1", Author: "a2", Date: "d1"}
-	if !state.itemValueChanged("id", changed) {
+	changed := TreeRow{Graph: "*", Commit: "c1", Author: "a2", Date: "d1"}
+	if !state.ItemValueChanged("id", changed) {
 		t.Fatalf("expected itemValueChanged to be true for changed entry")
 	}
 }
 
 func TestTreeRowStateSpecialItems(t *testing.T) {
-	var state treeRowState
-	if state.hasSpecialItem("row") {
+	var state TreeRowState
+	if state.HasSpecialItem("row") {
 		t.Fatalf("expected no special items initially")
 	}
-	state.addSpecialItem("row")
-	if !state.hasSpecialItem("row") {
+	state.AddSpecialItem("row")
+	if !state.HasSpecialItem("row") {
 		t.Fatalf("expected special item to be present")
 	}
-	state.removeSpecialItem("row")
-	if state.hasSpecialItem("row") {
+	state.RemoveSpecialItem("row")
+	if state.HasSpecialItem("row") {
 		t.Fatalf("expected special item to be removed")
 	}
 }

@@ -4,18 +4,19 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/thiagokokada/gitk-go/internal/gui/model"
 	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 )
 
 func (a *Controller) applyFilter(raw string) {
-	if a.ui.filterEntry.Textvariable() != raw {
+	if a.ui.FilterEntry.Textvariable() != raw {
 		return
 	}
 	a.applyFilterContent(raw)
 }
 
 func (a *Controller) applyFilterState(raw string) {
-	a.model.applyFilter(raw)
+	a.model.ApplyFilter(raw)
 }
 
 func (a *Controller) applyFilterImmediate(raw string) {
@@ -25,14 +26,14 @@ func (a *Controller) applyFilterImmediate(raw string) {
 
 func (a *Controller) applyFilterContent(raw string) {
 	a.applyFilterState(raw)
-	if a.ui.treeView == nil || !tkutil.WidgetExists(a.ui.treeView.String()) {
+	if a.ui.TreeView == nil || !tkutil.WidgetExists(a.ui.TreeView.String()) {
 		return
 	}
 	autoLoad := shouldAutoLoadForFilter(
-		a.model.state.filter.value,
-		len(a.model.data.visible),
-		a.model.state.tree.hasMore,
-		a.model.state.tree.loadingBatch,
+		a.model.State.Filter.Value,
+		len(a.model.Data.Visible),
+		a.model.State.Tree.HasMore,
+		a.model.State.Tree.LoadingBatch,
 	)
 	a.storeScrollState()
 	if autoLoad {
@@ -40,7 +41,7 @@ func (a *Controller) applyFilterContent(raw string) {
 	}
 	a.syncTreeRows()
 
-	plan := a.model.filterSelectionPlan()
+	plan := a.model.FilterSelectionPlan()
 	if a.applyFilterSelectionPlan(plan) {
 		return
 	}
@@ -51,20 +52,20 @@ func (a *Controller) applyFilterContent(raw string) {
 	a.scheduleGraphCanvasDraw()
 }
 
-func (a *Controller) applyFilterSelectionPlan(plan selectionDisplayPlan) bool {
-	switch plan.kind {
-	case selectionDisplayLocal:
-		a.focusTreeRow(localRowID(plan.staged))
+func (a *Controller) applyFilterSelectionPlan(plan model.SelectionDisplayPlan) bool {
+	switch plan.Kind {
+	case model.SelectionDisplayLocal:
+		a.focusTreeRow(model.LocalRowID(plan.Staged))
 		a.setStatus(a.statusSummary())
 		a.scheduleAutoLoadCheck()
 		a.restoreScrollState()
 		a.scheduleGraphCanvasDraw()
 		return true
-	case selectionDisplayMessage:
-		a.clearDetailText(plan.message)
+	case model.SelectionDisplayMessage:
+		a.clearDetailText(plan.Message)
 		a.setStatus(a.statusSummary())
 		return true
-	case selectionDisplayCommit:
+	case model.SelectionDisplayCommit:
 		a.selectCommitPlan(plan)
 		return false
 	default:
@@ -72,11 +73,11 @@ func (a *Controller) applyFilterSelectionPlan(plan selectionDisplayPlan) bool {
 	}
 }
 
-func (a *Controller) selectCommitPlan(plan selectionDisplayPlan) {
-	id := commitRowID(plan.entry)
+func (a *Controller) selectCommitPlan(plan model.SelectionDisplayPlan) {
+	id := model.CommitRowID(plan.Entry)
 	a.focusTreeRow(id)
-	if plan.loadDetail {
-		a.showCommitDetails(plan.entry, plan.index)
+	if plan.LoadDetail {
+		a.showCommitDetails(plan.Entry, plan.Index)
 	}
 }
 
@@ -84,35 +85,35 @@ func (a *Controller) focusTreeRow(id string) {
 	if id == "" {
 		return
 	}
-	a.ui.treeView.Selection("set", id)
-	a.ui.treeView.Focus(id)
-	a.ui.treeView.See(id)
+	a.ui.TreeView.Selection("set", id)
+	a.ui.TreeView.Focus(id)
+	a.ui.TreeView.See(id)
 }
 
 func (a *Controller) storeScrollState() {
-	a.model.state.scroll.total = a.treeChildCount()
-	if a.model.state.scroll.total > 0 {
+	a.model.State.Scroll.Total = a.treeChildCount()
+	if a.model.State.Scroll.Total > 0 {
 		if start, _, err := a.treeYviewRange(); err == nil {
-			a.model.state.scroll.start = start
+			a.model.State.Scroll.Start = start
 		}
 	}
 }
 
 func (a *Controller) restoreScrollState() {
 	newTotal := a.treeChildCount()
-	target, ok := a.model.state.scroll.restoreTarget(newTotal)
+	target, ok := a.model.State.Scroll.RestoreTarget(newTotal)
 	if !ok {
 		return
 	}
-	tkutil.MustEvalf("%s yview moveto %f", a.ui.treeView, target)
+	tkutil.MustEvalf("%s yview moveto %f", a.ui.TreeView, target)
 }
 
 func (a *Controller) treeChildCount() int {
-	path := a.ui.treeView.String()
+	path := a.ui.TreeView.String()
 	if path == "" {
 		return 0
 	}
-	return len(a.ui.treeView.Children(""))
+	return len(a.ui.TreeView.Children(""))
 }
 
 func (a *Controller) scheduleFilterApply(raw string) {
@@ -138,13 +139,4 @@ func shouldAutoLoadForFilter(filterValue string, visibleLen int, hasMore bool, l
 		return false
 	}
 	return strings.TrimSpace(filterValue) != ""
-}
-
-func (s scrollState) restoreTarget(newTotal int) (float64, bool) {
-	if s.start < 0 || s.total <= 0 || newTotal <= 0 {
-		return 0, false
-	}
-	target := s.start * float64(s.total) / float64(newTotal)
-	target = max(0.0, min(target, 1.0))
-	return target, true
 }

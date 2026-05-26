@@ -45,12 +45,12 @@ func (a *Controller) enableAutoReload() error {
 	if !a.shouldEnableAutoReload() {
 		return nil
 	}
-	slog.Debug("adding path to fswatcher", slog.String("path", a.model.repo.path))
+	slog.Debug("adding path to fswatcher", slog.String("path", a.model.Repo.Path))
 	watcher, err := fswatcher.New(
-		fswatcher.WithPath(a.model.repo.path, fswatcher.WithDepth(fswatcher.WatchNested)),
+		fswatcher.WithPath(a.model.Repo.Path, fswatcher.WithDepth(fswatcher.WatchNested)),
 	)
 	if err != nil {
-		return fmt.Errorf("watch %s: %w", a.model.repo.path, err)
+		return fmt.Errorf("watch %s: %w", a.model.Repo.Path, err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -184,7 +184,7 @@ func (a *Controller) updateReloadButtonLabel() {
 		}
 		label = fmt.Sprintf("Reload (Auto %s)", state)
 	}
-	a.ui.reloadButton.Configure(Txt(label))
+	a.ui.ReloadButton.Configure(Txt(label))
 }
 
 func (a *Controller) onReloadButton() {

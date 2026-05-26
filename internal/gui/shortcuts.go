@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/thiagokokada/gitk-go/internal/gui/model"
 	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 
 	. "modernc.org/tk9.0"
@@ -245,16 +246,16 @@ func (a *Controller) shortcutBindings() []shortcutBinding {
 }
 
 func (a *Controller) filterHasFocus() bool {
-	return Focus() == a.ui.filterEntry.String()
+	return Focus() == a.ui.FilterEntry.String()
 }
 
 func (a *Controller) showShortcutsDialog() {
-	if a.ui.shortcutsWindow != nil {
-		Destroy(a.ui.shortcutsWindow.Window)
-		a.ui.shortcutsWindow = nil
+	if a.ui.ShortcutsWindow != nil {
+		Destroy(a.ui.ShortcutsWindow.Window)
+		a.ui.ShortcutsWindow = nil
 	}
 	dialog := App.Toplevel()
-	a.ui.shortcutsWindow = dialog
+	a.ui.ShortcutsWindow = dialog
 	dialog.WmTitle("Keyboard Shortcuts")
 	WmTransient(dialog.Window, App)
 	WmAttributes(dialog.Window, "-topmost", 1)
@@ -277,31 +278,31 @@ func (a *Controller) showShortcutsDialog() {
 
 	Bind(dialog.Window, "<KeyPress-Escape>", Command(func() { Destroy(dialog.Window) }))
 	Bind(dialog.Window, "<Destroy>", Command(func() {
-		if a.ui.shortcutsWindow == dialog {
-			a.ui.shortcutsWindow = nil
+		if a.ui.ShortcutsWindow == dialog {
+			a.ui.ShortcutsWindow = nil
 		}
 	}))
 	dialog.Center()
 }
 
 func (a *Controller) moveSelection(delta int) {
-	sel := a.ui.treeView.Selection("")
+	sel := a.ui.TreeView.Selection("")
 	if len(sel) > 0 {
 		if a.handleSpecialRowNav(sel[0], delta) {
 			return
 		}
 	}
-	if len(a.model.data.visible) == 0 {
+	if len(a.model.Data.Visible) == 0 {
 		return
 	}
 	idx := a.currentSelectionIndex() + delta
 	if idx < 0 && delta < 0 {
-		if a.model.state.tree.localRowVisible(true) {
-			a.selectSpecialRow(localStagedRowID)
+		if a.model.State.Tree.LocalRowVisible(true) {
+			a.selectSpecialRow(model.LocalStagedRowID)
 			return
 		}
-		if a.model.state.tree.localRowVisible(false) {
-			a.selectSpecialRow(localUnstagedRowID)
+		if a.model.State.Tree.LocalRowVisible(false) {
+			a.selectSpecialRow(model.LocalUnstagedRowID)
 			return
 		}
 	}
@@ -309,62 +310,62 @@ func (a *Controller) moveSelection(delta int) {
 		a.loadMoreCommitsAsync(false)
 	}
 	idx = max(0, idx)
-	a.selectTreeIndex(min(idx, len(a.model.data.visible)))
+	a.selectTreeIndex(min(idx, len(a.model.Data.Visible)))
 }
 
 func (a *Controller) selectFirst() {
-	if len(a.model.data.visible) == 0 {
+	if len(a.model.Data.Visible) == 0 {
 		return
 	}
 	a.selectTreeIndex(0)
 }
 
 func (a *Controller) selectLast() {
-	if len(a.model.data.visible) == 0 {
+	if len(a.model.Data.Visible) == 0 {
 		return
 	}
-	a.selectTreeIndex(len(a.model.data.visible) - 1)
+	a.selectTreeIndex(len(a.model.Data.Visible) - 1)
 }
 
 func (a *Controller) selectSpecialRow(id string) {
-	a.ui.treeView.Selection("set", id)
-	a.ui.treeView.Focus(id)
-	a.ui.treeView.See(id)
+	a.ui.TreeView.Selection("set", id)
+	a.ui.TreeView.Focus(id)
+	a.ui.TreeView.See(id)
 	switch id {
-	case localUnstagedRowID:
+	case model.LocalUnstagedRowID:
 		a.showLocalChanges(false)
-	case localStagedRowID:
+	case model.LocalStagedRowID:
 		a.showLocalChanges(true)
 	default:
 	}
 }
 
 func (a *Controller) currentSelectionIndex() int {
-	sel := a.ui.treeView.Selection("")
-	if len(sel) == 0 || sel[0] == moreIndicatorID {
+	sel := a.ui.TreeView.Selection("")
+	if len(sel) == 0 || sel[0] == model.MoreIndicatorID {
 		return 0
 	}
-	if _, idx, ok := a.model.commitEntryForTreeID(sel[0]); ok {
+	if _, idx, ok := a.model.CommitEntryForTreeID(sel[0]); ok {
 		return idx
 	}
 	return 0
 }
 
 func (a *Controller) selectTreeIndex(idx int) {
-	if idx < 0 || idx >= len(a.model.data.visible) {
+	if idx < 0 || idx >= len(a.model.Data.Visible) {
 		return
 	}
-	entry, ok := a.model.commitEntryAt(idx)
+	entry, ok := a.model.CommitEntryAt(idx)
 	if !ok {
 		return
 	}
-	id := commitRowID(entry)
+	id := model.CommitRowID(entry)
 	if id == "" {
 		return
 	}
-	a.ui.treeView.Selection("set", id)
-	a.ui.treeView.Focus(id)
-	a.ui.treeView.See(id)
+	a.ui.TreeView.Selection("set", id)
+	a.ui.TreeView.Focus(id)
+	a.ui.TreeView.See(id)
 	a.showCommitDetails(entry, idx)
 }
 
@@ -373,24 +374,24 @@ func (a *Controller) handleSpecialRowNav(id string, delta int) bool {
 		return true
 	}
 	switch id {
-	case localUnstagedRowID:
+	case model.LocalUnstagedRowID:
 		if delta > 0 {
-			if a.model.state.tree.localRowVisible(true) {
-				a.selectSpecialRow(localStagedRowID)
-			} else if len(a.model.data.visible) > 0 {
+			if a.model.State.Tree.LocalRowVisible(true) {
+				a.selectSpecialRow(model.LocalStagedRowID)
+			} else if len(a.model.Data.Visible) > 0 {
 				a.selectTreeIndex(0)
 			}
 		}
 		return true
-	case localStagedRowID:
+	case model.LocalStagedRowID:
 		if delta < 0 {
-			if a.model.state.tree.localRowVisible(false) {
-				a.selectSpecialRow(localUnstagedRowID)
+			if a.model.State.Tree.LocalRowVisible(false) {
+				a.selectSpecialRow(model.LocalUnstagedRowID)
 			}
 			return true
 		}
 		if delta > 0 {
-			if len(a.model.data.visible) > 0 {
+			if len(a.model.Data.Visible) > 0 {
 				a.selectTreeIndex(0)
 			}
 			return true
@@ -405,7 +406,7 @@ func (a *Controller) scrollTreePages(delta int) {
 	if delta == 0 {
 		return
 	}
-	if _, err := tkutil.Evalf("%s yview scroll %d pages", a.ui.treeView, delta); err != nil {
+	if _, err := tkutil.Evalf("%s yview scroll %d pages", a.ui.TreeView, delta); err != nil {
 		slog.Error("tree scroll", slog.Any("error", err))
 	}
 }
@@ -414,7 +415,7 @@ func (a *Controller) scrollTreeUnits(delta int) {
 	if delta == 0 {
 		return
 	}
-	if _, err := tkutil.Evalf("%s yview scroll %d units", a.ui.treeView, delta); err != nil {
+	if _, err := tkutil.Evalf("%s yview scroll %d units", a.ui.TreeView, delta); err != nil {
 		slog.Error("tree scroll", slog.Any("error", err))
 	}
 }
@@ -431,7 +432,7 @@ func (a *Controller) scrollDetail(delta int, unit string) {
 	if delta == 0 {
 		return
 	}
-	if _, err := tkutil.Evalf("%s yview scroll %d %s", a.ui.diffDetail, delta, unit); err != nil {
+	if _, err := tkutil.Evalf("%s yview scroll %d %s", a.ui.DiffDetail, delta, unit); err != nil {
 		slog.Error("detail scroll", slog.Any("error", err))
 	}
 }
@@ -440,22 +441,22 @@ func (a *Controller) focusFilterEntry() {
 	if a.filterHasFocus() {
 		return
 	}
-	Focus(a.ui.filterEntry)
-	if _, err := tkutil.Evalf("%s selection range 0 end", a.ui.filterEntry); err != nil {
+	Focus(a.ui.FilterEntry)
+	if _, err := tkutil.Evalf("%s selection range 0 end", a.ui.FilterEntry); err != nil {
 		slog.Error("select filter", slog.Any("error", err))
 	}
-	a.ui.filterEntry.Icursor("end")
+	a.ui.FilterEntry.Icursor("end")
 }
 
 func (a *Controller) blurFilterEntry() {
 	if !a.filterHasFocus() {
 		return
 	}
-	if a.ui.treeView == nil || a.ui.treeView.String() == "" {
+	if a.ui.TreeView == nil || a.ui.TreeView.String() == "" {
 		Focus(App)
 		return
 	}
-	Focus(a.ui.treeView)
+	Focus(a.ui.TreeView)
 }
 
 func formatShortcutsHelpText(bindings []shortcutBinding) string {
@@ -479,5 +480,5 @@ func formatShortcutsHelpText(bindings []shortcutBinding) string {
 }
 
 func (a *Controller) shouldLoadMoreCommits(idx int) bool {
-	return float64(idx)/float64(len(a.model.data.visible)) >= autoLoadThreshold
+	return float64(idx)/float64(len(a.model.Data.Visible)) >= autoLoadThreshold
 }

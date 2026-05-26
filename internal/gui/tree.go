@@ -9,44 +9,45 @@ import (
 	. "modernc.org/tk9.0"
 
 	"github.com/thiagokokada/gitk-go/internal/git"
+	"github.com/thiagokokada/gitk-go/internal/gui/model"
 	"github.com/thiagokokada/gitk-go/internal/gui/tkutil"
 )
 
 func (a *Controller) onTreeSelectionChanged() {
 	a.scheduleGraphCanvasDraw()
-	sel := a.ui.treeView.Selection("")
+	sel := a.ui.TreeView.Selection("")
 	if len(sel) == 0 {
-		a.model.treeSelectionPlan("")
+		a.model.TreeSelectionPlan("")
 		return
 	}
-	plan := a.model.treeSelectionPlan(sel[0])
-	switch plan.kind {
-	case treeSelectionLocal:
-		a.showLocalChanges(plan.staged)
+	plan := a.model.TreeSelectionPlan(sel[0])
+	switch plan.Kind {
+	case model.TreeSelectionLocal:
+		a.showLocalChanges(plan.Staged)
 		return
-	case treeSelectionCommit:
-		a.showCommitDetails(plan.entry, plan.index)
+	case model.TreeSelectionCommit:
+		a.showCommitDetails(plan.Entry, plan.Index)
 	default:
 		return
 	}
 }
 
 func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
-	if !a.model.state.tree.setLocalRowVisible(staged, show) {
+	if !a.model.State.Tree.SetLocalRowVisible(staged, show) {
 		return
 	}
-	id := localRowID(staged)
+	id := model.LocalRowID(staged)
 	if show {
-		if !a.model.state.tree.rows.hasSpecialItem(id) {
+		if !a.model.State.Tree.Rows.HasSpecialItem(id) {
 			a.insertSingleLocalRow(staged)
 		}
 		return
 	}
-	if a.model.state.tree.rows.hasSpecialItem(id) {
-		a.ui.treeView.Delete(id)
-		a.model.state.tree.rows.removeSpecialItem(id)
+	if a.model.State.Tree.Rows.HasSpecialItem(id) {
+		a.ui.TreeView.Delete(id)
+		a.model.State.Tree.Rows.RemoveSpecialItem(id)
 	}
-	if stagedSelection, ok := a.model.state.selection.LocalSelection(); ok && stagedSelection == staged {
+	if stagedSelection, ok := a.model.State.Selection.LocalSelection(); ok && stagedSelection == staged {
 		a.selectFallbackCommit()
 	}
 }
@@ -54,17 +55,10 @@ func (a *Controller) setLocalRowVisibility(staged bool, show bool) {
 func (a *Controller) insertSingleLocalRow(staged bool) {
 	label := localRowLabel(staged)
 	tag := localRowTag(staged)
-	index := a.model.state.tree.localRowInsertIndex(staged)
+	index := a.model.State.Tree.LocalRowInsertIndex(staged)
 	vals := []string{"", label, "", ""}
-	a.ui.treeView.Insert("", index, Id(localRowID(staged)), Values(vals), Tags(tag))
-	a.model.state.tree.rows.addSpecialItem(localRowID(staged))
-}
-
-func localRowID(staged bool) string {
-	if staged {
-		return localStagedRowID
-	}
-	return localUnstagedRowID
+	a.ui.TreeView.Insert("", index, Id(model.LocalRowID(staged)), Values(vals), Tags(tag))
+	a.model.State.Tree.Rows.AddSpecialItem(model.LocalRowID(staged))
 }
 
 func localRowLabel(staged bool) string {
@@ -82,7 +76,7 @@ func localRowTag(staged bool) string {
 }
 
 func (a *Controller) clearTreeRows() {
-	children := a.ui.treeView.Children("")
+	children := a.ui.TreeView.Children("")
 	attached := make(map[string]struct{}, len(children))
 	if len(children) == 0 {
 		children = nil
@@ -93,33 +87,33 @@ func (a *Controller) clearTreeRows() {
 			args[i] = child
 			attached[child] = struct{}{}
 		}
-		a.ui.treeView.Delete(args...)
+		a.ui.TreeView.Delete(args...)
 	}
-	for _, id := range a.model.state.tree.rows.trackedItemIDs() {
+	for _, id := range a.model.State.Tree.Rows.TrackedItemIDs() {
 		if _, ok := attached[id]; ok {
 			continue
 		}
-		a.ui.treeView.Delete(id)
+		a.ui.TreeView.Delete(id)
 	}
-	a.model.state.tree.rows.resetTracking()
+	a.model.State.Tree.Rows.ResetTracking()
 }
 
 func (a *Controller) syncTreeRows() {
-	if a.ui.treeView == nil {
+	if a.ui.TreeView == nil {
 		return
 	}
 	a.ensureLocalRows()
 	a.pruneCommitRows()
 
-	refresh := a.model.state.tree.rows.refreshValues
-	ordered := make([]string, 0, len(a.model.data.visible)+3)
-	ordered = append(ordered, a.model.state.tree.localRowIDs()...)
-	for _, entry := range a.model.data.visible {
-		id := commitRowID(entry)
+	refresh := a.model.State.Tree.Rows.RefreshValues
+	ordered := make([]string, 0, len(a.model.Data.Visible)+3)
+	ordered = append(ordered, a.model.State.Tree.LocalRowIDs()...)
+	for _, entry := range a.model.Data.Visible {
+		id := model.CommitRowID(entry)
 		if id == "" {
 			continue
 		}
-		if !a.model.state.tree.rows.hasItem(id) {
+		if !a.model.State.Tree.Rows.HasItem(id) {
 			a.insertCommitRow(id, entry)
 		} else if refresh {
 			a.updateCommitRow(id, entry)
@@ -127,75 +121,75 @@ func (a *Controller) syncTreeRows() {
 		ordered = append(ordered, id)
 	}
 
-	if a.model.state.tree.hasMore && len(a.model.data.visible) > 0 {
+	if a.model.State.Tree.HasMore && len(a.model.Data.Visible) > 0 {
 		a.ensureMoreIndicatorRow()
-		ordered = append(ordered, moreIndicatorID)
+		ordered = append(ordered, model.MoreIndicatorID)
 	}
 
-	if a.model.state.tree.loadingBatch && len(a.model.data.visible) == 0 {
+	if a.model.State.Tree.LoadingBatch && len(a.model.Data.Visible) == 0 {
 		a.ensureLoadingIndicatorRow()
-		ordered = append(ordered, loadingIndicatorID)
+		ordered = append(ordered, model.LoadingIndicatorID)
 	}
 
 	a.setTreeChildren(ordered)
-	a.model.state.tree.rows.refreshValues = false
+	a.model.State.Tree.Rows.RefreshValues = false
 }
 
 func (a *Controller) ensureLocalRows() {
-	for _, id := range a.model.state.tree.localRowIDs() {
-		if a.model.state.tree.rows.hasSpecialItem(id) {
+	for _, id := range a.model.State.Tree.LocalRowIDs() {
+		if a.model.State.Tree.Rows.HasSpecialItem(id) {
 			continue
 		}
-		a.insertSingleLocalRow(id == localStagedRowID)
+		a.insertSingleLocalRow(id == model.LocalStagedRowID)
 	}
 }
 
 func (a *Controller) ensureMoreIndicatorRow() {
-	if a.model.state.tree.rows.hasSpecialItem(moreIndicatorID) {
+	if a.model.State.Tree.Rows.HasSpecialItem(model.MoreIndicatorID) {
 		return
 	}
 	vals := []string{"", "There are more commits...", "", ""}
-	a.ui.treeView.Insert("", "end", Id(moreIndicatorID), Values(vals))
-	a.model.state.tree.rows.addSpecialItem(moreIndicatorID)
+	a.ui.TreeView.Insert("", "end", Id(model.MoreIndicatorID), Values(vals))
+	a.model.State.Tree.Rows.AddSpecialItem(model.MoreIndicatorID)
 }
 
 func (a *Controller) ensureLoadingIndicatorRow() {
-	if a.model.state.tree.rows.hasSpecialItem(loadingIndicatorID) {
+	if a.model.State.Tree.Rows.HasSpecialItem(model.LoadingIndicatorID) {
 		return
 	}
 	vals := []string{"", "Loading commits...", "", ""}
-	a.ui.treeView.Insert("", "end", Id(loadingIndicatorID), Values(vals))
-	a.model.state.tree.rows.addSpecialItem(loadingIndicatorID)
+	a.ui.TreeView.Insert("", "end", Id(model.LoadingIndicatorID), Values(vals))
+	a.model.State.Tree.Rows.AddSpecialItem(model.LoadingIndicatorID)
 }
 
 func (a *Controller) insertCommitRow(id string, entry *git.Entry) {
-	row, ok := treeRowData(entry, a.model.state.tree.branchLabels, a.cfg.graphCanvas)
+	row, ok := treeRowData(entry, a.model.State.Tree.BranchLabels, a.cfg.graphCanvas)
 	if !ok {
 		return
 	}
-	a.ui.treeView.Insert("", "end", Id(id), Values(row.values()))
-	a.model.state.tree.rows.addItem(id)
-	a.model.state.tree.rows.setItemValue(id, row)
+	a.ui.TreeView.Insert("", "end", Id(id), Values(row.Values()))
+	a.model.State.Tree.Rows.AddItem(id)
+	a.model.State.Tree.Rows.SetItemValue(id, row)
 }
 
 func (a *Controller) updateCommitRow(id string, entry *git.Entry) {
-	treePath := a.ui.treeView.String()
+	treePath := a.ui.TreeView.String()
 	if treePath == "" {
 		return
 	}
-	row, ok := treeRowData(entry, a.model.state.tree.branchLabels, a.cfg.graphCanvas)
+	row, ok := treeRowData(entry, a.model.State.Tree.BranchLabels, a.cfg.graphCanvas)
 	if !ok {
 		return
 	}
-	if !a.model.state.tree.rows.itemValueChanged(id, row) {
+	if !a.model.State.Tree.Rows.ItemValueChanged(id, row) {
 		return
 	}
-	a.ui.treeView.Item(id, Values(row.values()))
-	a.model.state.tree.rows.setItemValue(id, row)
+	a.ui.TreeView.Item(id, Values(row.Values()))
+	a.model.State.Tree.Rows.SetItemValue(id, row)
 }
 
 func (a *Controller) setTreeChildren(ids []string) {
-	treePath := a.ui.treeView.String()
+	treePath := a.ui.TreeView.String()
 	if treePath == "" {
 		return
 	}
@@ -205,7 +199,7 @@ func (a *Controller) setTreeChildren(ids []string) {
 		}
 		return
 	}
-	// XXX: Workaround a bug in Tk-go, ideally we would use a.ui.treeView.Children("", ids...) instead
+	// XXX: Workaround a bug in Tk-go, ideally we would use a.ui.TreeView.Children("", ids...) instead
 	children := tkutil.TclSafeStrings(ids...)
 	if _, err := tkutil.Evalf("%s children {} {%s}", treePath, children); err != nil {
 		slog.Debug("tree children set", slog.Any("error", err))
@@ -213,19 +207,19 @@ func (a *Controller) setTreeChildren(ids []string) {
 }
 
 func (a *Controller) pruneCommitRows() {
-	for _, id := range a.model.state.tree.rows.pruneStaleCommitRows() {
-		a.ui.treeView.Delete(id)
+	for _, id := range a.model.State.Tree.Rows.PruneStaleCommitRows() {
+		a.ui.TreeView.Delete(id)
 	}
 }
 
 func (a *Controller) scheduleAutoLoadCheck() {
-	if a.model.state.filter.value == "" || !a.model.state.tree.hasMore {
+	if a.model.State.Filter.Value == "" || !a.model.State.Tree.HasMore {
 		return
 	}
 	slog.Debug("scheduleAutoLoadCheck",
-		slog.String("filter", a.model.state.filter.value),
-		slog.Int("visible", len(a.model.data.visible)),
-		slog.Bool("has_more", a.model.state.tree.hasMore),
+		slog.String("filter", a.model.State.Filter.Value),
+		slog.Int("visible", len(a.model.Data.Visible)),
+		slog.Bool("has_more", a.model.State.Tree.HasMore),
 	)
 	PostEvent(func() {
 		a.maybeLoadMoreOnScroll()
@@ -233,7 +227,7 @@ func (a *Controller) scheduleAutoLoadCheck() {
 }
 
 func (a *Controller) maybeLoadMoreOnScroll() {
-	if a.model.state.tree.loadingBatch || !a.model.state.tree.hasMore {
+	if a.model.State.Tree.LoadingBatch || !a.model.State.Tree.HasMore {
 		return
 	}
 	start, end, err := a.treeYviewRange()
@@ -241,9 +235,9 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 		slog.Error("tree yview", slog.Any("error", err))
 		return
 	}
-	if a.model.state.tree.shouldLoadMoreOnScroll(
-		a.model.state.filter.value,
-		len(a.model.data.visible),
+	if a.model.State.Tree.ShouldLoadMoreOnScroll(
+		a.model.State.Filter.Value,
+		len(a.model.Data.Visible),
 		int(a.cfg.batch),
 		start,
 		end,
@@ -253,7 +247,7 @@ func (a *Controller) maybeLoadMoreOnScroll() {
 }
 
 func (a *Controller) treeYviewRange() (start float64, end float64, err error) {
-	path := a.ui.treeView.String()
+	path := a.ui.TreeView.String()
 	if path == "" {
 		return 0, 0, fmt.Errorf("tree widget has empty path")
 	}
@@ -274,175 +268,4 @@ func (a *Controller) treeYviewRange() (start float64, end float64, err error) {
 		return 0, 0, err
 	}
 	return start, end, nil
-}
-
-func (t treeState) shouldLoadMoreOnScroll(
-	filterValue string,
-	visibleLen int,
-	batch int,
-	yStart float64,
-	yEnd float64,
-) bool {
-	if t.loadingBatch || !t.hasMore {
-		return false
-	}
-	if visibleLen == 0 {
-		return true
-	}
-	if filterValue == "" && visibleLen >= batch && yStart <= 0 && yEnd >= 1 {
-		return false
-	}
-	return yEnd >= autoLoadThreshold
-}
-
-func commitRowID(entry *git.Entry) string {
-	if entry == nil || entry.Commit == nil {
-		return ""
-	}
-	return entry.Commit.Hash
-}
-
-func buildVisibleIndex(entries []*git.Entry) map[string]int {
-	return buildVisibleIndexInto(entries, nil)
-}
-
-func buildVisibleIndexInto(entries []*git.Entry, index map[string]int) map[string]int {
-	if len(entries) == 0 {
-		if index == nil {
-			return nil
-		}
-		for k := range index {
-			delete(index, k)
-		}
-		return index
-	}
-	if index == nil {
-		index = make(map[string]int, len(entries))
-	} else {
-		for k := range index {
-			delete(index, k)
-		}
-	}
-	for i, entry := range entries {
-		id := commitRowID(entry)
-		if id == "" {
-			continue
-		}
-		index[id] = i
-	}
-	return index
-}
-
-func buildCommitIDSet(entries []*git.Entry) map[string]struct{} {
-	if len(entries) == 0 {
-		return nil
-	}
-	ids := make(map[string]struct{}, len(entries))
-	for _, entry := range entries {
-		id := commitRowID(entry)
-		if id == "" {
-			continue
-		}
-		ids[id] = struct{}{}
-	}
-	return ids
-}
-
-func (s *treeRowState) setCommitIDs(entries []*git.Entry) {
-	if len(entries) == 0 {
-		s.commitIDs = map[string]struct{}{}
-		return
-	}
-	s.commitIDs = buildCommitIDSet(entries)
-}
-
-func (s *treeRowState) addCommitIDs(entries []*git.Entry) {
-	if len(entries) == 0 {
-		return
-	}
-	if s.commitIDs == nil {
-		s.commitIDs = make(map[string]struct{}, len(entries))
-	}
-	for _, entry := range entries {
-		id := commitRowID(entry)
-		if id == "" {
-			continue
-		}
-		s.commitIDs[id] = struct{}{}
-	}
-}
-
-func (s *treeRowState) setVisibleIndex(entries []*git.Entry) {
-	s.visibleByID = buildVisibleIndexInto(entries, s.visibleByID)
-}
-
-func (s *treeRowState) hasItem(id string) bool {
-	if s.items == nil {
-		return false
-	}
-	_, ok := s.items[id]
-	return ok
-}
-
-func (s *treeRowState) addItem(id string) {
-	if id == "" {
-		return
-	}
-	if s.items == nil {
-		s.items = make(map[string]struct{})
-	}
-	s.items[id] = struct{}{}
-}
-
-func (s *treeRowState) itemValueChanged(id string, row treeRow) bool {
-	if s.values == nil {
-		return true
-	}
-	prev, ok := s.values[id]
-	if !ok {
-		return true
-	}
-	return !treeRowEqual(prev, row)
-}
-
-func (s *treeRowState) setItemValue(id string, row treeRow) {
-	if id == "" {
-		return
-	}
-	if s.values == nil {
-		s.values = make(map[string]treeRow)
-	}
-	s.values[id] = row
-}
-
-func (s *treeRowState) hasSpecialItem(id string) bool {
-	if s.specialItems == nil {
-		return false
-	}
-	_, ok := s.specialItems[id]
-	return ok
-}
-
-func (s *treeRowState) addSpecialItem(id string) {
-	if id == "" {
-		return
-	}
-	if s.specialItems == nil {
-		s.specialItems = make(map[string]struct{})
-	}
-	s.specialItems[id] = struct{}{}
-}
-
-func (s *treeRowState) removeSpecialItem(id string) {
-	if s.specialItems == nil {
-		return
-	}
-	delete(s.specialItems, id)
-}
-
-func treeRowEqual(a treeRow, b treeRow) bool {
-	return a.Graph == b.Graph &&
-		a.Commit == b.Commit &&
-		a.Author == b.Author &&
-		a.Date == b.Date
 }

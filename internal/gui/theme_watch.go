@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/thiagokokada/gitk-go/internal/gui/view"
 	. "modernc.org/tk9.0"
 )
 
@@ -108,9 +109,6 @@ func (a *Controller) refreshThemeStyles() {
 }
 
 func (a *Controller) applyTreeRowStyles() {
-	if a.ui.treeView == nil {
-		return
-	}
 	unstagedColor := a.theme.palette.LocalUnstagedRow
 	if unstagedColor == "" {
 		unstagedColor = lightPalette.LocalUnstagedRow
@@ -119,14 +117,13 @@ func (a *Controller) applyTreeRowStyles() {
 	if stagedColor == "" {
 		stagedColor = lightPalette.LocalStagedRow
 	}
-	a.ui.treeView.TagConfigure("localUnstaged", Background(unstagedColor))
-	a.ui.treeView.TagConfigure("localStaged", Background(stagedColor))
+	a.ui.ApplyTreeRowStyles(view.TreeRowColors{
+		LocalUnstaged: unstagedColor,
+		LocalStaged:   stagedColor,
+	})
 }
 
 func (a *Controller) applyDiffTagStyles() {
-	if a.ui.diffDetail == nil {
-		return
-	}
 	addColor := a.theme.palette.DiffAdd
 	if addColor == "" {
 		addColor = lightPalette.DiffAdd
@@ -139,27 +136,14 @@ func (a *Controller) applyDiffTagStyles() {
 	if headerColor == "" {
 		headerColor = lightPalette.DiffHeader
 	}
-	selBg := a.ui.diffDetail.Selectbackground()
-	selFg := a.ui.diffDetail.Selectforeground()
-	tagOpts := func(bg string) []Opt {
-		opts := []Opt{Background(bg)}
-		if selBg != "" {
-			opts = append(opts, Selectbackground(selBg))
-		}
-		if selFg != "" {
-			opts = append(opts, Selectforeground(selFg))
-		}
-		return opts
-	}
-	a.ui.diffDetail.TagConfigure("diffAdd", tagOpts(addColor)...)
-	a.ui.diffDetail.TagConfigure("diffDel", tagOpts(delColor)...)
-	a.ui.diffDetail.TagConfigure("diffHeader", tagOpts(headerColor)...)
+	a.ui.ApplyDiffTagStyles(view.DiffColors{
+		Add:    addColor,
+		Delete: delColor,
+		Header: headerColor,
+	})
 }
 
 func (a *Controller) applyDiffFileListStyles() {
-	if a.ui.diffFileList == nil {
-		return
-	}
 	addColor := a.theme.palette.DiffAddText
 	if addColor == "" {
 		addColor = lightPalette.DiffAddText
@@ -168,13 +152,10 @@ func (a *Controller) applyDiffFileListStyles() {
 	if delColor == "" {
 		delColor = lightPalette.DiffDelText
 	}
-	a.ui.diffFileList.TagConfigure("diffFileAddCount", Foreground(addColor))
-	a.ui.diffFileList.TagConfigure("diffFileDelCount", Foreground(delColor))
-	selBg := a.ui.diffFileList.Selectbackground()
-	if selBg == "" {
-		return
-	}
-	a.ui.diffFileList.TagConfigure("diffFileSelected", Background(selBg))
+	a.ui.ApplyDiffFileListStyles(view.DiffFileListColors{
+		AddText:    addColor,
+		DeleteText: delColor,
+	})
 }
 
 func (a *Controller) refreshSyntaxHighlight() {
@@ -189,12 +170,9 @@ func (a *Controller) refreshSyntaxHighlight() {
 }
 
 func (a *Controller) shouldHighlightDiff() bool {
-	return len(a.model.state.diff.fileSections) > 0
+	return len(a.model.State.Diff.FileSections) > 0
 }
 
 func (a *Controller) currentDiffText() string {
-	if a.ui.diffDetail == nil {
-		return ""
-	}
-	return a.ui.diffDetail.Text()
+	return a.ui.CurrentDiffText()
 }

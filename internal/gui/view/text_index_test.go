@@ -1,4 +1,4 @@
-package gui
+package view
 
 import "testing"
 
@@ -16,7 +16,7 @@ func TestTextIndexLineNumber(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		got, ok := textIndexLineNumber(tc.index)
+		got, ok := TextIndexLineNumber(tc.index)
 		if got != tc.want || ok != tc.wantOK {
 			t.Fatalf("index=%q: want (%d,%v), got (%d,%v)", tc.index, tc.want, tc.wantOK, got, ok)
 		}

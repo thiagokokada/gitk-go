@@ -13,7 +13,7 @@ import (
 
 func (a *Controller) initMenubar() {
 	menubar := Menu(Tearoff(false))
-	a.ui.menubar = menubar
+	a.ui.Menubar = menubar
 
 	openAccel := "Ctrl+O"
 	branchAccel := "Ctrl+B"
@@ -23,7 +23,7 @@ func (a *Controller) initMenubar() {
 	}
 
 	fileMenu := menubar.Menu(Tearoff(false))
-	a.ui.fileMenu = fileMenu
+	a.ui.FileMenu = fileMenu
 	fileMenu.AddCommand(Lbl("Open Repository..."), Accelerator(openAccel), Command(a.promptRepositorySwitch))
 	fileMenu.AddCommand(Lbl("Switch Branch..."), Accelerator(branchAccel), Command(a.promptBranchSwitch))
 	fileMenu.AddSeparator()
@@ -31,13 +31,13 @@ func (a *Controller) initMenubar() {
 	menubar.AddCascade(Lbl("File"), Mnu(fileMenu))
 
 	viewMenu := menubar.Menu(Tearoff(false))
-	a.ui.viewMenu = viewMenu
+	a.ui.ViewMenu = viewMenu
 	viewMenu.AddCommand(Lbl("UI Font..."), Command(a.showUIFontDialog))
 	viewMenu.AddCommand(Lbl("Fixed Font..."), Command(a.showFixedFontDialog))
 	menubar.AddCascade(Lbl("View"), Mnu(viewMenu))
 
 	helpMenu := menubar.Menu(Tearoff(false))
-	a.ui.helpMenu = helpMenu
+	a.ui.HelpMenu = helpMenu
 	helpMenu.AddCommand(Lbl("Keyboard Shortcuts"), Command(a.showShortcutsDialog))
 	helpMenu.AddCommand(Lbl("About gitk-go"), Command(a.showAboutDialog))
 	menubar.AddCascade(Lbl("Help"), Mnu(helpMenu))
@@ -49,10 +49,10 @@ func (a *Controller) promptRepositorySwitch() {
 	dir := strings.TrimSpace(ChooseDirectory(
 		Parent(App),
 		Title("Select Git repository"),
-		Initialdir(a.model.repo.path),
+		Initialdir(a.model.Repo.Path),
 		Mustexist(true),
 	))
-	if dir == "" || dir == a.model.repo.path {
+	if dir == "" || dir == a.model.Repo.Path {
 		return
 	}
 	a.switchRepository(dir)
@@ -101,9 +101,9 @@ func (a *Controller) switchRepository(path string) {
 	a.svc = newSvc
 	a.clearTreeRows()
 	a.runtime.actions.filterDebounce.Stop()
-	a.model.resetRepository(newSvc.RepoPath())
-	if a.ui.filterEntry != nil {
-		a.ui.filterEntry.Configure(Textvariable(""))
+	a.model.ResetRepository(newSvc.RepoPath())
+	if a.ui.FilterEntry != nil {
+		a.ui.FilterEntry.Configure(Textvariable(""))
 	}
 	a.setLocalRowVisibility(false, false)
 	a.setLocalRowVisibility(true, false)
