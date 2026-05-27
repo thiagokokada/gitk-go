@@ -7,17 +7,11 @@ import (
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/thiagokokada/gitk-go/internal/git"
+	"github.com/thiagokokada/gitk-go/internal/gui/view"
 	. "modernc.org/tk9.0"
 )
 
 const syntaxHighlightBatchSize = 400
-
-type syntaxSpan struct {
-	color    string
-	line     int
-	startCol int
-	endCol   int
-}
 
 func (a *Controller) maybeStartSyntaxHighlight(content string, highlightDiff bool) {
 	if !a.cfg.syntaxHighlight || !highlightDiff || content == "" {
@@ -25,8 +19,8 @@ func (a *Controller) maybeStartSyntaxHighlight(content string, highlightDiff boo
 		a.clearSyntaxHighlight()
 		return
 	}
-	metrics := syntaxHighlightMetricsFor(content)
-	if ok, reason := shouldSyntaxHighlight(metrics); !ok {
+	metrics := view.SyntaxHighlightMetricsFor(content)
+	if ok, reason := view.ShouldSyntaxHighlight(metrics); !ok {
 		if reason != "" {
 			slog.Debug("syntax highlight skipped", slog.String("reason", reason))
 		}
@@ -60,7 +54,7 @@ func (a *Controller) computeSyntaxHighlight(content string, style *chroma.Style,
 	var currentLexer chroma.Lexer
 	skipFile := false
 	currentPath := ""
-	batch := make([]syntaxSpan, 0, syntaxHighlightBatchSize)
+	batch := make([]view.SyntaxSpan, 0, syntaxHighlightBatchSize)
 	for i, line := range lines {
 		if a.syntaxHighlightCanceled(gen) {
 			return
@@ -71,7 +65,7 @@ func (a *Controller) computeSyntaxHighlight(content string, style *chroma.Style,
 			skipFile = false
 			currentPath = path
 			if path != "" {
-				currentLexer = lexerForPath(path)
+				currentLexer = view.LexerForPath(path)
 			}
 			continue
 		}
@@ -85,11 +79,11 @@ func (a *Controller) computeSyntaxHighlight(content string, style *chroma.Style,
 		if !ok {
 			continue
 		}
-		if !shouldHighlightCodeLine(code) {
+		if !view.ShouldHighlightCodeLine(code) {
 			skipFile = true
 			reason := fmt.Sprintf(
 				"line length exceeds %d char limit",
-				maxSyntaxHighlightLineLength,
+				view.MaxSyntaxHighlightLineLength,
 			)
 			slog.Debug(
 				"syntax highlight skipped for file",
@@ -98,7 +92,7 @@ func (a *Controller) computeSyntaxHighlight(content string, style *chroma.Style,
 			)
 			continue
 		}
-		a.collectSyntaxSpans(currentLexer, style, code, lineNo, offset, &batch)
+		view.CollectSyntaxSpans(currentLexer, style, code, lineNo, offset, &batch)
 		if len(batch) >= syntaxHighlightBatchSize {
 			a.enqueueSyntaxSpans(batch, gen)
 			batch = batch[:0]
@@ -109,11 +103,11 @@ func (a *Controller) computeSyntaxHighlight(content string, style *chroma.Style,
 	}
 }
 
-func (a *Controller) enqueueSyntaxSpans(spans []syntaxSpan, gen uint64) {
+func (a *Controller) enqueueSyntaxSpans(spans []view.SyntaxSpan, gen uint64) {
 	if len(spans) == 0 {
 		return
 	}
-	batch := append([]syntaxSpan(nil), spans...)
+	batch := append([]view.SyntaxSpan(nil), spans...)
 	PostEvent(func() {
 		if a.syntaxHighlightCanceled(gen) {
 			return
@@ -122,15 +116,15 @@ func (a *Controller) enqueueSyntaxSpans(spans []syntaxSpan, gen uint64) {
 	}, false)
 }
 
-func (a *Controller) applySyntaxSpans(spans []syntaxSpan) {
+func (a *Controller) applySyntaxSpans(spans []view.SyntaxSpan) {
 	for _, span := range spans {
-		if span.color == "" {
+		if span.Color == "" {
 			continue
 		}
-		tag := a.syntaxTagForColor(span.color)
+		tag := a.syntaxTagForColor(span.Color)
 		if tag == "" {
 			continue
 		}
-		a.ui.ApplySyntaxSpan(tag, span.line, span.startCol, span.endCol)
+		a.ui.ApplySyntaxSpan(tag, span.Line, span.StartCol, span.EndCol)
 	}
 }
