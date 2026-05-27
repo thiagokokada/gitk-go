@@ -42,9 +42,9 @@ func (a *App) ApplyDiffTagStyles(colors DiffColors) {
 		}
 		return opts
 	}
-	a.DiffDetail.TagConfigure("diffAdd", tagOpts(colors.Add)...)
-	a.DiffDetail.TagConfigure("diffDel", tagOpts(colors.Delete)...)
-	a.DiffDetail.TagConfigure("diffHeader", tagOpts(colors.Header)...)
+	a.DiffDetail.TagConfigure(DiffTagAdd, tagOpts(colors.Add)...)
+	a.DiffDetail.TagConfigure(DiffTagDelete, tagOpts(colors.Delete)...)
+	a.DiffDetail.TagConfigure(DiffTagHeader, tagOpts(colors.Header)...)
 }
 
 func (a *App) ApplyDiffFileListStyles(colors DiffFileListColors) {

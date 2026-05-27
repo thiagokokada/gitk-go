@@ -51,9 +51,9 @@ func (a *App) highlightDiffLines(content string, lineTag DiffLineTagger) {
 }
 
 func (a *App) clearDiffLineTags() {
-	a.DiffDetail.TagRemove("diffAdd", "1.0", tk.END)
-	a.DiffDetail.TagRemove("diffDel", "1.0", tk.END)
-	a.DiffDetail.TagRemove("diffHeader", "1.0", tk.END)
+	a.DiffDetail.TagRemove(DiffTagAdd, "1.0", tk.END)
+	a.DiffDetail.TagRemove(DiffTagDelete, "1.0", tk.END)
+	a.DiffDetail.TagRemove(DiffTagHeader, "1.0", tk.END)
 }
 
 func (a *App) ClearSyntaxTags(tags map[string]string) {
