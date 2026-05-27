@@ -18,14 +18,14 @@ func (a *Controller) initMenubar() {
 		UIFont: func() {
 			view.ShowFontDialog(
 				"Select UI Font",
-				fontChooserSeed(tk.DefaultFont, a.prefs.uiFontSpec),
+				view.FontChooserSeed(tk.DefaultFont, a.prefs.uiFontSpec),
 				a.applyUIFontSpec,
 			)
 		},
 		FixedFont: func() {
 			view.ShowFontDialog(
 				"Select Fixed Font",
-				fontChooserSeed(tk.FixedFont, a.prefs.fixedFontSpec),
+				view.FontChooserSeed(tk.FixedFont, a.prefs.fixedFontSpec),
 				a.applyFixedFontSpec,
 			)
 		},
