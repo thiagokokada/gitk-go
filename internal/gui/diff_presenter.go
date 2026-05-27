@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/thiagokokada/gitk-go/internal/git"
+	"github.com/thiagokokada/gitk-go/internal/gui/model"
 )
 
 func detailStatusText(header, body string) string {
@@ -24,7 +25,7 @@ func (a *Controller) showDiffStatus(header, body string) {
 }
 
 func (a *Controller) showRenderedDiff(diff string, sections []git.FileSection) {
-	diff, sections = prepareDiffDisplay(diff, sections)
+	diff, sections = model.PrepareDiffDisplay(diff, sections)
 	a.writeDetailText(diff, len(sections) > 0)
 	a.setFileSections(sections)
 }

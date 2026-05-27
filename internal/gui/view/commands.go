@@ -30,3 +30,8 @@ func (a *App) ClearFilterText() {
 	}
 	a.FilterEntry.Configure(tk.Textvariable(""))
 }
+
+func CopyToClipboard(text string) {
+	tk.ClipboardClear()
+	tk.ClipboardAppend(text)
+}

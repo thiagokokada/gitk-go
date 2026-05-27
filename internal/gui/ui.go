@@ -149,7 +149,7 @@ func (a *Controller) copySelectedCommitReference() {
 		return
 	}
 	hash := entry.Commit.Hash
-	copyToClipboard(hash)
+	view.CopyToClipboard(hash)
 	a.setStatus(fmt.Sprintf("Copied %s to clipboard.", hash))
 }
 
@@ -178,7 +178,7 @@ func (a *Controller) copySelectedDiffFilePath() {
 	if !ok {
 		return
 	}
-	copyToClipboard(path)
+	view.CopyToClipboard(path)
 	a.setStatus(fmt.Sprintf("Copied %s to clipboard.", path))
 }
 
@@ -192,9 +192,4 @@ func (a *Controller) showDiffContextMenu(e *tk.Event) {
 func (a *Controller) treeCommitIndex(id string) (int, bool) {
 	_, idx, ok := a.model.CommitEntryForTreeID(strings.TrimSpace(id))
 	return idx, ok
-}
-
-func copyToClipboard(text string) {
-	tk.ClipboardClear()
-	tk.ClipboardAppend(text)
 }

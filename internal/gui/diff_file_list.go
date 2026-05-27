@@ -7,12 +7,11 @@ import (
 )
 
 func (a *Controller) setFileSections(sections []git.FileSection) {
-	if a.ui.DiffFileList == nil {
+	fileList := model.NewDiffViewModel(sections)
+	if !a.ui.RenderDiffFileList(fileList) {
 		return
 	}
-	fileList := model.NewDiffViewModel(sections)
 	a.model.State.Diff.SetFileSections(fileList.Sections)
-	a.ui.RenderDiffFileList(fileList)
 	a.syncFileSelectionToDiff()
 }
 

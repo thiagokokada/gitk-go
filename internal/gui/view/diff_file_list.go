@@ -7,9 +7,9 @@ import (
 	tk "modernc.org/tk9.0"
 )
 
-func (a *App) RenderDiffFileList(fileList model.DiffViewModel) {
+func (a *App) RenderDiffFileList(fileList model.DiffViewModel) bool {
 	if a.DiffFileList == nil {
-		return
+		return false
 	}
 	a.DiffFileList.Configure(tk.State("normal"))
 	a.DiffFileList.Delete("1.0", tk.END)
@@ -22,6 +22,7 @@ func (a *App) RenderDiffFileList(fileList model.DiffViewModel) {
 		a.applyDiffFileRowTags(lineNo, row)
 	}
 	a.DiffFileList.Configure(tk.State("disabled"))
+	return true
 }
 
 func (a *App) applyDiffFileRowTags(lineNo int, row model.DiffViewRow) {
