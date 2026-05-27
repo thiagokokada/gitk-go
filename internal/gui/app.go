@@ -434,7 +434,7 @@ func (a *Controller) copyDetailSelection(stripMarkers bool) {
 	if text == "" {
 		return
 	}
-	copyToClipboard(text)
+	view.CopyToClipboard(text)
 	if stripMarkers {
 		a.setStatus("Copied selection without +/- markers.")
 	} else {
