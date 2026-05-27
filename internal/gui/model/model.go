@@ -2,7 +2,6 @@ package model
 
 import (
 	"github.com/thiagokokada/gitk-go/internal/git"
-	"github.com/thiagokokada/gitk-go/internal/gui/selection"
 )
 
 const (
@@ -36,7 +35,7 @@ type State struct {
 	Filter    FilterState
 	LocalDiff LocalDiffCache
 	Scroll    ScrollState
-	Selection selection.State
+	Selection SelectionState
 }
 
 func NewApp(repoPath string) App {

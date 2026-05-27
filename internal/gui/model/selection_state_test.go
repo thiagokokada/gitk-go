@@ -1,4 +1,4 @@
-package selection
+package model
 
 import (
 	"strings"
@@ -14,14 +14,14 @@ func TestSelectionStateCommitIndex(t *testing.T) {
 	}
 
 	t.Run("empty", func(t *testing.T) {
-		var sel State
+		var sel SelectionState
 		if got := sel.CommitIndex(visible); got != -1 {
 			t.Fatalf("expected -1, got %d", got)
 		}
 	})
 
 	t.Run("direct-hit", func(t *testing.T) {
-		var sel State
+		var sel SelectionState
 		sel.SetCommit(visible[1], 1)
 		if got := sel.CommitIndex(visible); got != 1 {
 			t.Fatalf("expected 1, got %d", got)
@@ -29,7 +29,7 @@ func TestSelectionStateCommitIndex(t *testing.T) {
 	})
 
 	t.Run("hash-miss", func(t *testing.T) {
-		var sel State
+		var sel SelectionState
 		sel.SetCommit(&git.Entry{Commit: &git.Commit{Hash: strings.Repeat("c", 40)}}, 0)
 		if got := sel.CommitIndex(visible); got != -1 {
 			t.Fatalf("expected -1, got %d", got)
@@ -37,7 +37,7 @@ func TestSelectionStateCommitIndex(t *testing.T) {
 	})
 
 	t.Run("fallback-scan", func(t *testing.T) {
-		var sel State
+		var sel SelectionState
 		sel.SetCommit(visible[0], 10)
 		if got := sel.CommitIndex(visible); got != 0 {
 			t.Fatalf("expected 0, got %d", got)
@@ -46,7 +46,7 @@ func TestSelectionStateCommitIndex(t *testing.T) {
 }
 
 func TestSelectionStateCommitHash(t *testing.T) {
-	var sel State
+	var sel SelectionState
 	if got := sel.CommitHash(); got != "" {
 		t.Fatalf("expected empty hash, got %q", got)
 	}
@@ -62,7 +62,7 @@ func TestSelectionStateCommitHash(t *testing.T) {
 }
 
 func TestSelectionStateLocalSelection(t *testing.T) {
-	var sel State
+	var sel SelectionState
 	if _, ok := sel.LocalSelection(); ok {
 		t.Fatalf("expected empty selection to return ok=false")
 	}
@@ -86,5 +86,40 @@ func TestSelectionStateLocalSelection(t *testing.T) {
 	sel.SetCommit(entry, 0)
 	if _, ok := sel.LocalSelection(); ok {
 		t.Fatalf("expected commit selection to return ok=false")
+	}
+}
+
+func TestSelectionStateMatchesTreeID(t *testing.T) {
+	var sel SelectionState
+	if sel.MatchesTreeID("abc") {
+		t.Fatalf("expected empty selection to return false")
+	}
+
+	sel.SetLocal(false)
+	if !sel.MatchesTreeID(LocalUnstagedRowID) {
+		t.Fatalf("expected local unstaged selection to match")
+	}
+	if sel.MatchesTreeID(LocalStagedRowID) {
+		t.Fatalf("expected local unstaged selection to not match staged row")
+	}
+
+	sel.SetLocal(true)
+	if !sel.MatchesTreeID(LocalStagedRowID) {
+		t.Fatalf("expected local staged selection to match")
+	}
+	if sel.MatchesTreeID(LocalUnstagedRowID) {
+		t.Fatalf("expected local staged selection to not match unstaged row")
+	}
+
+	entry := &git.Entry{Commit: &git.Commit{Hash: "abc"}}
+	sel.SetCommit(entry, 0)
+	if !sel.MatchesTreeID("abc") {
+		t.Fatalf("expected commit selection to match hash")
+	}
+	if sel.MatchesTreeID("def") {
+		t.Fatalf("expected commit selection to not match other hash")
+	}
+	if sel.MatchesTreeID(LocalUnstagedRowID) {
+		t.Fatalf("expected commit selection to not match local row")
 	}
 }
