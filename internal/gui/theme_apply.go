@@ -89,20 +89,12 @@ func (a *Controller) applyDiffFileListStyles() {
 }
 
 func (a *Controller) refreshSyntaxHighlight() {
-	if !a.cfg.syntaxHighlight || !a.shouldHighlightDiff() {
+	if !a.cfg.syntaxHighlight || len(a.model.State.Diff.FileSections) == 0 {
 		return
 	}
-	content := a.currentDiffText()
+	content := a.ui.CurrentDiffText()
 	if content == "" {
 		return
 	}
 	a.maybeStartSyntaxHighlight(content, true)
-}
-
-func (a *Controller) shouldHighlightDiff() bool {
-	return len(a.model.State.Diff.FileSections) > 0
-}
-
-func (a *Controller) currentDiffText() string {
-	return a.ui.CurrentDiffText()
 }
