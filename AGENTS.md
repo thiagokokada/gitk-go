@@ -3,8 +3,8 @@
 This project occasionally uses AI assistance. To keep contributions consistent,
 agents should follow these rules:
 
-1. Keep UI logic testable. Add helpers in `internal/gui` when possible and cover them with unit tests.
-2. Treat `cmd` and `internal/gui` as UI layers (minimal logic). Core behavior belongs in `internal/git`.
+1. Keep UI logic testable. Add pure helpers near their owner and cover them with unit tests.
+2. Treat `cmd` and `internal/gui` as UI orchestration layers. Core Git behavior belongs in `internal/git`.
 3. Use `go test ./...`, `go fmt`, and `go vet ./...` before sending changes whenever the environment allows it.
 4. README and AGENTS should stay ASCII-only and concise.
 5. Keep lines under 120 characters (enforced by golangci-lint).
@@ -22,12 +22,16 @@ agents should follow these rules:
 14. Always run tests with `GOCACHE` set to avoid sandbox issues:
     `env GOCACHE="$PWD/.gocache" go test ./...`.
 15. Avoid abstraction-only wrappers. Add methods when they encode behavior, enforce invariants, or coordinate
-    multiple fields.
-16. Keep Tk widget operations in `internal/gui`; move pure state transitions and decision logic behind model boundaries.
-17. Prefer typed `modernc.org/tk9.0` APIs over `tkutil.Evalf`. Use `Evalf` only when the wrapper lacks the needed
+    multiple fields. Prefer package functions over methods when no receiver state is used.
+16. Keep Tk widget construction, bindings, tag names, dialogs, menu setup, and widget guards in `internal/gui/view`.
+17. Keep controller code focused on service calls, async scheduling, persistence, status text, and model/view
+    coordination. Do not leave direct widget field checks in controllers when a view helper can own them.
+18. Keep pure state transitions, selection policy, diff view models, and display preparation in `internal/gui/model`.
+19. Do not duplicate constants or helpers across `internal/gui`, `model`, and `view`; promote one owner instead.
+20. Prefer typed `modernc.org/tk9.0` APIs over `tkutil.Evalf`. Use `Evalf` only when the wrapper lacks the needed
     Tk subcommand or behavior.
-18. Do not remove an `Evalf` workaround or `XXX` comment by inspection alone. Reproduce the GUI path or add focused
+21. Do not remove an `Evalf` workaround or `XXX` comment by inspection alone. Reproduce the GUI path or add focused
     coverage that proves the replacement behaves the same.
-19. Keep unavoidable `Evalf` calls narrow and documented at the call site, including why the typed wrapper is not
+22. Keep unavoidable `Evalf` calls narrow and documented at the call site, including why the typed wrapper is not
     sufficient.
-20. Do not amend or rewrite existing commits unless the user explicitly asks for history rewriting.
+23. Do not amend or rewrite existing commits unless the user explicitly asks for history rewriting.
