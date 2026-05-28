@@ -46,10 +46,10 @@ func Evalf(format string, a ...any) (string, error) {
 	return r, nil
 }
 
-func EvalfOrEmpty(format string, a ...any) string {
+func EvalfOrLog(format string, a ...any) string {
 	out, err := Evalf(format, a...)
 	if err != nil {
-		slog.Debug("tk eval or empty", slog.Any("error", err))
+		slog.Error(err.Error())
 		return ""
 	}
 	return out

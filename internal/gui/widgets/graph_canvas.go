@@ -216,7 +216,7 @@ func (g *GraphCanvas) planGraphCanvasDraw() (graphCanvasDrawPlan, bool) {
 
 	// Treeview items can include non-commit rows (local changes, "more...", loading); resolve the
 	// first visible commit row and account for any leading non-commit rows.
-	bbox := strings.Fields(tkutil.EvalfOrEmpty("%s bbox {%s} #1", treePath, first))
+	bbox := strings.Fields(tkutil.EvalfOrLog("%s bbox {%s} #1", treePath, first))
 	if len(bbox) < 4 {
 		return graphCanvasDrawPlan{}, false
 	}
@@ -229,7 +229,7 @@ func (g *GraphCanvas) planGraphCanvasDraw() (graphCanvasDrawPlan, bool) {
 		return indexForTreeItem(item, input.IndexByID)
 	}
 	firstIdx, skippedRows, ok := resolveFirstCommitIndex(first, indexForItem, func(item string) string {
-		return strings.TrimSpace(tkutil.EvalfOrEmpty("%s next {%s}", treePath, item))
+		return strings.TrimSpace(tkutil.EvalfOrLog("%s next {%s}", treePath, item))
 	})
 	if !ok || firstIdx >= len(input.Visible) {
 		return graphCanvasDrawPlan{}, false
@@ -427,7 +427,7 @@ func graphContentCellGeometry(
 	if first == "" {
 		return 0, 0, 0
 	}
-	bbox := strings.Fields(tkutil.EvalfOrEmpty("%s bbox {%s} #1", treePath, first))
+	bbox := strings.Fields(tkutil.EvalfOrLog("%s bbox {%s} #1", treePath, first))
 	if len(bbox) < 4 {
 		return 0, 0, 0
 	}
@@ -586,7 +586,7 @@ func (g *GraphCanvas) drawGraphLabels(
 			Outline(style.out),
 			Width(1),
 		)
-		tkutil.EvalfOrEmpty("%s lower %s %s", canvasPath, rectID, textID)
+		tkutil.EvalfOrLog("%s lower %s %s", canvasPath, rectID, textID)
 		if !connected && x1 > nodeX+radius {
 			connected = true
 			g.draw.canvas.CreateLine(nodeX+radius, yMid, x1, yMid, Width(graphCanvasConnectorW), Fill(style.out))

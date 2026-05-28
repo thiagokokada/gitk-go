@@ -1,7 +1,6 @@
 package view
 
 import (
-	"log/slog"
 	"strings"
 	"unicode"
 
@@ -43,9 +42,7 @@ func (a *App) FocusFilterEntry() {
 		return
 	}
 	tk.Focus(a.FilterEntry)
-	if _, err := tkutil.Evalf("%s selection range 0 end", a.FilterEntry); err != nil {
-		slog.Error("select filter", slog.Any("error", err))
-	}
+	tkutil.EvalfOrLog("%s selection range 0 end", a.FilterEntry)
 	a.FilterEntry.Icursor("end")
 }
 
@@ -71,9 +68,7 @@ func onEntryCtrlW(entry *tk.TEntryWidget, e *tk.Event) {
 	}
 
 	entry.Configure(tk.Textvariable(updated))
-	if _, err := tkutil.Evalf("%s selection clear", entry); err != nil {
-		slog.Debug("filter selection clear", slog.Any("error", err))
-	}
+	tkutil.EvalfOrLog("%s selection clear", entry)
 	entry.Icursor(newCursor)
 	e.SetReturnCodeBreak()
 }
@@ -171,31 +166,27 @@ func onEntryCtrlD(entry *tk.TEntryWidget, e *tk.Event) {
 }
 
 func filterEntryCursorIndex(entry *tk.TEntryWidget, raw string) int {
-	out, err := tkutil.Evalf("%s index insert", entry)
-	if err != nil {
-		slog.Debug("filter cursor index", slog.Any("error", err))
+	out := tkutil.EvalfOrLog("%s index insert", entry)
+	if out == "" {
 		return len([]rune(raw))
 	}
 	return tkutil.Atoi(out)
 }
 
 func filterEntrySelectionRange(entry *tk.TEntryWidget) (start, end int, ok bool) {
-	out, err := tkutil.Evalf("%s selection present", entry)
-	if err != nil {
-		slog.Debug("filter selection present", slog.Any("error", err))
+	out := tkutil.EvalfOrLog("%s selection present", entry)
+	if out == "" {
 		return 0, 0, false
 	}
 	if strings.TrimSpace(out) != "1" {
 		return 0, 0, false
 	}
-	startRaw, err := tkutil.Evalf("%s index sel.first", entry)
-	if err != nil {
-		slog.Debug("filter selection start", slog.Any("error", err))
+	startRaw := tkutil.EvalfOrLog("%s index sel.first", entry)
+	if startRaw == "" {
 		return 0, 0, false
 	}
-	endRaw, err := tkutil.Evalf("%s index sel.last", entry)
-	if err != nil {
-		slog.Debug("filter selection end", slog.Any("error", err))
+	endRaw := tkutil.EvalfOrLog("%s index sel.last", entry)
+	if endRaw == "" {
 		return 0, 0, false
 	}
 	return tkutil.Atoi(startRaw), tkutil.Atoi(endRaw), true
@@ -203,9 +194,7 @@ func filterEntrySelectionRange(entry *tk.TEntryWidget) (start, end int, ok bool)
 
 func setFilterEntryCursor(entry *tk.TEntryWidget, cursor int, clearSelection bool) {
 	if clearSelection {
-		if _, err := tkutil.Evalf("%s selection clear", entry); err != nil {
-			slog.Debug("filter selection clear", slog.Any("error", err))
-		}
+		tkutil.EvalfOrLog("%s selection clear", entry)
 	}
 	entry.Icursor(cursor)
 }
