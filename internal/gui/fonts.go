@@ -49,12 +49,12 @@ func (a *Controller) applyFixedFontSpec(spec []string, save bool) bool {
 func (a *Controller) applyStoredFontPreferences() {
 	if len(a.prefs.uiFontSpec) > 0 {
 		if !a.applyUIFontSpec(a.prefs.uiFontSpec, false) {
-			slog.Debug("stored ui font invalid")
+			slog.Error("stored ui font invalid")
 		}
 	}
 	if len(a.prefs.fixedFontSpec) > 0 {
 		if !a.applyFixedFontSpec(a.prefs.fixedFontSpec, false) {
-			slog.Debug("stored fixed font invalid")
+			slog.Error("stored fixed font invalid")
 		}
 	}
 }

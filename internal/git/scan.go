@@ -62,7 +62,7 @@ func (s *Service) resetScanLocked(headHash, headName string) error {
 func (s *scanSession) close() {
 	if s.logStream != nil {
 		if err := s.logStream.Close(); err != nil {
-			slog.Debug("git log stream close", slog.Any("error", err))
+			slog.Error("git log stream close", slog.Any("error", err))
 		}
 	}
 	s.logStream = nil

@@ -101,7 +101,7 @@ func (a *Controller) syncTreeRows() {
 	}
 
 	if err := a.ui.SetTreeChildren(ordered); err != nil {
-		slog.Debug("tree children set", slog.Any("error", err))
+		slog.Error("tree children set", slog.Any("error", err))
 	}
 	a.model.State.Tree.Rows.RefreshValues = false
 }

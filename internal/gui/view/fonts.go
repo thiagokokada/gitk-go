@@ -35,7 +35,7 @@ func ShowFontDialog(title string, seed tk.Opt, apply func([]string, bool) bool) 
 		seed,
 		tk.Command(func() {
 			if apply == nil || !apply(tk.FontchooserFont(), true) {
-				slog.Debug("font selection missing or invalid", slog.String("title", title))
+				slog.Error("font selection missing or invalid", slog.String("title", title))
 			}
 		}),
 	)
@@ -78,7 +78,7 @@ func FontSelectionFromSpec(spec []string) (FontSelection, bool) {
 		case tk.OVERSTRIKE:
 			selection.Overstrike = true
 		default:
-			slog.Debug("unknown token", slog.String("token", token))
+			slog.Error("unknown token", slog.String("token", token))
 		}
 	}
 	return selection, true

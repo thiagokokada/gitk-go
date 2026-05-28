@@ -96,7 +96,7 @@ func (a *Controller) restoreScrollState() {
 		return
 	}
 	if err := a.ui.MoveTreeYview(target); err != nil {
-		slog.Debug("tree yview restore", slog.Any("error", err))
+		slog.Error("tree yview restore", slog.Any("error", err))
 	}
 }
 
