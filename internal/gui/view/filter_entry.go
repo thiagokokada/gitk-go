@@ -27,18 +27,15 @@ func BindEmacsEntryShortcuts(entry *tk.TEntryWidget) {
 }
 
 func (a *App) FilterText() string {
-	if a.FilterEntry == nil {
-		return ""
-	}
 	return a.FilterEntry.Textvariable()
 }
 
 func (a *App) FilterHasFocus() bool {
-	return a.FilterEntry != nil && tk.Focus() == a.FilterEntry.String()
+	return tk.Focus() == a.FilterEntry.String()
 }
 
 func (a *App) FocusFilterEntry() {
-	if a.FilterHasFocus() || a.FilterEntry == nil {
+	if a.FilterHasFocus() {
 		return
 	}
 	tk.Focus(a.FilterEntry)

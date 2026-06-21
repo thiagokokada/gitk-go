@@ -6,7 +6,7 @@ import (
 	"github.com/thiagokokada/gitk-go/internal/git"
 )
 
-func BuildTreeRows(entries []*git.Entry, labels map[string][]string, graphCanvas bool) []TreeRow {
+func BuildTreeRows(entries []git.Entry, labels map[string][]string, graphCanvas bool) []TreeRow {
 	if len(entries) == 0 {
 		return nil
 	}
@@ -21,8 +21,8 @@ func BuildTreeRows(entries []*git.Entry, labels map[string][]string, graphCanvas
 	return rows
 }
 
-func TreeRowData(entry *git.Entry, labels map[string][]string, graphCanvas bool) (TreeRow, bool) {
-	if entry == nil || entry.Commit == nil {
+func TreeRowData(entry git.Entry, labels map[string][]string, graphCanvas bool) (TreeRow, bool) {
+	if entry.Commit.Hash == "" {
 		return TreeRow{}, false
 	}
 	graph := ""
@@ -39,7 +39,7 @@ func TreeRowData(entry *git.Entry, labels map[string][]string, graphCanvas bool)
 	}, true
 }
 
-func FormatGraphValue(entry *git.Entry, labels []string, graphCanvas bool) string {
+func FormatGraphValue(entry git.Entry, labels []string, graphCanvas bool) string {
 	graph := strings.TrimRight(entry.Graph, " ")
 	if graph == "" {
 		graph = "*"

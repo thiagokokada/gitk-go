@@ -17,13 +17,13 @@ func NewTreeState() TreeState {
 	return TreeState{BranchLabels: make(map[string][]string)}
 }
 
-func (t *TreeState) SetReloadedCommits(entries []*git.Entry, hasMore bool) {
+func (t *TreeState) SetReloadedCommits(entries []git.Entry, hasMore bool) {
 	t.HasMore = hasMore
 	t.Rows.SetCommitIDs(entries)
 	t.Rows.RefreshValues = true
 }
 
-func (t *TreeState) AppendCommits(entries []*git.Entry, hasMore bool) {
+func (t *TreeState) AppendCommits(entries []git.Entry, hasMore bool) {
 	t.HasMore = hasMore
 	t.Rows.AddCommitIDs(entries)
 	t.Rows.RefreshValues = true
@@ -147,13 +147,6 @@ func LocalRowID(staged bool) string {
 	return LocalUnstagedRowID
 }
 
-func CommitRowID(entry *git.Entry) string {
-	if entry == nil || entry.Commit == nil {
-		return ""
-	}
-	return entry.Commit.Hash
-}
-
 type TreeRow struct {
 	ID     string
 	Graph  string
@@ -211,11 +204,11 @@ func (s *TreeRowState) PruneStaleCommitRows() []string {
 	return ids
 }
 
-func BuildVisibleIndex(entries []*git.Entry) map[string]int {
+func BuildVisibleIndex(entries []git.Entry) map[string]int {
 	return BuildVisibleIndexInto(entries, nil)
 }
 
-func BuildVisibleIndexInto(entries []*git.Entry, index map[string]int) map[string]int {
+func BuildVisibleIndexInto(entries []git.Entry, index map[string]int) map[string]int {
 	if len(entries) == 0 {
 		if index == nil {
 			return nil
@@ -233,7 +226,7 @@ func BuildVisibleIndexInto(entries []*git.Entry, index map[string]int) map[strin
 		}
 	}
 	for i, entry := range entries {
-		id := CommitRowID(entry)
+		id := entry.Commit.Hash
 		if id == "" {
 			continue
 		}
@@ -242,13 +235,13 @@ func BuildVisibleIndexInto(entries []*git.Entry, index map[string]int) map[strin
 	return index
 }
 
-func BuildCommitIDSet(entries []*git.Entry) map[string]struct{} {
+func BuildCommitIDSet(entries []git.Entry) map[string]struct{} {
 	if len(entries) == 0 {
 		return nil
 	}
 	ids := make(map[string]struct{}, len(entries))
 	for _, entry := range entries {
-		id := CommitRowID(entry)
+		id := entry.Commit.Hash
 		if id == "" {
 			continue
 		}
@@ -257,7 +250,7 @@ func BuildCommitIDSet(entries []*git.Entry) map[string]struct{} {
 	return ids
 }
 
-func (s *TreeRowState) SetCommitIDs(entries []*git.Entry) {
+func (s *TreeRowState) SetCommitIDs(entries []git.Entry) {
 	if len(entries) == 0 {
 		s.CommitIDs = map[string]struct{}{}
 		return
@@ -265,7 +258,7 @@ func (s *TreeRowState) SetCommitIDs(entries []*git.Entry) {
 	s.CommitIDs = BuildCommitIDSet(entries)
 }
 
-func (s *TreeRowState) AddCommitIDs(entries []*git.Entry) {
+func (s *TreeRowState) AddCommitIDs(entries []git.Entry) {
 	if len(entries) == 0 {
 		return
 	}
@@ -273,7 +266,7 @@ func (s *TreeRowState) AddCommitIDs(entries []*git.Entry) {
 		s.CommitIDs = make(map[string]struct{}, len(entries))
 	}
 	for _, entry := range entries {
-		id := CommitRowID(entry)
+		id := entry.Commit.Hash
 		if id == "" {
 			continue
 		}
@@ -281,7 +274,7 @@ func (s *TreeRowState) AddCommitIDs(entries []*git.Entry) {
 	}
 }
 
-func (s *TreeRowState) SetVisibleIndex(entries []*git.Entry) {
+func (s *TreeRowState) SetVisibleIndex(entries []git.Entry) {
 	s.VisibleByID = BuildVisibleIndexInto(entries, s.VisibleByID)
 }
 

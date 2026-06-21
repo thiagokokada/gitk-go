@@ -41,8 +41,8 @@ func (s *SelectionState) Clear() {
 	s.snapshot.Store(nil)
 }
 
-func (s *SelectionState) SetCommit(entry *git.Entry, idx int) bool {
-	if entry == nil || entry.Commit == nil || idx < 0 {
+func (s *SelectionState) SetCommit(entry git.Entry, idx int) bool {
+	if entry.Commit.Hash == "" || idx < 0 {
 		s.Clear()
 		return false
 	}
@@ -82,14 +82,14 @@ func (s *SelectionState) LocalSelection() (staged bool, ok bool) {
 	}
 }
 
-func (s *SelectionState) CommitIndex(visible []*git.Entry) int {
+func (s *SelectionState) CommitIndex(visible []git.Entry) int {
 	snap := s.snapshotValue()
 	if snap.kind != selectionStateCommit {
 		return -1
 	}
 	if snap.idx >= 0 && snap.idx < len(visible) {
 		entry := visible[snap.idx]
-		if entry != nil && entry.Commit != nil && entry.Commit.Hash == snap.hash {
+		if entry.Commit.Hash == snap.hash {
 			return snap.idx
 		}
 	}
@@ -97,7 +97,7 @@ func (s *SelectionState) CommitIndex(visible []*git.Entry) int {
 		return -1
 	}
 	for idx, entry := range visible {
-		if entry == nil || entry.Commit == nil {
+		if entry.Commit.Hash == "" {
 			continue
 		}
 		if entry.Commit.Hash == snap.hash {
@@ -128,7 +128,7 @@ const (
 type SelectionDisplayPlan struct {
 	Kind       SelectionDisplayKind
 	Staged     bool
-	Entry      *git.Entry
+	Entry      git.Entry
 	Index      int
 	Message    string
 	LoadDetail bool
@@ -187,7 +187,7 @@ const (
 type TreeSelectionPlan struct {
 	Kind   TreeSelectionKind
 	Staged bool
-	Entry  *git.Entry
+	Entry  git.Entry
 	Index  int
 }
 

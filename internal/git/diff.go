@@ -1,14 +1,8 @@
 package git
 
-import (
-	"fmt"
-	"strings"
-)
+import "strings"
 
-func (s *Service) Diff(commit *Commit) (string, []FileSection, error) {
-	if commit == nil {
-		return "", nil, fmt.Errorf("commit not specified")
-	}
+func (s *Service) Diff(commit Commit) (string, []FileSection, error) {
 	header := FormatCommitHeader(commit)
 	diffText, err := s.commitDiffText(commit)
 	if err != nil {
@@ -21,7 +15,7 @@ func (s *Service) Diff(commit *Commit) (string, []FileSection, error) {
 	return rendered, sections, nil
 }
 
-func (s *Service) commitDiffText(commit *Commit) (string, error) {
+func (s *Service) commitDiffText(commit Commit) (string, error) {
 	if len(commit.ParentHashes) > 0 {
 		parent := commit.ParentHashes[0]
 		return s.backend.CommitDiffText(commit.Hash, parent)

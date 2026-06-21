@@ -26,7 +26,7 @@ type Service struct {
 }
 
 type Entry struct {
-	Commit      *Commit
+	Commit      Commit
 	Summary     string
 	SearchText  string
 	Graph       string
@@ -80,7 +80,7 @@ func (s *Service) SetGraphMaxColumns(maxColumns int) {
 	}
 }
 
-func (s *Service) ScanCommits(skip, batch uint) ([]*Entry, string, bool, error) {
+func (s *Service) ScanCommits(skip, batch uint) ([]Entry, string, bool, error) {
 	slog.Debug("ScanCommits start", slog.Uint64("skip", uint64(skip)), slog.Uint64("batch", uint64(batch)))
 	startTotal := time.Now()
 	s.mu.Lock()
@@ -186,8 +186,8 @@ func (s *Service) alignSessionLocked(skip uint, headHash, headName string) error
 	return nil
 }
 
-func (s *Service) collectEntries(batch uint) ([]*Entry, error) {
-	entries := make([]*Entry, 0, max(batch, DefaultBatch))
+func (s *Service) collectEntries(batch uint) ([]Entry, error) {
+	entries := make([]Entry, 0, max(batch, DefaultBatch))
 	for uint(len(entries)) < batch {
 		commit, err := s.scan.next()
 		if err != nil {
@@ -195,6 +195,9 @@ func (s *Service) collectEntries(batch uint) ([]*Entry, error) {
 				break
 			}
 			return nil, err
+		}
+		if commit == nil {
+			return nil, fmt.Errorf("backend returned nil commit")
 		}
 		entries = append(entries, newEntry(commit))
 	}
@@ -208,7 +211,7 @@ func (s *Service) headStateLocked() (hash string, headName string, ok bool, err 
 	return s.backend.HeadState()
 }
 
-func FormatCommitHeader(c *Commit) string {
+func FormatCommitHeader(c Commit) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "commit %s\n", c.Hash)
 	appendSignatureLine(&b, "Author", c.Author)
@@ -241,7 +244,7 @@ func appendSignatureLine(b *strings.Builder, label string, sig Signature) {
 	b.WriteByte('\n')
 }
 
-func newEntry(c *Commit) *Entry {
+func newEntry(c *Commit) Entry {
 	summary := formatSummary(c)
 	listMsg, listAuthor, listDate := formatListColumns(c)
 	var b strings.Builder
@@ -252,8 +255,8 @@ func newEntry(c *Commit) *Entry {
 	b.WriteString(strings.ToLower(c.Author.Email))
 	b.WriteByte(' ')
 	b.WriteString(strings.ToLower(c.Message))
-	return &Entry{
-		Commit:      c,
+	return Entry{
+		Commit:      *c,
 		Summary:     summary,
 		SearchText:  b.String(),
 		ListMessage: listMsg,
@@ -263,19 +266,16 @@ func newEntry(c *Commit) *Entry {
 }
 
 func (e *Entry) ListColumns() (msg, author, when string) {
-	if e == nil || e.Commit == nil {
+	if e == nil {
 		return "", "", ""
 	}
 	if e.ListMessage == "" && e.ListAuthor == "" && e.ListDate == "" {
-		return formatListColumns(e.Commit)
+		return formatListColumns(&e.Commit)
 	}
 	return e.ListMessage, e.ListAuthor, e.ListDate
 }
 
 func formatListColumns(c *Commit) (msg, author, when string) {
-	if c == nil {
-		return "", "", ""
-	}
 	firstLine := firstCommitLine(c.Message)
 	hash := c.Hash
 	if len(hash) > 7 {

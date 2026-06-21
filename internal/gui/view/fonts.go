@@ -182,8 +182,5 @@ func (a *App) ApplyUIFontToWidgets() {
 }
 
 func (a *App) ApplyFixedFontToDiff() {
-	if a.DiffDetail == nil {
-		return
-	}
 	a.DiffDetail.Configure(tk.Font(tk.FixedFont))
 }

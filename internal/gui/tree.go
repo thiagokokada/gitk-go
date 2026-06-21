@@ -68,9 +68,6 @@ func (a *Controller) clearTreeRows() {
 }
 
 func (a *Controller) syncTreeRows() {
-	if a.ui.TreeView == nil {
-		return
-	}
 	a.ensureLocalRows()
 	a.ui.DeleteTreeRows(a.model.State.Tree.Rows.PruneStaleCommitRows())
 
@@ -78,7 +75,7 @@ func (a *Controller) syncTreeRows() {
 	ordered := make([]string, 0, len(a.model.Data.Visible)+3)
 	ordered = append(ordered, a.model.State.Tree.LocalRowIDs()...)
 	for _, entry := range a.model.Data.Visible {
-		id := model.CommitRowID(entry)
+		id := entry.Commit.Hash
 		if id == "" {
 			continue
 		}
@@ -131,7 +128,7 @@ func (a *Controller) ensureLoadingIndicatorRow() {
 	a.model.State.Tree.Rows.AddSpecialItem(model.LoadingIndicatorID)
 }
 
-func (a *Controller) insertCommitRow(id string, entry *git.Entry) {
+func (a *Controller) insertCommitRow(id string, entry git.Entry) {
 	row, ok := model.TreeRowData(entry, a.model.State.Tree.BranchLabels, a.cfg.graphCanvas)
 	if !ok {
 		return
@@ -141,7 +138,7 @@ func (a *Controller) insertCommitRow(id string, entry *git.Entry) {
 	a.model.State.Tree.Rows.SetItemValue(id, row)
 }
 
-func (a *Controller) updateCommitRow(id string, entry *git.Entry) {
+func (a *Controller) updateCommitRow(id string, entry git.Entry) {
 	row, ok := model.TreeRowData(entry, a.model.State.Tree.BranchLabels, a.cfg.graphCanvas)
 	if !ok {
 		return

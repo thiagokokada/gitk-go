@@ -8,9 +8,6 @@ import (
 )
 
 func (a *App) RenderDiffFileList(fileList model.DiffViewModel) bool {
-	if a.DiffFileList == nil {
-		return false
-	}
 	a.DiffFileList.Configure(tk.State("normal"))
 	a.DiffFileList.Delete("1.0", tk.END)
 	for i, row := range fileList.Rows {
@@ -39,9 +36,6 @@ func (a *App) applyDiffFileRowTags(lineNo int, row model.DiffViewRow) {
 }
 
 func (a *App) DiffFileListIndexAtY(y int, sectionCount int) (int, bool) {
-	if a.DiffFileList == nil {
-		return 0, false
-	}
 	line, ok := TextIndexLineNumber(a.DiffFileList.Index(fmt.Sprintf("@0,%d", y)))
 	if !ok {
 		return 0, false
@@ -54,9 +48,6 @@ func (a *App) DiffFileListIndexAtY(y int, sectionCount int) (int, bool) {
 }
 
 func (a *App) SetDiffFileListSelection(idx int) {
-	if a.DiffFileList == nil {
-		return
-	}
 	a.DiffFileList.TagRemove("diffFileSelected", "1.0", tk.END)
 	line := idx + 1
 	a.DiffFileList.TagAdd("diffFileSelected", textIndex(line, 0), textEndIndex(line))

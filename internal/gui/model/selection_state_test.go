@@ -8,9 +8,9 @@ import (
 )
 
 func TestSelectionStateCommitIndex(t *testing.T) {
-	visible := []*git.Entry{
-		{Commit: &git.Commit{Hash: strings.Repeat("a", 40)}},
-		{Commit: &git.Commit{Hash: strings.Repeat("b", 40)}},
+	visible := []git.Entry{
+		{Commit: git.Commit{Hash: strings.Repeat("a", 40)}},
+		{Commit: git.Commit{Hash: strings.Repeat("b", 40)}},
 	}
 
 	t.Run("empty", func(t *testing.T) {
@@ -30,7 +30,7 @@ func TestSelectionStateCommitIndex(t *testing.T) {
 
 	t.Run("hash-miss", func(t *testing.T) {
 		var sel SelectionState
-		sel.SetCommit(&git.Entry{Commit: &git.Commit{Hash: strings.Repeat("c", 40)}}, 0)
+		sel.SetCommit(git.Entry{Commit: git.Commit{Hash: strings.Repeat("c", 40)}}, 0)
 		if got := sel.CommitIndex(visible); got != -1 {
 			t.Fatalf("expected -1, got %d", got)
 		}
@@ -54,7 +54,7 @@ func TestSelectionStateCommitHash(t *testing.T) {
 	if got := sel.CommitHash(); got != "" {
 		t.Fatalf("expected empty hash for local selection, got %q", got)
 	}
-	entry := &git.Entry{Commit: &git.Commit{Hash: "abc"}}
+	entry := git.Entry{Commit: git.Commit{Hash: "abc"}}
 	sel.SetCommit(entry, 0)
 	if got := sel.CommitHash(); got != "abc" {
 		t.Fatalf("expected hash %q, got %q", "abc", got)
@@ -82,7 +82,7 @@ func TestSelectionStateLocalSelection(t *testing.T) {
 	if !staged {
 		t.Fatalf("expected staged local selection")
 	}
-	entry := &git.Entry{Commit: &git.Commit{Hash: "abc"}}
+	entry := git.Entry{Commit: git.Commit{Hash: "abc"}}
 	sel.SetCommit(entry, 0)
 	if _, ok := sel.LocalSelection(); ok {
 		t.Fatalf("expected commit selection to return ok=false")
@@ -111,7 +111,7 @@ func TestSelectionStateMatchesTreeID(t *testing.T) {
 		t.Fatalf("expected local staged selection to not match unstaged row")
 	}
 
-	entry := &git.Entry{Commit: &git.Commit{Hash: "abc"}}
+	entry := git.Entry{Commit: git.Commit{Hash: "abc"}}
 	sel.SetCommit(entry, 0)
 	if !sel.MatchesTreeID("abc") {
 		t.Fatalf("expected commit selection to match hash")

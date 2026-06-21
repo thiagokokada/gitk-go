@@ -9,11 +9,11 @@ import (
 )
 
 func TestBuildVisibleIndex(t *testing.T) {
-	entries := []*git.Entry{
-		{Commit: &git.Commit{Hash: "a"}},
-		nil,
-		{Commit: &git.Commit{Hash: "b"}},
-		{Commit: nil},
+	entries := []git.Entry{
+		{Commit: git.Commit{Hash: "a"}},
+		{Commit: git.Commit{}},
+		{Commit: git.Commit{Hash: "b"}},
+		{Commit: git.Commit{}},
 	}
 	index := BuildVisibleIndex(entries)
 	if len(index) != 2 {
@@ -28,15 +28,15 @@ func TestBuildVisibleIndex(t *testing.T) {
 }
 
 func TestBuildVisibleIndexIntoReuse(t *testing.T) {
-	entries := []*git.Entry{
-		{Commit: &git.Commit{Hash: "a"}},
-		{Commit: &git.Commit{Hash: "b"}},
+	entries := []git.Entry{
+		{Commit: git.Commit{Hash: "a"}},
+		{Commit: git.Commit{Hash: "b"}},
 	}
 	index := BuildVisibleIndexInto(entries, nil)
 	if len(index) != 2 {
 		t.Fatalf("expected 2 entries in index, got %d", len(index))
 	}
-	next := []*git.Entry{{Commit: &git.Commit{Hash: "c"}}}
+	next := []git.Entry{{Commit: git.Commit{Hash: "c"}}}
 	index = BuildVisibleIndexInto(next, index)
 	if len(index) != 1 {
 		t.Fatalf("expected 1 entry in index, got %d", len(index))
@@ -50,10 +50,10 @@ func TestBuildVisibleIndexIntoReuse(t *testing.T) {
 }
 
 func TestBuildCommitIDSet(t *testing.T) {
-	entries := []*git.Entry{
-		{Commit: &git.Commit{Hash: "a"}},
-		{Commit: &git.Commit{Hash: "b"}},
-		nil,
+	entries := []git.Entry{
+		{Commit: git.Commit{Hash: "a"}},
+		{Commit: git.Commit{Hash: "b"}},
+		{Commit: git.Commit{}},
 	}
 	ids := BuildCommitIDSet(entries)
 	if len(ids) != 2 {
@@ -68,14 +68,14 @@ func TestBuildCommitIDSet(t *testing.T) {
 }
 
 func TestFormatGraphValue(t *testing.T) {
-	entry := &git.Entry{Graph: "* |"}
+	entry := git.Entry{Graph: "* |"}
 	graph := FormatGraphValue(entry, []string{"HEAD -> main", "feature"}, false)
 	expected := "* | [HEAD -> main, feature]"
 	if graph != expected {
 		t.Fatalf("unexpected graph string: %q", graph)
 	}
 
-	entry = &git.Entry{}
+	entry = git.Entry{}
 	graph = FormatGraphValue(entry, nil, false)
 	if graph != "*" {
 		t.Fatalf("expected fallback graph '*', got %q", graph)
@@ -84,8 +84,8 @@ func TestFormatGraphValue(t *testing.T) {
 
 func TestBuildTreeRows(t *testing.T) {
 	now := time.Date(2025, 2, 1, 12, 0, 0, 0, time.UTC)
-	entry1 := &git.Entry{
-		Commit: &git.Commit{
+	entry1 := git.Entry{
+		Commit: git.Commit{
 			Hash:   "1111111111111111111111111111111111111111",
 			Author: git.Signature{Name: "Alice", Email: "alice@example.com", When: now},
 			Committer: git.Signature{
@@ -97,8 +97,8 @@ func TestBuildTreeRows(t *testing.T) {
 		},
 		Graph: "* |",
 	}
-	entry2 := &git.Entry{
-		Commit: &git.Commit{
+	entry2 := git.Entry{
+		Commit: git.Commit{
 			Hash:   "2222222222222222222222222222222222222222",
 			Author: git.Signature{Name: "Bob", Email: "bob@example.com", When: now.Add(-time.Hour)},
 			Committer: git.Signature{
@@ -113,7 +113,7 @@ func TestBuildTreeRows(t *testing.T) {
 	labels := map[string][]string{
 		entry1.Commit.Hash: {"HEAD -> main"},
 	}
-	rows := BuildTreeRows([]*git.Entry{entry1, entry2}, labels, false)
+	rows := BuildTreeRows([]git.Entry{entry1, entry2}, labels, false)
 	if len(rows) != 2 {
 		t.Fatalf("expected two rows, got %d", len(rows))
 	}

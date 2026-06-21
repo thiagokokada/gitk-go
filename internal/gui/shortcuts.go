@@ -310,7 +310,7 @@ func (a *Controller) selectTreeIndex(idx int) {
 	if !ok {
 		return
 	}
-	id := model.CommitRowID(entry)
+	id := entry.Commit.Hash
 	if id == "" {
 		return
 	}

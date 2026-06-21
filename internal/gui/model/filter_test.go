@@ -7,12 +7,12 @@ import (
 )
 
 func TestFilterEntries(t *testing.T) {
-	entries := []*git.Entry{
+	entries := []git.Entry{
 		{SearchText: "hello world"},
 		{SearchText: "feature branch"},
 	}
 	filtered := FilterEntries(entries, "HELLO")
-	if len(filtered) != 1 || filtered[0] != entries[0] {
+	if len(filtered) != 1 || filtered[0].SearchText != entries[0].SearchText {
 		t.Fatalf("expected first entry match, got %#v", filtered)
 	}
 	filtered = FilterEntries(entries, " ")
