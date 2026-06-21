@@ -241,7 +241,7 @@ func appendSignatureLine(b *strings.Builder, label string, sig Signature) {
 	b.WriteByte('\n')
 }
 
-func newEntry(c *Commit) Entry {
+func newEntry(c Commit) Entry {
 	summary := formatSummary(c)
 	listMsg, listAuthor, listDate := formatListColumns(c)
 	var b strings.Builder
@@ -253,7 +253,7 @@ func newEntry(c *Commit) Entry {
 	b.WriteByte(' ')
 	b.WriteString(strings.ToLower(c.Message))
 	return Entry{
-		Commit:      *c,
+		Commit:      c,
 		Summary:     summary,
 		SearchText:  b.String(),
 		ListMessage: listMsg,
@@ -262,17 +262,14 @@ func newEntry(c *Commit) Entry {
 	}
 }
 
-func (e *Entry) ListColumns() (msg, author, when string) {
-	if e == nil {
-		return "", "", ""
-	}
+func (e Entry) ListColumns() (msg, author, when string) {
 	if e.ListMessage == "" && e.ListAuthor == "" && e.ListDate == "" {
-		return formatListColumns(&e.Commit)
+		return formatListColumns(e.Commit)
 	}
 	return e.ListMessage, e.ListAuthor, e.ListDate
 }
 
-func formatListColumns(c *Commit) (msg, author, when string) {
+func formatListColumns(c Commit) (msg, author, when string) {
 	firstLine := firstCommitLine(c.Message)
 	hash := c.Hash
 	if len(hash) > 7 {
@@ -284,7 +281,7 @@ func formatListColumns(c *Commit) (msg, author, when string) {
 	return msg, author, when
 }
 
-func formatSummary(c *Commit) string {
+func formatSummary(c Commit) string {
 	firstLine := firstCommitLine(c.Message)
 	timestamp := c.Committer.When.Format("2006-01-02 15:04")
 	hash := c.Hash
@@ -339,7 +336,7 @@ func (g *graphBuilder) trim() {
 	}
 }
 
-func (g *graphBuilder) Line(c *Commit) string {
+func (g *graphBuilder) Line(c Commit) string {
 	idx := g.columnIndex(c.Hash)
 	if idx == -1 {
 		g.insertAt(0, c.Hash)

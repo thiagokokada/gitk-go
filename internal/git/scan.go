@@ -91,26 +91,26 @@ func (s *scanSession) hasMore() (bool, error) {
 		}
 		return false, fmt.Errorf("iterate commits: %w", err)
 	}
-	s.buffered = commitBuffer{commit: *commit, ok: true}
+	s.buffered = commitBuffer{commit: commit, ok: true}
 	return true, nil
 }
 
-func (s *scanSession) next() (*Commit, error) {
+func (s *scanSession) next() (Commit, error) {
 	if s.exhausted {
-		return nil, io.EOF
+		return Commit{}, io.EOF
 	}
 	if s.buffered.ok {
 		commit := s.buffered.commit
 		s.buffered = commitBuffer{}
 		s.returned++
-		return &commit, nil
+		return commit, nil
 	}
 	commit, err := s.readNextCommit()
 	if err != nil {
 		if err == io.EOF {
 			s.exhausted = true
 		}
-		return nil, err
+		return Commit{}, err
 	}
 	s.returned++
 	return commit, nil
@@ -134,25 +134,25 @@ func (s *scanSession) assignGraphStrings(entries []Entry) {
 	}
 }
 
-func (s *scanSession) readNextCommit() (*Commit, error) {
+func (s *scanSession) readNextCommit() (Commit, error) {
 	if s.graphEOF || s.logStream == nil {
-		return nil, io.EOF
+		return Commit{}, io.EOF
 	}
 	commit, err := s.logStream.Next()
 	if err != nil {
 		if err == io.EOF {
 			s.graphEOF = true
 		}
-		return nil, err
+		return Commit{}, err
 	}
 	if commit == nil {
-		return nil, fmt.Errorf("backend returned nil commit")
+		return Commit{}, fmt.Errorf("backend returned nil commit")
 	}
-	line := s.graphBuilder.Line(commit)
+	line := s.graphBuilder.Line(*commit)
 	s.graphProcessed++
 	s.graphCache[commit.Hash] = line
 	if cols := len(s.graphBuilder.columns); cols > s.graphColsMax {
 		s.graphColsMax = cols
 	}
-	return commit, nil
+	return *commit, nil
 }
