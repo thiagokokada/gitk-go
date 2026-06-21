@@ -380,6 +380,9 @@ func TestScanCommitsUsesSessionHeadState(t *testing.T) {
 	if len(entries2) != 1 || more2 {
 		t.Fatalf("expected last entry with more=false, got %d entries and more=%v", len(entries2), more2)
 	}
+	if entries2[0].Commit.Hash != commits[2].Hash {
+		t.Fatalf("expected buffered third commit, got %s", entries2[0].Commit.Hash)
+	}
 }
 
 func TestScanCommitsRejectsNilStreamCommit(t *testing.T) {
@@ -417,7 +420,7 @@ func TestSetGraphMaxColumnsAppliesToSession(t *testing.T) {
 	if _, _, _, err := svc.ScanCommits(0, 1); err != nil {
 		t.Fatalf("ScanCommits: %v", err)
 	}
-	if svc.scan == nil || svc.scan.graphBuilder == nil {
+	if svc.scan == nil {
 		t.Fatalf("expected scan graph builder to be initialized")
 	}
 	if got := svc.scan.graphBuilder.maxColumns; got != 50 {
