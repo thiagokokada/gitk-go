@@ -67,7 +67,7 @@ func TestOpenResolvesWorkdirToRepoRoot(t *testing.T) {
 
 func TestNewEntrySearchText(t *testing.T) {
 	ts := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	commit := &Commit{
+	commit := Commit{
 		Hash:    "abcdef1234567890abcdef1234567890abcdef12",
 		Author:  Signature{Name: "Bob", Email: "bob@example.com", When: ts},
 		Message: "Hello World",
@@ -83,7 +83,7 @@ func TestNewEntrySearchText(t *testing.T) {
 }
 
 func TestEntryListColumns(t *testing.T) {
-	commit := &Commit{
+	commit := Commit{
 		Hash: "abcdef1234567890abcdef1234567890abcdef12",
 		Author: Signature{
 			Name:  "Alice",
@@ -109,7 +109,7 @@ func TestEntryListColumns(t *testing.T) {
 		t.Fatalf("unexpected date column: %q", when)
 	}
 
-	manual := &Entry{Commit: *commit}
+	manual := Entry{Commit: commit}
 	msg2, author2, when2 := manual.ListColumns()
 	if msg2 != msg || author2 != author || when2 != when {
 		t.Fatalf("manual columns mismatch: %q/%q/%q", msg2, author2, when2)
@@ -123,15 +123,15 @@ func TestGraphBuilderLine(t *testing.T) {
 	other := strings.Repeat("d", 40)
 
 	builder := newGraphBuilder(DefaultGraphMaxColumns)
-	lineHead := builder.Line(&Commit{Hash: head, ParentHashes: []string{parent, merge}})
+	lineHead := builder.Line(Commit{Hash: head, ParentHashes: []string{parent, merge}})
 	if lineHead != "*" && lineHead != "* |" {
 		t.Fatalf("unexpected graph for merge head: %q", lineHead)
 	}
-	lineParent := builder.Line(&Commit{Hash: parent, ParentHashes: []string{other}})
+	lineParent := builder.Line(Commit{Hash: parent, ParentHashes: []string{other}})
 	if lineParent != "* |" {
 		t.Fatalf("unexpected graph after shifting columns: %q", lineParent)
 	}
-	lineMerge := builder.Line(&Commit{Hash: merge})
+	lineMerge := builder.Line(Commit{Hash: merge})
 	if lineMerge != "| *" {
 		t.Fatalf("unexpected graph for secondary branch: %q", lineMerge)
 	}
@@ -148,7 +148,7 @@ func TestGraphBuilderCapsColumns(t *testing.T) {
 		if parent == parentBase {
 			parent = fmt.Sprintf("%040x", i+2000)
 		}
-		line := builder.Line(&Commit{Hash: hash, ParentHashes: []string{parent}})
+		line := builder.Line(Commit{Hash: hash, ParentHashes: []string{parent}})
 		if len(builder.columns) > builder.maxColumns {
 			t.Fatalf("columns grew beyond cap: len=%d cap=%d", len(builder.columns), builder.maxColumns)
 		}
@@ -159,7 +159,7 @@ func TestGraphBuilderCapsColumns(t *testing.T) {
 }
 
 func TestFormatSummary(t *testing.T) {
-	commit := &Commit{
+	commit := Commit{
 		Hash: "abcdef1234567890abcdef1234567890abcdef12",
 		Author: Signature{
 			Name:  "Bob",
