@@ -89,9 +89,6 @@ func (a *Controller) configureDebouncedActions() {
 		}, false)
 	})
 	a.runtime.actions.diffDebounce.Configure(diffDebounceDelay, func(req model.DiffRequest) {
-		if req.Entry == nil {
-			return
-		}
 		go a.populateDiff(req.Entry, req.Hash)
 	})
 }
@@ -104,6 +101,7 @@ func (a *Controller) Run() error {
 		return err
 	}
 	a.buildUI()
+	a.refreshThemeStyles()
 	a.startRuntimeServices()
 	a.startInitialDataLoads()
 
@@ -126,7 +124,7 @@ func (a *Controller) initializeTkRuntime() error {
 	if err := InitializeExtension("eval"); err != nil && err != AlreadyInitialized {
 		return fmt.Errorf("init eval extension: %v", err)
 	}
-	a.applyThemePalette(paletteForPreference(a.theme.pref))
+	a.setThemePalette(paletteForPreference(a.theme.pref))
 	applyAppIcon()
 	return nil
 }
@@ -191,7 +189,7 @@ func (a *Controller) applyLocalChangeStatus(status git.LocalChanges, repoReady b
 	}
 }
 
-func (a *Controller) showCommitDetails(entry *git.Entry, index int) {
+func (a *Controller) showCommitDetails(entry git.Entry, index int) {
 	header := git.FormatCommitHeader(entry.Commit)
 	hash := entry.Commit.Hash
 	a.model.State.Selection.SetCommit(entry, index)
@@ -299,7 +297,7 @@ func (a *Controller) onLocalDiffLoaded(staged bool) {
 	}
 }
 
-func (a *Controller) populateDiff(entry *git.Entry, hash string) {
+func (a *Controller) populateDiff(entry git.Entry, hash string) {
 	diff, sections, err := a.svc.Diff(entry.Commit)
 	if err != nil {
 		diff = fmt.Sprintf("Unable to compute diff: %v", err)
@@ -312,10 +310,7 @@ func (a *Controller) populateDiff(entry *git.Entry, hash string) {
 	}, false)
 }
 
-func (a *Controller) scheduleDiffLoad(entry *git.Entry, hash string) {
-	if entry == nil {
-		return
-	}
+func (a *Controller) scheduleDiffLoad(entry git.Entry, hash string) {
 	slog.Debug("scheduleDiffLoad", slog.String("hash", hash))
 	a.runtime.actions.diffDebounce.Trigger(model.DiffRequest{Entry: entry, Hash: hash})
 }
@@ -334,7 +329,7 @@ func (a *Controller) refreshCommitBatchState(prefetchLocalChanges bool) {
 	a.setStatus(a.statusSummary())
 }
 
-func (a *Controller) applyReloadedCommitBatch(entries []*git.Entry, head string, hasMore bool) {
+func (a *Controller) applyReloadedCommitBatch(entries []git.Entry, head string, hasMore bool) {
 	a.model.SetReloadedCommits(entries, head, hasMore)
 	slog.Debug("reloadCommitsAsync loaded",
 		slog.Int("count", len(entries)),
@@ -344,7 +339,7 @@ func (a *Controller) applyReloadedCommitBatch(entries []*git.Entry, head string,
 	a.refreshCommitBatchState(true)
 }
 
-func (a *Controller) applyAppendedCommitBatch(entries []*git.Entry, hasMore bool, background bool) {
+func (a *Controller) applyAppendedCommitBatch(entries []git.Entry, hasMore bool, background bool) {
 	if len(entries) == 0 {
 		a.model.State.Tree.MarkNoMoreCommits()
 		if !background {

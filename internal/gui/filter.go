@@ -73,7 +73,7 @@ func (a *Controller) applyFilterSelectionPlan(plan model.SelectionDisplayPlan) b
 }
 
 func (a *Controller) selectCommitPlan(plan model.SelectionDisplayPlan) {
-	id := model.CommitRowID(plan.Entry)
+	id := plan.Entry.Commit.Hash
 	a.ui.SelectTreeRow(id)
 	if plan.LoadDetail {
 		a.showCommitDetails(plan.Entry, plan.Index)

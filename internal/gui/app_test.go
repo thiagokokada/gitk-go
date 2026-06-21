@@ -16,8 +16,11 @@ func TestStatusSummary(t *testing.T) {
 				HeadRef: "main",
 			},
 			Data: model.Data{
-				Commits: []*git.Entry{{}, {}},
-				Visible: []*git.Entry{{}},
+				Commits: []git.Entry{
+					{Commit: git.Commit{Hash: "1111111111111111111111111111111111111111"}},
+					{Commit: git.Commit{Hash: "2222222222222222222222222222222222222222"}},
+				},
+				Visible: []git.Entry{{Commit: git.Commit{Hash: "1111111111111111111111111111111111111111"}}},
 			},
 			State: model.State{
 				Tree: model.TreeState{

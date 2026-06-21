@@ -153,7 +153,7 @@ func TestDiff_NoFileLevelChanges(t *testing.T) {
 		Message: "msg",
 	}
 
-	diff, sections, err := svc.Diff(commit)
+	diff, sections, err := svc.Diff(*commit)
 	if err != nil {
 		t.Fatalf("Diff: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestDiff_PassesParentHashToBackend(t *testing.T) {
 		Message:      "msg",
 	}
 
-	diff, sections, err := svc.Diff(commit)
+	diff, sections, err := svc.Diff(*commit)
 	if err != nil {
 		t.Fatalf("Diff: %v", err)
 	}

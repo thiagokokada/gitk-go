@@ -120,12 +120,12 @@ func (s *scanSession) discard(count uint) error {
 	return nil
 }
 
-func (s *scanSession) assignGraphStrings(entries []*Entry) {
+func (s *scanSession) assignGraphStrings(entries []Entry) {
 	if len(entries) == 0 || len(s.graphCache) == 0 {
 		return
 	}
-	for _, entry := range entries {
-		entry.Graph = s.graphCache[entry.Commit.Hash]
+	for i := range entries {
+		entries[i].Graph = s.graphCache[entries[i].Commit.Hash]
 	}
 }
 
@@ -139,6 +139,9 @@ func (s *scanSession) readNextCommit() (*Commit, error) {
 			s.graphEOF = true
 		}
 		return nil, err
+	}
+	if commit == nil {
+		return nil, fmt.Errorf("backend returned nil commit")
 	}
 	line := s.graphBuilder.Line(commit)
 	s.graphProcessed++

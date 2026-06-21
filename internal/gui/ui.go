@@ -145,7 +145,7 @@ func (a *Controller) copySelectedCommitReference() {
 		return
 	}
 	entry := a.model.Data.Visible[idx]
-	if entry == nil || entry.Commit == nil {
+	if entry.Commit.Hash == "" {
 		return
 	}
 	hash := entry.Commit.Hash

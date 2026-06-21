@@ -25,8 +25,8 @@ type Repository struct {
 }
 
 type Data struct {
-	Commits []*git.Entry
-	Visible []*git.Entry
+	Commits []git.Entry
+	Visible []git.Entry
 }
 
 type State struct {
@@ -66,37 +66,37 @@ func (m *App) ApplyFilter(raw string) {
 	m.State.Tree.Rows.SetVisibleIndex(m.Data.Visible)
 }
 
-func (m *App) SetReloadedCommits(entries []*git.Entry, head string, hasMore bool) {
+func (m *App) SetReloadedCommits(entries []git.Entry, head string, hasMore bool) {
 	m.Data.Commits = entries
 	m.Data.Visible = entries
 	m.Repo.HeadRef = head
 	m.State.Tree.SetReloadedCommits(entries, hasMore)
 }
 
-func (m *App) AppendCommits(entries []*git.Entry, hasMore bool) {
+func (m *App) AppendCommits(entries []git.Entry, hasMore bool) {
 	m.Data.Commits = append(m.Data.Commits, entries...)
 	m.State.Tree.AppendCommits(entries, hasMore)
 }
 
-func (m *App) CommitEntryAt(idx int) (*git.Entry, bool) {
+func (m *App) CommitEntryAt(idx int) (git.Entry, bool) {
 	if idx < 0 || idx >= len(m.Data.Visible) {
-		return nil, false
+		return git.Entry{}, false
 	}
 	entry := m.Data.Visible[idx]
-	if entry == nil || entry.Commit == nil {
-		return nil, false
+	if entry.Commit.Hash == "" {
+		return git.Entry{}, false
 	}
 	return entry, true
 }
 
-func (m *App) CommitEntryForTreeID(id string) (*git.Entry, int, bool) {
+func (m *App) CommitEntryForTreeID(id string) (git.Entry, int, bool) {
 	idx, ok := m.State.Tree.Rows.VisibleByID[id]
 	if !ok {
-		return nil, 0, false
+		return git.Entry{}, 0, false
 	}
 	entry, ok := m.CommitEntryAt(idx)
 	if !ok || entry.Commit.Hash != id {
-		return nil, 0, false
+		return git.Entry{}, 0, false
 	}
 	return entry, idx, true
 }

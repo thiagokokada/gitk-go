@@ -69,7 +69,7 @@ type GraphCanvasTheme struct {
 }
 
 type GraphCanvasDrawInput struct {
-	Visible   []*git.Entry
+	Visible   []git.Entry
 	Labels    map[string][]string
 	Theme     GraphCanvasTheme
 	IndexByID map[string]int
@@ -104,7 +104,7 @@ type graphCanvasDrawPlan struct {
 	startY        int
 	firstIdx      int
 	selectedIdx   int
-	visible       []*git.Entry
+	visible       []git.Entry
 	labels        map[string][]string
 }
 
@@ -163,9 +163,9 @@ func (g *GraphCanvas) Draw(input GraphCanvasDrawInput) {
 			break
 		}
 		entry := plan.visible[idx]
-		if entry != nil {
+		if entry.Commit.Hash != "" {
 			rowLabels := []string(nil)
-			if entry.Commit != nil && plan.labels != nil {
+			if plan.labels != nil {
 				rowLabels = plan.labels[entry.Commit.Hash]
 			}
 			g.drawGraphRow(entry.Graph, rowLabels, y, plan.rowHeight, idx == plan.selectedIdx)

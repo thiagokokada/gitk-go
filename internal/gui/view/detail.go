@@ -12,9 +12,6 @@ import (
 type DiffLineTagger func(string) string
 
 func (a *App) WriteDetailText(content string, highlightDiff bool, lineTag DiffLineTagger) {
-	if a.DiffDetail == nil {
-		return
-	}
 	a.DiffDetail.Configure(tk.State(tk.NORMAL))
 	a.DiffDetail.Delete("1.0", tk.END)
 	a.DiffDetail.Insert("1.0", content)
@@ -57,30 +54,27 @@ func (a *App) clearDiffLineTags() {
 }
 
 func (a *App) ClearSyntaxTags(tags map[string]string) {
-	if a.DiffDetail == nil {
-		return
-	}
 	for _, tag := range tags {
 		a.DiffDetail.TagRemove(tag, "1.0", tk.END)
 	}
 }
 
 func (a *App) ConfigureSyntaxTag(tag string, color string) {
-	if a.DiffDetail == nil || tag == "" || color == "" {
+	if tag == "" || color == "" {
 		return
 	}
 	a.DiffDetail.TagConfigure(tag, tk.Foreground(color))
 }
 
 func (a *App) ApplySyntaxSpan(tag string, line int, startCol int, endCol int) {
-	if a.DiffDetail == nil || tag == "" {
+	if tag == "" {
 		return
 	}
 	a.DiffDetail.TagAdd(tag, textIndex(line, startCol), textIndex(line, endCol))
 }
 
 func (a *App) ScrollDiffToLine(line int) {
-	if a.DiffDetail == nil || line <= 0 {
+	if line <= 0 {
 		return
 	}
 	totalLines := a.DetailLineCount()
@@ -88,7 +82,7 @@ func (a *App) ScrollDiffToLine(line int) {
 }
 
 func (a *App) ScrollDiff(delta int, unit ScrollUnit) error {
-	if a.DiffDetail == nil || delta == 0 {
+	if delta == 0 {
 		return nil
 	}
 	switch unit {
@@ -101,9 +95,6 @@ func (a *App) ScrollDiff(delta int, unit ScrollUnit) error {
 }
 
 func (a *App) SelectedDiffText() string {
-	if a.DiffDetail == nil {
-		return ""
-	}
 	ranges := a.DiffDetail.TagRanges("sel")
 	if len(ranges) < 2 {
 		return ""
@@ -128,9 +119,6 @@ func StripDiffLineMarkers(text string) string {
 }
 
 func (a *App) DetailLineCount() int {
-	if a.DiffDetail == nil {
-		return 0
-	}
 	lines, ok := TextIndexLineNumber(a.DiffDetail.Index(tk.END))
 	if !ok {
 		return 0
@@ -142,9 +130,6 @@ func (a *App) DetailLineCount() int {
 }
 
 func (a *App) DiffTopLine() int {
-	if a.DiffDetail == nil {
-		return 0
-	}
 	line, ok := TextIndexLineNumber(a.DiffDetail.Index("@0,0"))
 	if !ok {
 		return 0

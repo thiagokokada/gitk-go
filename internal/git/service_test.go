@@ -27,7 +27,7 @@ func TestFormatCommitHeader(t *testing.T) {
 		},
 		Message: "Subject line\n\nBody line",
 	}
-	got := FormatCommitHeader(commit)
+	got := FormatCommitHeader(*commit)
 	if !strings.Contains(got, "commit 1234567890abcdef1234567890abcdef12345678") {
 		t.Fatalf("header missing hash: %s", got)
 	}
@@ -109,7 +109,7 @@ func TestEntryListColumns(t *testing.T) {
 		t.Fatalf("unexpected date column: %q", when)
 	}
 
-	manual := &Entry{Commit: commit}
+	manual := &Entry{Commit: *commit}
 	msg2, author2, when2 := manual.ListColumns()
 	if msg2 != msg || author2 != author || when2 != when {
 		t.Fatalf("manual columns mismatch: %q/%q/%q", msg2, author2, when2)
@@ -379,6 +379,30 @@ func TestScanCommitsUsesSessionHeadState(t *testing.T) {
 	}
 	if len(entries2) != 1 || more2 {
 		t.Fatalf("expected last entry with more=false, got %d entries and more=%v", len(entries2), more2)
+	}
+}
+
+func TestScanCommitsRejectsNilStreamCommit(t *testing.T) {
+	backend := &fakeBackend{
+		repoPath: "repo",
+		headStateFunc: func() (hash string, headName string, ok bool, err error) {
+			return "headhash", "main", true, nil
+		},
+		startLogStreamFunc: func(fromHash string) (gitbackend.LogStream, error) {
+			return &fakeLogStream{commits: []*Commit{nil}}, nil
+		},
+	}
+	svc := NewWithBackend(backend)
+
+	entries, _, _, err := svc.ScanCommits(0, 1)
+	if err == nil {
+		t.Fatalf("expected nil commit error")
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected no entries, got %+v", entries)
+	}
+	if !strings.Contains(err.Error(), "nil commit") {
+		t.Fatalf("expected nil commit error, got %v", err)
 	}
 }
 

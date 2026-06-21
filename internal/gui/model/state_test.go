@@ -140,7 +140,7 @@ func TestNewAppModelInitializesStateContainers(t *testing.T) {
 func TestAppModelResetRepositoryClearsFilter(t *testing.T) {
 	model := NewApp("/old")
 	model.Repo.HeadRef = "main"
-	model.Data.Commits = []*git.Entry{{}}
+	model.Data.Commits = []git.Entry{{Commit: git.Commit{Hash: "1111111111111111111111111111111111111111"}}}
 	model.Data.Visible = model.Data.Commits
 	model.State.Filter.Value = "feature"
 	model.State.Tree.HasMore = true
@@ -171,7 +171,7 @@ func TestAppModelResetRepositoryClearsFilter(t *testing.T) {
 func TestAppModelResetBranchPreservesFilter(t *testing.T) {
 	model := NewApp("/repo")
 	model.Repo.HeadRef = "main"
-	model.Data.Commits = []*git.Entry{{}}
+	model.Data.Commits = []git.Entry{{Commit: git.Commit{Hash: "1111111111111111111111111111111111111111"}}}
 	model.Data.Visible = model.Data.Commits
 	model.State.Filter.Value = "feature"
 	model.State.Tree.HasMore = true
@@ -199,9 +199,9 @@ func TestAppModelApplyFilterUpdatesVisibleRows(t *testing.T) {
 	h1 := "1111111111111111111111111111111111111111"
 	h2 := "2222222222222222222222222222222222222222"
 	model := NewApp("/repo")
-	model.Data.Commits = []*git.Entry{
-		{Commit: &git.Commit{Hash: h1}, SearchText: "feature branch"},
-		{Commit: &git.Commit{Hash: h2}, SearchText: "bug fix"},
+	model.Data.Commits = []git.Entry{
+		{Commit: git.Commit{Hash: h1}, SearchText: "feature branch"},
+		{Commit: git.Commit{Hash: h2}, SearchText: "bug fix"},
 	}
 
 	model.ApplyFilter("FEATURE")
@@ -222,7 +222,7 @@ func TestAppModelApplyFilterUpdatesVisibleRows(t *testing.T) {
 
 func TestAppModelSetReloadedCommitsResetsBatchState(t *testing.T) {
 	h1 := "1111111111111111111111111111111111111111"
-	entries := []*git.Entry{{Commit: &git.Commit{Hash: h1}}}
+	entries := []git.Entry{{Commit: git.Commit{Hash: h1}}}
 	model := NewApp("/repo")
 
 	model.SetReloadedCommits(entries, "main", true)
@@ -230,10 +230,10 @@ func TestAppModelSetReloadedCommitsResetsBatchState(t *testing.T) {
 	if model.Repo.HeadRef != "main" {
 		t.Fatalf("head ref = %q, want %q", model.Repo.HeadRef, "main")
 	}
-	if len(model.Data.Commits) != 1 || model.Data.Commits[0] != entries[0] {
+	if len(model.Data.Commits) != 1 || model.Data.Commits[0].Commit.Hash != entries[0].Commit.Hash {
 		t.Fatalf("unexpected commits: %+v", model.Data.Commits)
 	}
-	if len(model.Data.Visible) != 1 || model.Data.Visible[0] != entries[0] {
+	if len(model.Data.Visible) != 1 || model.Data.Visible[0].Commit.Hash != entries[0].Commit.Hash {
 		t.Fatalf("unexpected visible commits: %+v", model.Data.Visible)
 	}
 	if !model.State.Tree.HasMore {
@@ -251,10 +251,10 @@ func TestAppModelAppendCommitsExtendsBatchState(t *testing.T) {
 	h1 := "1111111111111111111111111111111111111111"
 	h2 := "2222222222222222222222222222222222222222"
 	model := NewApp("/repo")
-	model.SetReloadedCommits([]*git.Entry{{Commit: &git.Commit{Hash: h1}}}, "main", true)
+	model.SetReloadedCommits([]git.Entry{{Commit: git.Commit{Hash: h1}}}, "main", true)
 	model.State.Tree.Rows.RefreshValues = false
 
-	model.AppendCommits([]*git.Entry{{Commit: &git.Commit{Hash: h2}}}, false)
+	model.AppendCommits([]git.Entry{{Commit: git.Commit{Hash: h2}}}, false)
 
 	if len(model.Data.Commits) != 2 {
 		t.Fatalf("commit count = %d, want 2", len(model.Data.Commits))
@@ -280,16 +280,17 @@ func TestAppModelFallbackSelectionPlan(t *testing.T) {
 		t.Fatalf("unexpected empty repo plan: %+v", plan)
 	}
 
-	model.Data.Commits = []*git.Entry{{SearchText: "hidden"}}
+	model.Data.Commits = []git.Entry{{Commit: git.Commit{Hash: "1111111111111111111111111111111111111111"}}}
 	plan = model.FallbackSelectionPlan()
 	if plan.Kind != SelectionDisplayMessage || plan.Message != "No commits match the current filter." {
 		t.Fatalf("unexpected filtered repo plan: %+v", plan)
 	}
 
-	entry := &git.Entry{Commit: &git.Commit{Hash: "1111111111111111111111111111111111111111"}}
-	model.Data.Visible = []*git.Entry{entry}
+	entry := git.Entry{Commit: git.Commit{Hash: "1111111111111111111111111111111111111111"}}
+	model.Data.Visible = []git.Entry{entry}
 	plan = model.FallbackSelectionPlan()
-	if plan.Kind != SelectionDisplayCommit || plan.Entry != entry || plan.Index != 0 || !plan.LoadDetail {
+	if plan.Kind != SelectionDisplayCommit || plan.Entry.Commit.Hash != entry.Commit.Hash ||
+		plan.Index != 0 || !plan.LoadDetail {
 		t.Fatalf("unexpected commit fallback plan: %+v", plan)
 	}
 }
@@ -309,37 +310,39 @@ func TestAppModelFilterSelectionPlanPreservesVisibleLocalRow(t *testing.T) {
 func TestAppModelFilterSelectionPlanChoosesCommit(t *testing.T) {
 	h1 := "1111111111111111111111111111111111111111"
 	h2 := "2222222222222222222222222222222222222222"
-	first := &git.Entry{Commit: &git.Commit{Hash: h1}}
-	second := &git.Entry{Commit: &git.Commit{Hash: h2}}
+	first := git.Entry{Commit: git.Commit{Hash: h1}}
+	second := git.Entry{Commit: git.Commit{Hash: h2}}
 	model := NewApp("/repo")
-	model.Data.Commits = []*git.Entry{first, second}
+	model.Data.Commits = []git.Entry{first, second}
 	model.Data.Visible = model.Data.Commits
 	model.State.Tree.Rows.SetVisibleIndex(model.Data.Visible)
 	model.State.Selection.SetCommit(second, 1)
 
 	plan := model.FilterSelectionPlan()
 
-	if plan.Kind != SelectionDisplayCommit || plan.Entry != second || plan.Index != 1 || plan.LoadDetail {
+	if plan.Kind != SelectionDisplayCommit || plan.Entry.Commit.Hash != second.Commit.Hash ||
+		plan.Index != 1 || plan.LoadDetail {
 		t.Fatalf("unexpected existing commit plan: %+v", plan)
 	}
 
-	model.Data.Visible = []*git.Entry{first}
+	model.Data.Visible = []git.Entry{first}
 	model.State.Tree.Rows.SetVisibleIndex(model.Data.Visible)
 	plan = model.FilterSelectionPlan()
-	if plan.Kind != SelectionDisplayCommit || plan.Entry != first || plan.Index != 0 || !plan.LoadDetail {
+	if plan.Kind != SelectionDisplayCommit || plan.Entry.Commit.Hash != first.Commit.Hash ||
+		plan.Index != 0 || !plan.LoadDetail {
 		t.Fatalf("unexpected fallback commit plan: %+v", plan)
 	}
 }
 
 func TestAppModelTreeSelectionPlan(t *testing.T) {
 	hash := "1111111111111111111111111111111111111111"
-	entry := &git.Entry{Commit: &git.Commit{Hash: hash}}
+	entry := git.Entry{Commit: git.Commit{Hash: hash}}
 	model := NewApp("/repo")
-	model.Data.Visible = []*git.Entry{entry}
+	model.Data.Visible = []git.Entry{entry}
 	model.State.Tree.Rows.SetVisibleIndex(model.Data.Visible)
 
 	plan := model.TreeSelectionPlan(hash)
-	if plan.Kind != TreeSelectionCommit || plan.Entry != entry || plan.Index != 0 {
+	if plan.Kind != TreeSelectionCommit || plan.Entry.Commit.Hash != entry.Commit.Hash || plan.Index != 0 {
 		t.Fatalf("unexpected commit tree plan: %+v", plan)
 	}
 
@@ -390,7 +393,7 @@ func TestTreeStatePruneStaleCommitRows(t *testing.T) {
 	keep := "1111111111111111111111111111111111111111"
 	stale := "2222222222222222222222222222222222222222"
 	state := NewTreeState()
-	state.SetReloadedCommits([]*git.Entry{{Commit: &git.Commit{Hash: keep}}}, true)
+	state.SetReloadedCommits([]git.Entry{{Commit: git.Commit{Hash: keep}}}, true)
 	state.Rows.AddItem(keep)
 	state.Rows.SetItemValue(keep, TreeRow{Commit: "keep"})
 	state.Rows.AddItem(stale)

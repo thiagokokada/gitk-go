@@ -6,9 +6,9 @@ import (
 	"github.com/thiagokokada/gitk-go/internal/gui/view"
 )
 
-func (a *Controller) applyThemePalette(palette colorPalette) {
+func (a *Controller) setThemePalette(palette colorPalette) bool {
 	if a.theme.palette == palette {
-		return
+		return false
 	}
 	a.theme.palette = palette
 	if palette.ThemeName != "" {
@@ -20,7 +20,7 @@ func (a *Controller) applyThemePalette(palette colorPalette) {
 			)
 		}
 	}
-	a.refreshThemeStyles()
+	return true
 }
 
 func (a *Controller) activateTheme(name string) error {

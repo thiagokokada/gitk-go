@@ -30,14 +30,11 @@ func (a *App) InsertLoadingIndicatorRow() {
 }
 
 func (a *App) InsertCommitRow(id string, row model.TreeRow) {
-	if a.TreeView == nil {
-		return
-	}
 	a.TreeView.Insert("", "end", tk.Id(id), tk.Values(row.Values()))
 }
 
 func (a *App) UpdateCommitRow(id string, row model.TreeRow) bool {
-	if a.TreeView == nil || a.TreeView.String() == "" {
+	if a.TreeView.String() == "" {
 		return false
 	}
 	a.TreeView.Item(id, tk.Values(row.Values()))
@@ -45,9 +42,6 @@ func (a *App) UpdateCommitRow(id string, row model.TreeRow) bool {
 }
 
 func (a *App) ClearTreeRows(trackedIDs []string) {
-	if a.TreeView == nil {
-		return
-	}
 	children := a.TreeView.Children("")
 	attached := make(map[string]struct{}, len(children))
 	if len(children) > 0 {
@@ -67,18 +61,12 @@ func (a *App) ClearTreeRows(trackedIDs []string) {
 }
 
 func (a *App) DeleteTreeRows(ids []string) {
-	if a.TreeView == nil {
-		return
-	}
 	for _, id := range ids {
 		a.TreeView.Delete(id)
 	}
 }
 
 func (a *App) SetTreeChildren(ids []string) error {
-	if a.TreeView == nil {
-		return nil
-	}
 	treePath := a.TreeView.String()
 	if treePath == "" {
 		return nil
@@ -94,9 +82,6 @@ func (a *App) SetTreeChildren(ids []string) error {
 }
 
 func (a *App) TreeExists() bool {
-	if a.TreeView == nil {
-		return false
-	}
 	path := a.TreeView.String()
 	if path == "" {
 		return false
@@ -105,9 +90,6 @@ func (a *App) TreeExists() bool {
 }
 
 func (a *App) SelectedTreeRow() string {
-	if a.TreeView == nil {
-		return ""
-	}
 	sel := a.TreeView.Selection("")
 	if len(sel) == 0 {
 		return ""
@@ -116,7 +98,7 @@ func (a *App) SelectedTreeRow() string {
 }
 
 func (a *App) SelectTreeRow(id string) {
-	if a.TreeView == nil || id == "" {
+	if id == "" {
 		return
 	}
 	a.TreeView.Selection("set", id)
@@ -125,7 +107,7 @@ func (a *App) SelectTreeRow(id string) {
 }
 
 func (a *App) FocusTree() {
-	if a.TreeView == nil || a.TreeView.String() == "" {
+	if a.TreeView.String() == "" {
 		tk.Focus(tk.App)
 		return
 	}
@@ -144,21 +126,18 @@ func (a *App) FocusTreeRowAt(x int, y int) string {
 }
 
 func (a *App) TreeRowAt(x int, y int) string {
-	if a.TreeView == nil {
-		return ""
-	}
 	return strings.TrimSpace(a.TreeView.IdentifyItem(x, y))
 }
 
 func (a *App) TreeChildCount() int {
-	if a.TreeView == nil || a.TreeView.String() == "" {
+	if a.TreeView.String() == "" {
 		return 0
 	}
 	return len(a.TreeView.Children(""))
 }
 
 func (a *App) MoveTreeYview(target float64) error {
-	if a.TreeView == nil || a.TreeView.String() == "" {
+	if a.TreeView.String() == "" {
 		return nil
 	}
 	_, err := tkutil.Evalf("%s yview moveto %f", a.TreeView, target)
@@ -166,7 +145,7 @@ func (a *App) MoveTreeYview(target float64) error {
 }
 
 func (a *App) ScrollTreeYview(delta int, unit ScrollUnit) error {
-	if a.TreeView == nil || a.TreeView.String() == "" || delta == 0 {
+	if a.TreeView.String() == "" || delta == 0 {
 		return nil
 	}
 	switch unit {
@@ -179,9 +158,6 @@ func (a *App) ScrollTreeYview(delta int, unit ScrollUnit) error {
 }
 
 func (a *App) TreeYviewRange() (start float64, end float64, err error) {
-	if a.TreeView == nil {
-		return 0, 0, fmt.Errorf("tree widget is nil")
-	}
 	path := a.TreeView.String()
 	if path == "" {
 		return 0, 0, fmt.Errorf("tree widget has empty path")

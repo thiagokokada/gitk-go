@@ -72,6 +72,6 @@ func (d *DiffState) SelectedFilePath() (string, bool) {
 }
 
 type DiffRequest struct {
-	Entry *git.Entry
+	Entry git.Entry
 	Hash  string
 }
