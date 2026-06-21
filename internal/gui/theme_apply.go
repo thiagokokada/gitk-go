@@ -7,8 +7,15 @@ import (
 )
 
 func (a *Controller) applyThemePalette(palette colorPalette) {
-	if a.theme.palette == palette {
+	if !a.setThemePalette(palette) {
 		return
+	}
+	a.refreshThemeStyles()
+}
+
+func (a *Controller) setThemePalette(palette colorPalette) bool {
+	if a.theme.palette == palette {
+		return false
 	}
 	a.theme.palette = palette
 	if palette.ThemeName != "" {
@@ -20,7 +27,7 @@ func (a *Controller) applyThemePalette(palette colorPalette) {
 			)
 		}
 	}
-	a.refreshThemeStyles()
+	return true
 }
 
 func (a *Controller) activateTheme(name string) error {

@@ -101,6 +101,7 @@ func (a *Controller) Run() error {
 		return err
 	}
 	a.buildUI()
+	a.refreshThemeStyles()
 	a.startRuntimeServices()
 	a.startInitialDataLoads()
 
@@ -123,7 +124,7 @@ func (a *Controller) initializeTkRuntime() error {
 	if err := InitializeExtension("eval"); err != nil && err != AlreadyInitialized {
 		return fmt.Errorf("init eval extension: %v", err)
 	}
-	a.applyThemePalette(paletteForPreference(a.theme.pref))
+	a.setThemePalette(paletteForPreference(a.theme.pref))
 	applyAppIcon()
 	return nil
 }
