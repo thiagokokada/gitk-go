@@ -27,6 +27,16 @@ func TestBuildVisibleIndex(t *testing.T) {
 	}
 }
 
+func TestBuildVisibleIndexEmpty(t *testing.T) {
+	index := BuildVisibleIndex(nil)
+	if index == nil {
+		t.Fatalf("expected empty index map")
+	}
+	if len(index) != 0 {
+		t.Fatalf("expected empty index, got %d", len(index))
+	}
+}
+
 func TestBuildVisibleIndexIntoReuse(t *testing.T) {
 	entries := []git.Entry{
 		{Commit: git.Commit{Hash: "a"}},
@@ -47,6 +57,14 @@ func TestBuildVisibleIndexIntoReuse(t *testing.T) {
 	if got := index["c"]; got != 0 {
 		t.Fatalf("expected index for c to be 0, got %d", got)
 	}
+
+	index = BuildVisibleIndexInto(nil, index)
+	if index == nil {
+		t.Fatalf("expected reused empty index map")
+	}
+	if len(index) != 0 {
+		t.Fatalf("expected reused index to be empty, got %d", len(index))
+	}
 }
 
 func TestBuildCommitIDSet(t *testing.T) {
@@ -64,6 +82,16 @@ func TestBuildCommitIDSet(t *testing.T) {
 	}
 	if _, ok := ids["b"]; !ok {
 		t.Fatalf("expected id b to be present")
+	}
+}
+
+func TestBuildCommitIDSetEmpty(t *testing.T) {
+	ids := BuildCommitIDSet(nil)
+	if ids == nil {
+		t.Fatalf("expected empty ids map")
+	}
+	if len(ids) != 0 {
+		t.Fatalf("expected empty ids, got %d", len(ids))
 	}
 }
 
@@ -135,7 +163,9 @@ func TestBuildTreeRows(t *testing.T) {
 }
 
 func TestTreeRowStateSetCommitIDsEmpty(t *testing.T) {
-	var state TreeRowState
+	state := NewTreeRowState()
+	state.SetCommitIDs([]git.Entry{{Commit: git.Commit{Hash: "a"}}})
+
 	state.SetCommitIDs(nil)
 	if state.CommitIDs == nil {
 		t.Fatalf("expected commitIDs to be initialized")
@@ -145,8 +175,21 @@ func TestTreeRowStateSetCommitIDsEmpty(t *testing.T) {
 	}
 }
 
+func TestTreeRowStateSetVisibleIndexEmpty(t *testing.T) {
+	state := NewTreeRowState()
+	state.SetVisibleIndex([]git.Entry{{Commit: git.Commit{Hash: "a"}}})
+
+	state.SetVisibleIndex(nil)
+	if state.VisibleByID == nil {
+		t.Fatalf("expected visibleByID to be initialized")
+	}
+	if len(state.VisibleByID) != 0 {
+		t.Fatalf("expected empty visibleByID map, got %d", len(state.VisibleByID))
+	}
+}
+
 func TestTreeRowStateItemValueChanged(t *testing.T) {
-	var state TreeRowState
+	state := NewTreeRowState()
 	row := TreeRow{Graph: "*", Commit: "c1", Author: "a1", Date: "d1"}
 	if !state.ItemValueChanged("id", row) {
 		t.Fatalf("expected itemValueChanged to be true for missing entry")
@@ -162,7 +205,7 @@ func TestTreeRowStateItemValueChanged(t *testing.T) {
 }
 
 func TestTreeRowStateSpecialItems(t *testing.T) {
-	var state TreeRowState
+	state := NewTreeRowState()
 	if state.HasSpecialItem("row") {
 		t.Fatalf("expected no special items initially")
 	}
@@ -177,7 +220,7 @@ func TestTreeRowStateSpecialItems(t *testing.T) {
 }
 
 func TestTreeRowStateTrackedItemIDsIncludesSpecialItems(t *testing.T) {
-	var state TreeRowState
+	state := NewTreeRowState()
 	state.AddItem("commit")
 	state.AddSpecialItem(LoadingIndicatorID)
 
@@ -190,5 +233,27 @@ func TestTreeRowStateTrackedItemIDsIncludesSpecialItems(t *testing.T) {
 		if _, ok := got[id]; !ok {
 			t.Fatalf("expected tracked ids to include %q, got %v", id, ids)
 		}
+	}
+}
+
+func TestTreeRowStateResetTrackingKeepsMapsInitialized(t *testing.T) {
+	state := NewTreeRowState()
+	state.AddItem("commit")
+	state.SetItemValue("commit", TreeRow{Commit: "message"})
+	state.AddSpecialItem(LoadingIndicatorID)
+
+	state.ResetTracking()
+
+	if state.Items == nil {
+		t.Fatalf("expected items map to stay initialized")
+	}
+	if state.Values == nil {
+		t.Fatalf("expected values map to stay initialized")
+	}
+	if state.SpecialItems == nil {
+		t.Fatalf("expected special items map to stay initialized")
+	}
+	if len(state.Items) != 0 || len(state.Values) != 0 || len(state.SpecialItems) != 0 {
+		t.Fatalf("expected tracking maps to be empty")
 	}
 }

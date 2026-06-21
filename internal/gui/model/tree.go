@@ -14,7 +14,10 @@ type TreeState struct {
 }
 
 func NewTreeState() TreeState {
-	return TreeState{BranchLabels: make(map[string][]string)}
+	return TreeState{
+		BranchLabels: make(map[string][]string),
+		Rows:         NewTreeRowState(),
+	}
 }
 
 func (t *TreeState) SetReloadedCommits(entries []git.Entry, hasMore bool) {
@@ -168,10 +171,27 @@ type TreeRowState struct {
 	RefreshValues bool
 }
 
+// NewTreeRowState initializes model-owned row maps; controller/model code should construct rows through it.
+func NewTreeRowState() TreeRowState {
+	return TreeRowState{
+		CommitIDs:    make(map[string]struct{}),
+		VisibleByID:  make(map[string]int),
+		Items:        make(map[string]struct{}),
+		Values:       make(map[string]TreeRow),
+		SpecialItems: make(map[string]struct{}),
+	}
+}
+
 func (s *TreeRowState) ResetTracking() {
-	s.Items = nil
-	s.Values = nil
-	s.SpecialItems = nil
+	for id := range s.Items {
+		delete(s.Items, id)
+	}
+	for id := range s.Values {
+		delete(s.Values, id)
+	}
+	for id := range s.SpecialItems {
+		delete(s.SpecialItems, id)
+	}
 }
 
 func (s TreeRowState) TrackedItemIDs() []string {
@@ -189,7 +209,7 @@ func (s TreeRowState) TrackedItemIDs() []string {
 }
 
 func (s *TreeRowState) PruneStaleCommitRows() []string {
-	if len(s.Items) == 0 || s.CommitIDs == nil {
+	if len(s.Items) == 0 {
 		return nil
 	}
 	ids := make([]string, 0)
@@ -211,7 +231,7 @@ func BuildVisibleIndex(entries []git.Entry) map[string]int {
 func BuildVisibleIndexInto(entries []git.Entry, index map[string]int) map[string]int {
 	if len(entries) == 0 {
 		if index == nil {
-			return nil
+			return map[string]int{}
 		}
 		for k := range index {
 			delete(index, k)
@@ -237,7 +257,7 @@ func BuildVisibleIndexInto(entries []git.Entry, index map[string]int) map[string
 
 func BuildCommitIDSet(entries []git.Entry) map[string]struct{} {
 	if len(entries) == 0 {
-		return nil
+		return map[string]struct{}{}
 	}
 	ids := make(map[string]struct{}, len(entries))
 	for _, entry := range entries {
@@ -251,19 +271,12 @@ func BuildCommitIDSet(entries []git.Entry) map[string]struct{} {
 }
 
 func (s *TreeRowState) SetCommitIDs(entries []git.Entry) {
-	if len(entries) == 0 {
-		s.CommitIDs = map[string]struct{}{}
-		return
-	}
 	s.CommitIDs = BuildCommitIDSet(entries)
 }
 
 func (s *TreeRowState) AddCommitIDs(entries []git.Entry) {
 	if len(entries) == 0 {
 		return
-	}
-	if s.CommitIDs == nil {
-		s.CommitIDs = make(map[string]struct{}, len(entries))
 	}
 	for _, entry := range entries {
 		id := entry.Commit.Hash
@@ -279,9 +292,6 @@ func (s *TreeRowState) SetVisibleIndex(entries []git.Entry) {
 }
 
 func (s *TreeRowState) HasItem(id string) bool {
-	if s.Items == nil {
-		return false
-	}
 	_, ok := s.Items[id]
 	return ok
 }
@@ -290,16 +300,10 @@ func (s *TreeRowState) AddItem(id string) {
 	if id == "" {
 		return
 	}
-	if s.Items == nil {
-		s.Items = make(map[string]struct{})
-	}
 	s.Items[id] = struct{}{}
 }
 
 func (s *TreeRowState) ItemValueChanged(id string, row TreeRow) bool {
-	if s.Values == nil {
-		return true
-	}
 	prev, ok := s.Values[id]
 	if !ok {
 		return true
@@ -311,16 +315,10 @@ func (s *TreeRowState) SetItemValue(id string, row TreeRow) {
 	if id == "" {
 		return
 	}
-	if s.Values == nil {
-		s.Values = make(map[string]TreeRow)
-	}
 	s.Values[id] = row
 }
 
 func (s *TreeRowState) HasSpecialItem(id string) bool {
-	if s.SpecialItems == nil {
-		return false
-	}
 	_, ok := s.SpecialItems[id]
 	return ok
 }
@@ -329,16 +327,10 @@ func (s *TreeRowState) AddSpecialItem(id string) {
 	if id == "" {
 		return
 	}
-	if s.SpecialItems == nil {
-		s.SpecialItems = make(map[string]struct{})
-	}
 	s.SpecialItems[id] = struct{}{}
 }
 
 func (s *TreeRowState) RemoveSpecialItem(id string) {
-	if s.SpecialItems == nil {
-		return
-	}
 	delete(s.SpecialItems, id)
 }
 
