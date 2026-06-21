@@ -74,7 +74,7 @@ func (s *Service) SetGraphMaxColumns(maxColumns int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.graphMaxColumns = maxColumns
-	if s.scan != nil && s.scan.graphBuilder != nil {
+	if s.scan != nil {
 		s.scan.graphBuilder.maxColumns = maxColumns
 		s.scan.graphBuilder.trim()
 	}
@@ -195,9 +195,6 @@ func (s *Service) collectEntries(batch uint) ([]Entry, error) {
 				break
 			}
 			return nil, err
-		}
-		if commit == nil {
-			return nil, fmt.Errorf("backend returned nil commit")
 		}
 		entries = append(entries, newEntry(commit))
 	}
@@ -323,11 +320,11 @@ type graphBuilder struct {
 	maxColumns int
 }
 
-func newGraphBuilder(maxColumns int) *graphBuilder {
+func newGraphBuilder(maxColumns int) graphBuilder {
 	if maxColumns <= 0 {
 		maxColumns = DefaultGraphMaxColumns
 	}
-	return &graphBuilder{
+	return graphBuilder{
 		columns:    make([]string, 0, maxColumns),
 		maxColumns: maxColumns,
 	}

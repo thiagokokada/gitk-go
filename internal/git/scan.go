@@ -14,16 +14,21 @@ type scanSession struct {
 
 	logStream gitbackend.LogStream
 
-	// buffered holds the next commit returned by hasMore() so ScanCommits can keep consuming in-order.
-	buffered  *Commit
+	buffered  commitBuffer
 	exhausted bool
 	returned  uint
 
-	graphBuilder   *graphBuilder
+	graphBuilder   graphBuilder
 	graphCache     map[string]string
 	graphProcessed int
 	graphColsMax   int
 	graphEOF       bool
+}
+
+// commitBuffer holds the next commit returned by hasMore() so ScanCommits can keep consuming in-order.
+type commitBuffer struct {
+	commit Commit
+	ok     bool
 }
 
 func (s *Service) ensureScanSessionLocked(headHash, headName string) error {
@@ -66,7 +71,7 @@ func (s *scanSession) close() {
 		}
 	}
 	s.logStream = nil
-	s.buffered = nil
+	s.buffered = commitBuffer{}
 	s.exhausted = true
 	s.graphEOF = true
 }
@@ -75,7 +80,7 @@ func (s *scanSession) hasMore() (bool, error) {
 	if s.exhausted {
 		return false, nil
 	}
-	if s.buffered != nil {
+	if s.buffered.ok {
 		return true, nil
 	}
 	commit, err := s.readNextCommit()
@@ -86,7 +91,7 @@ func (s *scanSession) hasMore() (bool, error) {
 		}
 		return false, fmt.Errorf("iterate commits: %w", err)
 	}
-	s.buffered = commit
+	s.buffered = commitBuffer{commit: *commit, ok: true}
 	return true, nil
 }
 
@@ -94,11 +99,11 @@ func (s *scanSession) next() (*Commit, error) {
 	if s.exhausted {
 		return nil, io.EOF
 	}
-	if s.buffered != nil {
-		commit := s.buffered
-		s.buffered = nil
+	if s.buffered.ok {
+		commit := s.buffered.commit
+		s.buffered = commitBuffer{}
 		s.returned++
-		return commit, nil
+		return &commit, nil
 	}
 	commit, err := s.readNextCommit()
 	if err != nil {
@@ -130,7 +135,7 @@ func (s *scanSession) assignGraphStrings(entries []Entry) {
 }
 
 func (s *scanSession) readNextCommit() (*Commit, error) {
-	if s.graphEOF || s.logStream == nil || s.graphBuilder == nil {
+	if s.graphEOF || s.logStream == nil {
 		return nil, io.EOF
 	}
 	commit, err := s.logStream.Next()
