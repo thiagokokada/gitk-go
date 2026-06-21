@@ -132,6 +132,21 @@ func TestNewAppModelInitializesStateContainers(t *testing.T) {
 	if model.State.Tree.BranchLabels == nil {
 		t.Fatalf("expected branch labels map")
 	}
+	if model.State.Tree.Rows.CommitIDs == nil {
+		t.Fatalf("expected tree row commit ids map")
+	}
+	if model.State.Tree.Rows.VisibleByID == nil {
+		t.Fatalf("expected tree row visible index map")
+	}
+	if model.State.Tree.Rows.Items == nil {
+		t.Fatalf("expected tree row items map")
+	}
+	if model.State.Tree.Rows.Values == nil {
+		t.Fatalf("expected tree row values map")
+	}
+	if model.State.Tree.Rows.SpecialItems == nil {
+		t.Fatalf("expected tree row special items map")
+	}
 	if model.State.LocalDiff.Items == nil {
 		t.Fatalf("expected local diff cache map")
 	}
