@@ -35,3 +35,13 @@ agents should follow these rules:
 22. Keep unavoidable `Evalf` calls narrow and documented at the call site, including why the typed wrapper is not
     sufficient.
 23. Do not amend or rewrite existing commits unless the user explicitly asks for history rewriting.
+24. Model-owned maps should be initialized by their state constructors when nil does not represent a real lifecycle
+    state. Tests should use those constructors instead of relying on raw zero values.
+25. Required Tk widget assumptions only hold after `view.App.Build`. Startup code may activate themes before build,
+    but widget-specific style refreshes must run after widgets are constructed.
+26. Treat initialized commit entries as value data. `git.Entry` should own a `git.Commit` value, and GUI/model
+    collections should use `[]git.Entry` unless nil is a real lifecycle state.
+27. Keep backend stream internals pointer-based when useful, but reject nil commits at the service boundary before
+    creating entries. Model helpers should use hash/index validity checks for recoverable missing-row cases.
+28. Do not add helper functions that only restate direct field access, such as wrapping `entry.Commit.Hash`, unless
+    they enforce an invariant or coordinate more than one field.
