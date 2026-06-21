@@ -6,13 +6,6 @@ import (
 	"github.com/thiagokokada/gitk-go/internal/gui/view"
 )
 
-func (a *Controller) applyThemePalette(palette colorPalette) {
-	if !a.setThemePalette(palette) {
-		return
-	}
-	a.refreshThemeStyles()
-}
-
 func (a *Controller) setThemePalette(palette colorPalette) bool {
 	if a.theme.palette == palette {
 		return false
