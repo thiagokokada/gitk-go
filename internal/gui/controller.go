@@ -6,6 +6,7 @@ import (
 	"github.com/thiagokokada/gitk-go/internal/gui/model"
 	"github.com/thiagokokada/gitk-go/internal/gui/view"
 	"github.com/thiagokokada/gitk-go/internal/gui/widgets"
+	"github.com/thiagokokada/gitk-go/internal/watch"
 )
 
 type Controller struct {
@@ -42,7 +43,7 @@ type controllerPreferences struct {
 
 type controllerRuntime struct {
 	actions     controllerActions
-	watch       autoReloadState
+	watch       *watch.Watcher
 	graphCanvas *widgets.GraphCanvas
 }
 

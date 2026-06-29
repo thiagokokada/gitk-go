@@ -64,10 +64,8 @@ func (a *Controller) switchRepository(path string) {
 		return
 	}
 
-	a.runtime.watch.mu.Lock()
-	wasConfigured := a.runtime.watch.configured
-	wasEnabled := a.runtime.watch.enabled
-	a.runtime.watch.mu.Unlock()
+	wasConfigured := a.runtime.watch.IsConfigured()
+	wasEnabled := a.runtime.watch.IsEnabled()
 
 	a.disableAutoReload()
 	a.cancelPendingDiffLoad()
