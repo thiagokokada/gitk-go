@@ -75,7 +75,8 @@ func (a *App) SetTreeChildren(ids []string) error {
 		_, err := tkutil.Evalf("%s children {} {}", treePath)
 		return err
 	}
-	// XXX: Workaround a bug in Tk-go, ideally we would use a.TreeView.Children("", ids...) instead.
+	// XXX: Tk-go v1.75.4 flattens new children but passes the result to tclSafeList
+	// without variadic expansion, so []string becomes one escaped "[a b]" item.
 	children := tkutil.TclSafeStrings(ids...)
 	_, err := tkutil.Evalf("%s children {} {%s}", treePath, children)
 	return err
