@@ -10,6 +10,7 @@ import (
 	"github.com/thiagokokada/gitk-go/internal/git"
 	"github.com/thiagokokada/gitk-go/internal/gui/model"
 	"github.com/thiagokokada/gitk-go/internal/gui/view"
+	"github.com/thiagokokada/gitk-go/internal/watch"
 
 	. "modernc.org/tk9.0"
 	_ "modernc.org/tk9.0/themes/azure" // load theme
@@ -75,6 +76,7 @@ func NewController(cfg RunConfig) (*Controller, error) {
 		},
 		model: model.NewApp(svc.RepoPath()),
 	}
+	app.runtime.watch = watch.New(cfg.AutoReload)
 	app.configureDebouncedActions()
 	return app, nil
 }
