@@ -82,7 +82,7 @@ buildGoModule {
       # allowing loading tk9.0 from nixpkgs instead of using the one bundled in
       # the package), but for now we patch the interpreter to use Nix's dynamic
       # linker and keep the usual wrapper for runtime environment setup.
-      lib.optionalString stdenv.isLinux ''
+      lib.optionalString stdenv.hostPlatform.isLinux ''
         patchelf --set-interpreter ${stdenv.cc.bintools.dynamicLinker} ${wrappedBinary}
 
         makeWrapper ${wrappedBinary} \
@@ -90,7 +90,7 @@ buildGoModule {
           --set LD_LIBRARY_PATH ${linuxLibs} \
           ${gitPath}
       ''
-    + lib.optionalString stdenv.isDarwin ''
+    + lib.optionalString stdenv.hostPlatform.isDarwin ''
       makeWrapper ${wrappedBinary} \
         ${wrapperBinary} \
         ${gitPath}
