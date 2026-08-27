@@ -35,21 +35,7 @@ func (g *gitCLI) StartLogStream(fromHash string) (LogStream, error) {
 	const format = "%H%n%P%n%an%n%ae%n%aI%n%cn%n%ce%n%cI%n%B%x00"
 
 	ctx, cancel := context.WithCancel(context.Background())
-	cmd := exec.CommandContext(
-		ctx,
-		"git",
-		"--no-pager",
-		"-C",
-		g.path,
-		"log",
-		"--no-color",
-		"--no-decorate",
-		"--date-order",
-		"--no-patch",
-		// Use tformat to avoid git log adding an extra newline after each record.
-		"--pretty=tformat:"+format,
-		fromHash,
-	)
+	cmd := exec.CommandContext(ctx, "git", logStreamArgs(g.path, fromHash, format)...)
 	var stream gitLogStream
 	stream.cancel = cancel
 	stream.cmd = cmd
@@ -70,6 +56,23 @@ func (g *gitCLI) StartLogStream(fromHash string) (LogStream, error) {
 		return nil, fmt.Errorf("git log start: %w", err)
 	}
 	return &stream, nil
+}
+
+func logStreamArgs(repoPath, fromHash, format string) []string {
+	return []string{
+		"--no-pager",
+		"-C",
+		repoPath,
+		"log",
+		"--no-color",
+		"--no-decorate",
+		"--no-patch",
+		// Do not request date ordering: for very large histories Git may traverse the
+		// complete graph before returning the first commit.
+		// Use tformat to avoid git log adding an extra newline after each record.
+		"--pretty=tformat:" + format,
+		fromHash,
+	}
 }
 
 func (s *gitLogStream) Next() (*Commit, error) {

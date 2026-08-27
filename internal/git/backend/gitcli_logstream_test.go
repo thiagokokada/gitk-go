@@ -2,9 +2,33 @@ package backend
 
 import (
 	"bytes"
+	"slices"
 	"testing"
 	"time"
 )
+
+func TestLogStreamArgsUsesDefaultRevisionOrder(t *testing.T) {
+	t.Parallel()
+
+	args := logStreamArgs("/repo", "abc123", "%H%x00")
+	if slices.Contains(args, "--date-order") {
+		t.Fatalf("logStreamArgs() unexpectedly requests date order: %q", args)
+	}
+	want := []string{
+		"--no-pager",
+		"-C",
+		"/repo",
+		"log",
+		"--no-color",
+		"--no-decorate",
+		"--no-patch",
+		"--pretty=tformat:%H%x00",
+		"abc123",
+	}
+	if !slices.Equal(args, want) {
+		t.Fatalf("logStreamArgs() = %q, want %q", args, want)
+	}
+}
 
 func TestParseGitLogRecord(t *testing.T) {
 	t.Parallel()
